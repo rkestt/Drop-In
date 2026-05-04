@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drop-In — Mockup Hi-Fi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300..900;1,300..900&family=Syne:wght@400..800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: oklch(97% 0.005 80);
+      --bg-surface: oklch(93% 0.01 80);
+      --bg-elevated: oklch(100% 0.005 80);
+      --text-primary: oklch(25% 0.02 80);
+      --text-secondary: oklch(50% 0.02 80);
+      --text-muted: oklch(65% 0.015 80);
+      --accent: oklch(60% 0.18 45);
+      --accent-hover: oklch(55% 0.2 45);
+      --accent-subtle: oklch(92% 0.05 45);
+      --success: oklch(65% 0.14 145);
+      --success-dark: oklch(45% 0.12 145);
+      --danger: oklch(55% 0.16 25);
+      --danger-dark: oklch(40% 0.14 25);
+      --warning: oklch(75% 0.12 85);
+      --warning-dark: oklch(50% 0.14 75);
+      --cool-muted: oklch(60% 0.02 260);
+      --font-syne: 'Syne', system-ui, sans-serif;
+      --font-source-sans: 'Source Sans 3', system-ui, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-source-sans);
+      background: oklch(20% 0.02 80);
+      color: var(--text-primary);
+      -webkit-tap-highlight-color: transparent;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 48px;
+      padding: 48px 24px;
+      min-height: 100vh;
+      flex-wrap: wrap;
+    }
+
+    /* Phone frame */
+    .phone-frame {
+      width: 390px;
+      height: 844px;
+      background: var(--bg-base);
+      border-radius: 40px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 3px oklch(30% 0.02 80),
+        0 25px 80px -12px rgba(0,0,0,0.55),
+        0 8px 24px -8px rgba(0,0,0,0.3);
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .phone-frame::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 126px;
+      height: 32px;
+      background: oklch(20% 0.02 80);
+      border-radius: 0 0 20px 20px;
+      z-index: 100;
+    }
+
+    .screen-label {
+      text-align: center;
+      font-family: var(--font-syne);
+      font-weight: 700;
+      font-size: 14px;
+      color: oklch(70% 0.02 80);
+      margin-top: 20px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* Status bar */
+    .status-bar {
+      height: 54px;
+      padding: 14px 28px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      position: relative;
+      z-index: 50;
+      background: var(--bg-base);
+    }
+
+    /* Map area */
+    .map-area {
+      width: 100%;
+      height: 380px;
+      background:
+        radial-gradient(ellipse at 30% 40%, oklch(88% 0.03 120) 0%, transparent 60%),
+        radial-gradient(ellipse at 70% 60%, oklch(85% 0.04 200) 0%, transparent 50%),
+        oklch(91% 0.015 100);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Map grid lines */
+    .map-area::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(oklch(85% 0.01 100) 1px, transparent 1px),
+        linear-gradient(90deg, oklch(85% 0.01 100) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.5;
+    }
+
+    /* Simulated streets */
+    .street {
+      position: absolute;
+      background: oklch(87% 0.01 80);
+      border-radius: 2px;
+    }
+    .street-h { height: 8px; width: 100%; }
+    .street-v { width: 8px; height: 100%; }
+    .street-h:nth-child(1) { top: 30%; }
+    .street-h:nth-child(2) { top: 55%; }
+    .street-h:nth-child(3) { top: 78%; }
+    .street-v:nth-child(4) { left: 25%; }
+    .street-v:nth-child(5) { left: 55%; }
+    .street-v:nth-child(6) { left: 80%; }
+
+    /* Map markers */
+    .marker {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 3px solid white;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+      z-index: 10;
+      animation: markerPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .marker:hover { transform: scale(1.15); }
+    .marker.active {
+      transform: scale(1.2);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+    .marker svg { width: 18px; height: 18px; stroke: white; fill: none; stroke-width: 2; }
+    .marker:nth-child(7) { top: 20%; left: 15%; animation-delay: 0.1s; }
+    .marker:nth-child(8) { top: 35%; left: 60%; animation-delay: 0.2s; }
+    .marker:nth-child(9) { top: 50%; left: 35%; animation-delay: 0.3s; }
+    .marker:nth-child(10) { top: 65%; left: 70%; animation-delay: 0.4s; }
+    .marker:nth-child(11) { top: 45%; left: 85%; animation-delay: 0.5s; }
+    .marker.active { top: 35%; left: 60%; }
+
+    /* User location dot */
+    .user-dot {
+      position: absolute;
+      top: 42%;
+      left: 48%;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: oklch(65% 0.15 220);
+      border: 3px solid white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 11;
+    }
+    .user-dot::after {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      background: oklch(65% 0.15 220 / 0.2);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes markerPop {
+      from { transform: scale(0); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.5; }
+      50% { transform: scale(1.6); opacity: 0; }
+    }
+
+    /* Bottom sheet panel */
+    .bottom-panel {
+      background: var(--bg-base);
+      border-radius: 20px 20px 0 0;
+      margin-top: -20px;
+      position: relative;
+      z-index: 20;
+      padding: 0 20px 100px;
+    }
+
+    .handle-bar {
+      display: flex;
+      justify-content: center;
+      padding: 12px 0 8px;
+    }
+    .handle-bar div {
+      width: 40px;
+      height: 5px;
+      border-radius: 3px;
+      background: var(--text-muted);
+      opacity: 0.3;
+    }
+
+    .panel-title {
+      font-family: var(--font-syne);
+      font-weight: 700;
+      font-size: 20px;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+    }
+
+    /* Lobby card */
+    .lobby-card {
+      background: var(--bg-surface);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      transition: background 0.15s;
+    }
+    .lobby-card:active { background: var(--bg-elevated); }
+
+    .lobby-info h3 {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .lobby-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .lobby-meta svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+    .btn-see {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: var(--font-source-sans);
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .btn-see:hover { background: var(--accent-hover); }
+
+    /* Bottom nav */
+    .bottom-nav {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-elevated);
+      border-top: 1px solid oklch(60% 0.02 260 / 0.2);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      height: 70px;
+      padding-bottom: 12px;
+      z-index: 30;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 8px 16px;
+      border-radius: 8px;
+    }
+    .nav-item.active { color: var(--accent); }
+    .nav-item:not(.active) { color: var(--text-muted); }
+    .nav-item svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+    /* ===== SCREEN 2: Court Detail ===== */
+    .screen-detail {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .detail-header {
+      padding: 60px 24px 20px;
+      background: var(--bg-base);
+    }
+    .detail-header h1 {
+      font-family: var(--font-syne);
+      font-weight: 800;
+      font-size: 28px;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .detail-address {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 15px;
+      color: var(--text-secondary);
+    }
+    .detail-address svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+    .badges-row {
+      display: flex;
+      gap: 8px;
+      padding: 0 24px 16px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .badge-default {
+      background: var(--bg-surface);
+      color: var(--text-muted);
+      border: 1px solid oklch(60% 0.02 260 / 0.2);
+    }
+    .badge-accent {
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border: 1px solid oklch(60% 0.18 45 / 0.2);
+    }
+
+    .section {
+      padding: 0 24px 20px;
+    }
+    .section-title {
+      font-family: var(--font-syne);
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: none;
+      border-radius: 10px;
+      padding: 14px 22px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: var(--font-source-sans);
+      cursor: pointer;
+      transition: all 0.15s;
+      min-height: 48px;
+    }
+    .btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-secondary {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid oklch(60% 0.02 260 / 0.2);
+    }
+    .btn-secondary:hover { background: var(--bg-elevated); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--accent);
+    }
+    .btn-ghost:hover { background: var(--accent-subtle); }
+
+    .lobby-detail-card {
+      background: var(--bg-surface);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .lobby-detail-info {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .lobby-time {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text-primary);
+    }
+    .lobby-time svg { width: 16px; height: 16px; stroke: var(--text-muted); fill: none; stroke-width: 2; }
+    .lobby-players {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+    .lobby-players svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+    /* ===== SCREEN 3: Profile ===== */
+    .profile-header {
+      padding: 60px 24px 24px;
+      text-align: center;
+      background: var(--bg-base);
+    }
+    .profile-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), oklch(50% 0.16 35));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 14px;
+      font-family: var(--font-syne);
+      font-weight: 800;
+      font-size: 32px;
+      color: white;
+      box-shadow: 0 8px 24px -4px oklch(60% 0.18 45 / 0.3);
+    }
+    .profile-name {
+      font-family: var(--font-syne);
+      font-weight: 700;
+      font-size: 22px;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .profile-subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* Karma indicator */
+    .karma-section {
+      padding: 0 24px 24px;
+    }
+    .karma-card {
+      background: var(--bg-surface);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .karma-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--accent-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-syne);
+      font-weight: 800;
+      font-size: 24px;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .karma-info h3 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .karma-label {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .karma-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--bg-base);
+      border-radius: 3px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .karma-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--accent);
+      transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    /* Stats cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 0 24px 24px;
+    }
+    .stat-card {
+      background: var(--bg-surface);
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-value {
+      font-family: var(--font-syne);
+      font-weight: 800;
+      font-size: 24px;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Menu items */
+    .menu-section {
+      padding: 0 24px 100px;
+    }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 0;
+      border-bottom: 1px solid oklch(60% 0.02 260 / 0.1);
+      cursor: pointer;
+    }
+    .menu-item-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .menu-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .menu-icon svg { width: 18px; height: 18px; stroke: var(--text-secondary); fill: none; stroke-width: 2; }
+    .menu-text { font-size: 15px; font-weight: 500; color: var(--text-primary); }
+    .menu-arrow { color: var(--text-muted); font-size: 18px; }
+
+    /* Scrollable content */
+    .scrollable {
+      overflow-y: auto;
+      height: calc(100% - 54px);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Noise texture overlay */
+    .noise {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 128px 128px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 32px 20px;
+    }
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      stroke: var(--text-muted);
+      fill: none;
+      stroke-width: 1.5;
+      margin: 0 auto 12px;
+    }
+    .empty-state p {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    /* Report alert */
+    .report-alert {
+      background: oklch(55% 0.16 25 / 0.05);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+    .report-alert-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--danger);
+      margin-bottom: 8px;
+    }
+    .report-alert-header svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .report-alert-header h3 { font-size: 14px; font-weight: 700; }
+    .report-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 13px;
+    }
+    .report-item span:first-child { color: var(--text-primary); }
+    .report-item span:last-child { color: var(--text-muted); font-size: 11px; }
+
+    /* Check-in success animation */
+    @keyframes checkmark {
+      0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+      50% { transform: scale(1.2) rotate(0deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    @keyframes successBg {
+      0% { transform: scale(0); opacity: 0; }
+      60% { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .checkin-success {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      animation: successBg 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .checkin-circle {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: var(--success);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 24px -4px oklch(65% 0.14 145 / 0.4);
+    }
+    .checkin-circle svg {
+      width: 36px;
+      height: 36px;
+      stroke: white;
+      fill: none;
+      stroke-width: 3;
+      animation: checkmark 0.4s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .checkin-text {
+      font-family: var(--font-syne);
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .checkin-sub {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* Responsive */
+    @media (max-width: 1280px) {
+      body { gap: 32px; }
+    }
+    @media (max-width: 860px) {
+      body { flex-direction: column; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== SCREEN 1: Main Map ===== -->
+  <div>
+    <div class="phone-frame">
+      <div class="status-bar">
+        <span>9:41</span>
+        <span>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" style="display:inline;vertical-align:middle">
+            <rect x="0" y="8" width="3" height="4" rx="0.5"/><rect x="4.5" y="5" width="3" height="7" rx="0.5"/><rect x="9" y="2" width="3" height="10" rx="0.5"/><rect x="13.5" y="0" width="3" height="12" rx="0.5" opacity="0.3"/>
+          </svg>
+        </span>
+      </div>
+
+      <div class="map-area">
+        <div class="noise"></div>
+        <!-- Streets -->
+        <div class="street street-h"></div>
+        <div class="street street-h"></div>
+        <div class="street street-h"></div>
+        <div class="street street-v"></div>
+        <div class="street street-v"></div>
+        <div class="street street-v"></div>
+
+        <!-- Markers -->
+        <div class="marker">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>
+        </div>
+        <div class="marker active">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>
+        </div>
+        <div class="marker">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>
+        </div>
+        <div class="marker">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>
+        </div>
+        <div class="marker">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>
+        </div>
+
+        <!-- User location -->
+        <div class="user-dot"></div>
+      </div>
+
+      <!-- Bottom panel -->
+      <div class="bottom-panel">
+        <div class="handle-bar"><div></div></div>
+        <div class="panel-title">Partite vicine</div>
+
+        <div class="lobby-card">
+          <div class="lobby-info">
+            <h3>Campo San Lorenzo</h3>
+            <div class="lobby-meta">
+              <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span>4/6</span>
+              <span style="opacity:0.4">•</span>
+              <span>18:30</span>
+            </div>
+          </div>
+          <button class="btn-see">Vedi</button>
+        </div>
+
+        <div class="lobby-card">
+          <div class="lobby-info">
+            <h3>Piazzale Adriatico</h3>
+            <div class="lobby-meta">
+              <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span>2/4</span>
+              <span style="opacity:0.4">•</span>
+              <span>19:00</span>
+            </div>
+          </div>
+          <button class="btn-see">Vedi</button>
+        </div>
+
+        <div class="lobby-card">
+          <div class="lobby-info">
+            <h3>Giardini di Via dei Volsci</h3>
+            <div class="lobby-meta">
+              <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span>6/10</span>
+              <span style="opacity:0.4">•</span>
+              <span>20:00</span>
+            </div>
+          </div>
+          <button class="btn-see">Vedi</button>
+        </div>
+      </div>
+
+      <!-- Bottom nav -->
+      <nav class="bottom-nav">
+        <a class="nav-item active" aria-label="Mappa campi">
+          <svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>Mappa</span>
+        </a>
+        <a class="nav-item" aria-label="Profilo utente">
+          <svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Profilo</span>
+        </a>
+      </nav>
+    </div>
+    <p class="screen-label">Mappa Principale</p>
+  </div>
+
+  <!-- ===== SCREEN 2: Court Detail ===== -->
+  <div>
+    <div class="phone-frame">
+      <div class="status-bar">
+        <span>9:41</span>
+        <span>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" style="display:inline;vertical-align:middle">
+            <rect x="0" y="8" width="3" height="4" rx="0.5"/><rect x="4.5" y="5" width="3" height="7" rx="0.5"/><rect x="9" y="2" width="3" height="10" rx="0.5"/><rect x="13.5" y="0" width="3" height="12" rx="0.5" opacity="0.3"/>
+          </svg>
+        </span>
+      </div>
+
+      <div class="scrollable">
+        <div class="detail-header">
+          <h1>Campo San Lorenzo</h1>
+          <p class="detail-address">
+            <svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            Via dei Volsci, San Lorenzo
+          </p>
+        </div>
+
+        <div class="badges-row">
+          <span class="badge badge-default">Cemento</span>
+          <span class="badge badge-default">2 canestri</span>
+          <span class="badge badge-accent">Aperto</span>
+        </div>
+
+        <!-- Active reports -->
+        <div class="section">
+          <div class="report-alert">
+            <div class="report-alert-header">
+              <svg viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <h3>Segnalazioni attive</h3>
+            </div>
+            <div class="report-item">
+              <span>Canestro rotto</span>
+              <span>Oggi</span>
+            </div>
+            <div class="report-item">
+              <span>Illuminazione</span>
+              <span>Ieri</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="section">
+          <div class="action-buttons">
+            <button class="btn btn-primary">
+              <svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Check-in
+            </button>
+            <button class="btn btn-secondary">
+              <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              Crea lobby
+            </button>
+            <button class="btn btn-ghost">
+              <svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+              Segnala
+            </button>
+          </div>
+        </div>
+
+        <!-- Active lobbies -->
+        <div class="section">
+          <h2 class="section-title">Lobby attive</h2>
+
+          <div class="lobby-detail-card">
+            <div class="lobby-detail-info">
+              <div class="lobby-time">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                18:30 — Oggi
+              </div>
+              <div class="lobby-players">
+                <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                4 / 6 giocatori
+              </div>
+            </div>
+            <span class="badge badge-accent">Aperta</span>
+          </div>
+
+          <div class="lobby-detail-card">
+            <div class="lobby-detail-info">
+              <div class="lobby-time">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                20:00 — Oggi
+              </div>
+              <div class="lobby-players">
+                <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                2 / 4 giocatori
+              </div>
+            </div>
+            <span class="badge badge-accent">Aperta</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom nav -->
+      <nav class="bottom-nav">
+        <a class="nav-item" aria-label="Mappa campi">
+          <svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>Mappa</span>
+        </a>
+        <a class="nav-item" aria-label="Profilo utente">
+          <svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Profilo</span>
+        </a>
+      </nav>
+    </div>
+    <p class="screen-label">Dettaglio Campo</p>
+  </div>
+
+  <!-- ===== SCREEN 3: Profile ===== -->
+  <div>
+    <div class="phone-frame">
+      <div class="status-bar">
+        <span>9:41</span>
+        <span>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" style="display:inline;vertical-align:middle">
+            <rect x="0" y="8" width="3" height="4" rx="0.5"/><rect x="4.5" y="5" width="3" height="7" rx="0.5"/><rect x="9" y="2" width="3" height="10" rx="0.5"/><rect x="13.5" y="0" width="3" height="12" rx="0.5" opacity="0.3"/>
+          </svg>
+        </span>
+      </div>
+
+      <div class="scrollable">
+        <div class="profile-header">
+          <div class="profile-avatar">M</div>
+          <h1 class="profile-name">Marco R.</h1>
+          <p class="profile-subtitle">membro da Gennaio 2026</p>
+        </div>
+
+        <!-- Karma -->
+        <div class="karma-section">
+          <div class="karma-card">
+            <div class="karma-circle">87</div>
+            <div class="karma-info" style="flex:1">
+              <h3>Karma</h3>
+              <div class="karma-label">Alto</div>
+              <div class="karma-bar">
+                <div class="karma-bar-fill" style="width: 87%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value">23</div>
+            <div class="stat-label">Check-in</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">8</div>
+            <div class="stat-label">Lobby create</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">15</div>
+            <div class="stat-label">Partite</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">3</div>
+            <div class="stat-label">Campi</div>
+          </div>
+        </div>
+
+        <!-- Menu -->
+        <div class="menu-section">
+          <div class="menu-item">
+            <div class="menu-item-left">
+              <div class="menu-icon">
+                <svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <span class="menu-text">Modifica profilo</span>
+            </div>
+            <span class="menu-arrow">›</span>
+          </div>
+          <div class="menu-item">
+            <div class="menu-item-left">
+              <div class="menu-icon">
+                <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <span class="menu-text">Le mie lobby</span>
+            </div>
+            <span class="menu-arrow">›</span>
+          </div>
+          <div class="menu-item">
+            <div class="menu-item-left">
+              <div class="menu-icon">
+                <svg viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.46-.27a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.46.27a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+              </div>
+              <span class="menu-text">Impostazioni</span>
+            </div>
+            <span class="menu-arrow">›</span>
+          </div>
+          <div class="menu-item">
+            <div class="menu-item-left">
+              <div class="menu-icon">
+                <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+              </div>
+              <span class="menu-text" style="color: var(--danger)">Esci</span>
+            </div>
+            <span class="menu-arrow">›</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom nav -->
+      <nav class="bottom-nav">
+        <a class="nav-item" aria-label="Mappa campi">
+          <svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>Mappa</span>
+        </a>
+        <a class="nav-item active" aria-label="Profilo utente">
+          <svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Profilo</span>
+        </a>
+      </nav>
+    </div>
+    <p class="screen-label">Profilo Utente</p>
+  </div>
+
+</body>
+</html>

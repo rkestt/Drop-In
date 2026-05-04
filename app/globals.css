@@ -1,26 +1,181 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-cool-muted: var(--cool-muted);
+  --font-display: var(--font-syne);
+  --font-body: var(--font-source-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --bg-base: oklch(97% 0.005 80);
+  --bg-surface: oklch(93% 0.01 80);
+  --bg-elevated: oklch(100% 0.005 80);
+  --text-primary: oklch(25% 0.02 80);
+  --text-secondary: oklch(50% 0.02 80);
+  --text-muted: oklch(65% 0.015 80);
+  --accent: oklch(60% 0.18 45);
+  --accent-hover: oklch(55% 0.2 45);
+  --accent-subtle: oklch(92% 0.05 45);
+  --success: oklch(65% 0.14 145);
+  --success-dark: oklch(45% 0.12 145);
+  --danger: oklch(55% 0.16 25);
+  --danger-dark: oklch(40% 0.14 25);
+  --warning: oklch(75% 0.12 85);
+  --warning-dark: oklch(50% 0.14 75);
+  --cool-muted: oklch(60% 0.02 260);
+  --font-syne: var(--font-syne), system-ui, sans-serif;
+  --font-source-sans: var(--font-source-sans), system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-source-sans);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Typography utilities */
+.font-display {
+  font-family: var(--font-syne);
+}
+
+.font-body {
+  font-family: var(--font-source-sans);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--cool-muted);
+  border-radius: 3px;
+}
+
+/* Safe area support */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Animation utilities */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-elevated) 50%, var(--bg-surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Staggered list item delays */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+.stagger-7 { animation-delay: 0.35s; }
+.stagger-8 { animation-delay: 0.4s; }
+
+/* Success check-in animation */
+@keyframes successPop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes checkmarkDraw {
+  0% { stroke-dashoffset: 30; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.animate-success-pop {
+  animation: successPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Button enhanced press state */
+.btn-press {
+  transition: transform 0.1s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.1s ease;
+}
+.btn-press:active {
+  transform: scale(0.96);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* Page transition */
+.page-enter {
+  animation: fadeInUp 0.35s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+/* Bottom sheet exit animation class */
+.sheet-exit {
+  animation: slideDown 250ms cubic-bezier(0.25, 1, 0.5, 1) both !important;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
 }

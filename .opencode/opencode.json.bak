@@ -1,0 +1,9 @@
+{
+  "plugins": [
+    "@opencode-ai/plugin",
+    "oh-my-opencode-slim",
+    "@ramarivera/opencode-model-announcer",
+    "@mailshieldai/opencode-canvas",
+    "opencode-agent-memory"
+  ]
+}
