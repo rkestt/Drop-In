@@ -1,8 +1,7 @@
-const _serwist = require('@serwist/next');
-const withSerwist = (_serwist && (_serwist.default || _serwist));
+const withSerwist = require('@serwist/next').default;
 
 if (typeof withSerwist !== 'function') {
-  throw new Error("withSerwist is not a function — check @serwist/next export");
+  console.warn("@serwist/next not loaded — PWA disabled");
 }
 
 /** @type {import('next').NextConfig} */
@@ -10,13 +9,10 @@ const nextConfig = {
   output: 'standalone',
 };
 
-const serwistConfig = {
-  swSrc: 'app/sw.ts',
-  swDest: 'public/sw.js',
-};
-
-module.exports = process.env.NODE_ENV === 'development'
-  ? nextConfig
-  : withSerwist(serwistConfig)(nextConfig);
-
-module.exports = serwistConfig;
+module.exports = withSerwist
+  ? withSerwist({
+      swSrc: 'app/sw.ts',
+      swDest: 'public/sw.js',
+      disable: process.env.NODE_ENV === 'development',
+    })(nextConfig)
+  : nextConfig;

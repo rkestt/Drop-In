@@ -1,0 +1,9 @@
+Windows Registry Editor Version 5.00
+
+; Click destro nello spazio vuoto di una cartella → "Apri Hermes qui"
+[HKEY_CLASSES_ROOT\Directory\Background\shell\Hermes]
+@="Apri Hermes qui"
+"Icon"="\\\\wsl.localhost\\Ubuntu\\home\\denni\\.local\\bin\\hermes,0"
+
+[HKEY_CLASSES_ROOT\Directory\Background\shell\Hermes\command]
+@="\\\\wsl.localhost\\Ubuntu\\home\\denni\\.local\\bin\\hermes --workdir \"%V\""

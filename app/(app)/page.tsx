@@ -20,6 +20,7 @@ interface Court {
   surface_type: string | null;
   hoop_count: number | null;
   status: string | null;
+  zone: string | null;
 }
 
 interface Lobby {
@@ -38,14 +39,29 @@ export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
+  const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const supabase = useMemo(() => createClient(), []);
+
+  // Extract unique zones from courts for the filter
+  const availableZones = useMemo(() => {
+    const zones = new Set<string>();
+    courts.forEach((c) => { if (c.zone) zones.add(c.zone); });
+    return Array.from(zones).sort();
+  }, [courts]);
+
+  // Filter courts by selected zone
+  const filteredCourts = useMemo(() => {
+    if (!selectedZone) return courts;
+    return courts.filter((c) => c.zone === selectedZone);
+  }, [courts, selectedZone]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         // Fetch courts
-        const { data: courtsData } = await supabase.from("courts").select("*").limit(100);
-        setCourts(courtsData || []);
+        // @ts-expect-error sport and zone are in DB but not in generated types
+        const { data: courtsData } = await supabase.from("courts").select("*").eq("sport", "basketball").limit(500);
+        setCourts((courtsData || []) as unknown as Court[]);
 
         // Fetch active lobbies with participant counts
         const { data: lobbiesData } = await supabase
@@ -118,9 +134,29 @@ export default function HomePage() {
   return (
     <main className="flex-1 flex flex-col relative">
       {user && <BanBanner userId={user.id} />}
+      {/* Zone filter — above the map */}
+      {availableZones.length > 0 && (
+        <div className="px-3 pt-3">
+          <select
+            value={selectedZone ?? ""}
+            onChange={(e) => setSelectedZone(e.target.value || null)}
+            className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--cool-muted)]/20 appearance-none cursor-pointer"
+          >
+            <option value="">Tutte le zone ({courts.length})</option>
+            {availableZones.map((zone) => {
+              const count = courts.filter((c) => c.zone === zone).length;
+              return (
+                <option key={zone} value={zone}>
+                  {zone} ({count})
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      )}
       <div className="flex-1 relative min-h-[50vh]">
         <CourtMap
-          courts={courts}
+          courts={filteredCourts}
           reportedCourtIds={reportedCourtIds}
           onCourtSelect={(id) => {
             window.location.href = `/courts/${id}`;

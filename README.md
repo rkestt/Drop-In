@@ -31,27 +31,7 @@ L'app è disponibile su `http://localhost:3000`.
 
 ### 2. Configura Supabase (backend)
 
-```bash
-# Avvia Supabase locale
-npx supabase start
 
-# Applica il database (tabelle, indici, trigger)
-npx supabase db reset
-```
-
-Copia le variabili d'ambiente che Supabase ti mostra in `.env.local`:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-### 3. Carica i campetti
-
-```bash
-# Estrai campetti da OpenStreetMap (zona Roma/San Lorenzo)
-python scripts/extract_osm.py
-
-# Carica nel database
-npx supabase db execute --file scripts/seed_courts.sql
-```
 
 ### 4. Usa l'app
 

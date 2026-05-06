@@ -54,6 +54,8 @@ body {
   background: var(--bg-base);
   color: var(--text-primary);
   -webkit-tap-highlight-color: transparent;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Typography utilities */
