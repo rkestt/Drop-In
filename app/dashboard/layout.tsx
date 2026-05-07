@@ -7,9 +7,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col min-h-full">
-      <header className="sticky top-0 z-40 bg-[var(--bg-elevated)] border-b border-[var(--cool-muted)]/20 pt-safe">
-        <div className="max-w-[720px] mx-auto flex items-center h-14 px-4">
+    <div className="flex flex-col h-full">
+      <header className="flex-shrink-0 z-40 bg-[var(--bg-elevated)] border-b border-[var(--cool-muted)]/20 pt-safe">
+        <div className="max-w-[720px] mx-auto lg:max-w-[1600px] lg:px-8 flex items-center h-14 px-4">
           <Link
             href="/"
             className="flex items-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
@@ -19,7 +19,9 @@ export default function DashboardLayout({
           </Link>
         </div>
       </header>
-      {children}
+      <div className="flex-1 overflow-y-auto overscroll-contain">
+        {children}
+      </div>
     </div>
   );
 }

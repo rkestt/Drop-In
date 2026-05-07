@@ -7,7 +7,15 @@ import { LoginModal } from "@/components/auth/login-modal";
 import { BanBanner } from "@/components/karma/ban-banner";
 import { Button } from "@/components/ui/button";
 import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
-import { MapPin, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  MapPin,
+  Users,
+  ChevronRight,
+  Volleyball,
+  Zap,
+  LocateFixed,
+} from "lucide-react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 
@@ -42,25 +50,53 @@ export default function HomePage() {
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
-  // Extract unique zones from courts for the filter
+  // Extract unique zones from courts
   const availableZones = useMemo(() => {
     const zones = new Set<string>();
-    courts.forEach((c) => { if (c.zone) zones.add(c.zone); });
+    courts.forEach((c) => {
+      if (c.zone) zones.add(c.zone);
+    });
     return Array.from(zones).sort();
   }, [courts]);
 
+  // Lobby count per court — for map markers
+  const lobbyCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    lobbies.forEach((l) => {
+      counts[l.court_id] = (counts[l.court_id] ?? 0) + 1;
+    });
+    return counts;
+  }, [lobbies]);
+
   // Filter courts by selected zone
   const filteredCourts = useMemo(() => {
-    if (!selectedZone) return courts;
-    return courts.filter((c) => c.zone === selectedZone);
+    if (selectedZone) {
+      return courts.filter((c) => c.zone === selectedZone);
+    }
+    return courts;
   }, [courts, selectedZone]);
+
+  // Today's lobbies only (for hero card)
+  const todayLobbies = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+    return lobbies.filter((l) => {
+      const t = new Date(l.start_time);
+      return t >= startOfDay && t <= endOfDay;
+    });
+  }, [lobbies]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch courts
-        // @ts-expect-error sport and zone are in DB but not in generated types
-        const { data: courtsData } = await supabase.from("courts").select("*").eq("sport", "basketball").limit(500);
+        // Fetch basketball courts only
+        const { data: courtsData } = await supabase
+          .from("courts")
+          .select("*")
+          .ilike("sport", "*basketball*")
+          .not("access", "in", '("private","customers")')
+          .limit(500);
         setCourts((courtsData || []) as unknown as Court[]);
 
         // Fetch active lobbies with participant counts
@@ -121,7 +157,11 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <main className="flex-1 flex items-center justify-center" role="status" aria-label="Caricamento dati in corso">
+      <main
+        className="flex-1 flex items-center justify-center"
+        role="status"
+        aria-label="Caricamento dati in corso"
+      >
         <div className="animate-pulse space-y-3">
           <div className="h-8 w-32 bg-[var(--bg-surface)] rounded-lg" />
           <div className="h-4 w-48 bg-[var(--bg-surface)] rounded-lg" />
@@ -131,108 +171,337 @@ export default function HomePage() {
     );
   }
 
+  const totalActiveLobbies = lobbies.length;
+
   return (
-    <main className="flex-1 flex flex-col relative">
+    <main className="flex flex-col flex-1 relative overflow-hidden">
       {user && <BanBanner userId={user.id} />}
-      {/* Zone filter — above the map */}
-      {availableZones.length > 0 && (
-        <div className="px-3 pt-3">
-          <select
-            value={selectedZone ?? ""}
-            onChange={(e) => setSelectedZone(e.target.value || null)}
-            className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--cool-muted)]/20 appearance-none cursor-pointer"
-          >
-            <option value="">Tutte le zone ({courts.length})</option>
-            {availableZones.map((zone) => {
-              const count = courts.filter((c) => c.zone === zone).length;
-              return (
-                <option key={zone} value={zone}>
-                  {zone} ({count})
-                </option>
-              );
-            })}
-          </select>
-        </div>
-      )}
-      <div className="flex-1 relative min-h-[50vh]">
-        <CourtMap
-          courts={filteredCourts}
-          reportedCourtIds={reportedCourtIds}
-          onCourtSelect={(id) => {
-            window.location.href = `/courts/${id}`;
-          }}
-        />
-        <ReportedCourtsIndicator onCourtsUpdate={setReportedCourtIds} />
+
+      {/* ── DESKTOP: top bar (lg+) ──────────────────────────────── */}
+      <div className="hidden lg:flex lg:items-center lg:gap-3 lg:px-4 lg:py-3 lg:border-b lg:border-[var(--cool-muted)]/20 lg:bg-[var(--bg-surface)]">
+        <h1 className="font-bold font-[family-name:var(--font-syne)] text-sm text-[var(--text-primary)]">
+          Drop-In — Basket
+        </h1>
+
+        {/* Zone filter */}
+        <select
+          value={selectedZone ?? ""}
+          onChange={(e) => setSelectedZone(e.target.value || null)}
+          className="flex-1 max-w-48 px-3 py-2 rounded-xl text-sm bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--cool-muted)]/20 appearance-none cursor-pointer ml-auto"
+        >
+          <option value="">Tutte le zone ({filteredCourts.length})</option>
+          {availableZones.map((zone) => {
+            const count = courts.filter((c) => c.zone === zone).length;
+            return (
+              <option key={zone} value={zone}>
+                {zone} ({count})
+              </option>
+            );
+          })}
+        </select>
+
+        {!user && (
+          <Button variant="ghost" size="sm" onClick={() => setShowLogin(true)}>
+            Accedi
+          </Button>
+        )}
       </div>
 
-      <div className="bg-[var(--bg-base)] border-t border-[var(--cool-muted)]/20 p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold font-[family-name:var(--font-syne)] sr-only">
-            Drop-In — Campi da basket
-          </h1>
-          <h2 className="text-xl font-bold font-[family-name:var(--font-syne)]">
-            Partite vicine
-          </h2>
-          {!user && (
-            <Button variant="ghost" size="sm" onClick={() => setShowLogin(true)}>
-              Accedi
-            </Button>
+      {/* ── MOBILE+DESKTOP body: map + sidebar ─────────────────── */}
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden">
+        {/* ── Left: Map (mobile: top section, desktop: 60%) ── */}
+        <div className="relative min-h-[50vh] lg:min-h-0 lg:flex-1">
+          <CourtMap
+            courts={filteredCourts}
+            reportedCourtIds={reportedCourtIds}
+            lobbyCounts={lobbyCounts}
+            onCourtSelect={(id) => {
+              window.location.href = `/courts/${id}`;
+            }}
+          />
+          <ReportedCourtsIndicator onCourtsUpdate={setReportedCourtIds} />
+        </div>
+
+        {/* ── Right: sidebar (mobile: scrollable below, desktop: 40%) ── */}
+        <div className="flex flex-col flex-1 lg:w-[420px] lg:flex-shrink-0 bg-[var(--bg-base)] lg:border-l lg:border-[var(--cool-muted)]/20 overflow-hidden">
+
+          {/* MOBILE only: zone filter */}
+          <div className="lg:hidden px-3 pt-3 pb-2 space-y-2 flex-shrink-0">
+            {/* Zone select */}
+            {availableZones.length > 0 && (
+              <select
+                value={selectedZone ?? ""}
+                onChange={(e) => setSelectedZone(e.target.value || null)}
+                className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--cool-muted)]/20 appearance-none cursor-pointer"
+              >
+                <option value="">Tutte le zone</option>
+                {availableZones.map((zone) => (
+                  <option key={zone} value={zone}>
+                    {zone}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Hero card — "partite oggi" (desktop only at top of sidebar) */}
+          {todayLobbies.length > 0 && (
+            <div className="hidden lg:block px-4 pt-4 pb-2 flex-shrink-0">
+              <HeroCard
+                lobbies={todayLobbies}
+                courts={courts}
+                totalActive={totalActiveLobbies}
+                user={user}
+                onLoginClick={() => setShowLogin(true)}
+              />
+            </div>
+          )}
+
+          {/* Mobile hero card (shown above list) */}
+          {todayLobbies.length > 0 && (
+            <div className="lg:hidden px-3 pb-2 flex-shrink-0">
+              <HeroCard
+                lobbies={todayLobbies}
+                courts={courts}
+                totalActive={totalActiveLobbies}
+                user={user}
+                onLoginClick={() => setShowLogin(true)}
+              />
+            </div>
+          )}
+
+          {/* Live region for realtime updates */}
+          <div
+            aria-live="polite"
+            aria-atomic="true"
+            className="sr-only"
+          >
+            {lobbies.length} lobby attive disponibili
+          </div>
+
+          {/* Lobby list — scrollable */}
+          <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-3 space-y-3 min-h-0">
+            {/* Section header */}
+            <div className="flex items-center justify-between pt-2 pb-1 sticky top-0 bg-[var(--bg-base)] z-10">
+              <h2 className="text-base font-bold font-[family-name:var(--font-syne)] text-[var(--text-primary)]">
+                {totalActiveLobbies > 0
+                  ? `${totalActiveLobbies} partite attive`
+                  : "Nessuna partita"}
+              </h2>
+              {totalActiveLobbies > 0 && (
+                <span className="flex items-center gap-1 text-xs text-[var(--success)] font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-pulse" />
+                  Live
+                </span>
+              )}
+            </div>
+
+            {lobbies.length === 0 ? (
+              <div className="text-center py-10">
+                <Volleyball className="w-10 h-10 text-[var(--text-muted)] mx-auto mb-3 opacity-40" />
+                <p className="text-[var(--text-muted)] text-sm font-medium">
+                  Nessuna partita attiva
+                </p>
+                <p className="text-[var(--text-muted)] text-xs mt-1">
+                  Sii il primo a crearne una!
+                </p>
+                <Link href="/dashboard/profile" className="inline-block mt-4">
+                  <Button size="sm" variant="primary">
+                    <Zap className="w-4 h-4" />
+                    Crea partita
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <>
+                {lobbies.map((lobby) => {
+                  const court = courts.find((c) => c.id === lobby.court_id);
+                  const isToday = todayLobbies.some((l) => l.id === lobby.id);
+                  return (
+                    <LobbyRow
+                      key={lobby.id}
+                      lobby={lobby}
+                      courtName={court?.name || "Campo"}
+                      courtZone={court?.zone || null}
+                      highlight={isToday}
+                      user={user}
+                      onLoginClick={() => setShowLogin(true)}
+                    />
+                  );
+                })}
+              </>
+            )}
+          </div>
+
+          {/* CTA sticky at bottom of sidebar */}
+          {lobbies.length > 0 && (
+            <div className="flex-shrink-0 p-3 border-t border-[var(--cool-muted)]/20">
+              <Link href="/dashboard/profile">
+                <Button
+                  variant="primary"
+                  className="w-full"
+                  size="default"
+                >
+                  <Zap className="w-4 h-4" />
+                  Crea una partita
+                </Button>
+              </Link>
+            </div>
           )}
         </div>
-
-        {/* Live region for realtime lobby updates */}
-        <div aria-live="polite" aria-atomic="true" className="sr-only">
-          {lobbies.length} lobby attive disponibili
-        </div>
-
-        {lobbies.length === 0 ? (
-          <div className="text-center py-8">
-            <MapPin className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
-            <p className="text-[var(--text-muted)] text-sm">
-              Nessuna lobby attiva nelle vicinanze.
-            </p>
-            <p className="text-[var(--text-muted)] text-xs mt-1">
-              Sii il primo a creare una!
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {lobbies.map((lobby) => (
-              <Link
-                key={lobby.id}
-                href={`/courts/${lobby.court_id}`}
-                className="block bg-[var(--bg-surface)] rounded-xl p-4 active:bg-[var(--bg-elevated)] transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-[var(--text-primary)]">
-                      {courts.find((c) => c.id === lobby.court_id)?.name || "Campo"}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1 text-sm text-[var(--text-secondary)]">
-                      <Users className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>
-                        {lobby.participants_count}/{lobby.max_players}
-                      </span>
-                      <span aria-hidden="true">•</span>
-                      <span>
-                        {new Date(lobby.start_time).toLocaleTimeString("it-IT", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                  </div>
-                  <Button size="sm" variant="primary" tabIndex={-1}>
-                    Vedi
-                  </Button>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
       </div>
 
       <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
     </main>
+  );
+}
+
+// ─── Hero card ──────────────────────────────────────────────────────────────
+
+function HeroCard({
+  lobbies,
+  courts,
+  totalActive,
+  user,
+  onLoginClick,
+}: {
+  lobbies: Lobby[];
+  courts: Court[];
+  totalActive: number;
+  user: User | null;
+  onLoginClick: () => void;
+}) {
+  const preview = lobbies.slice(0, 3);
+
+  return (
+    <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-2xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🔥</span>
+          <span className="text-sm font-bold text-[var(--accent)] uppercase tracking-wide">
+            {totalActive > 3 ? "Oggi" : "Attive ora"}
+          </span>
+        </div>
+        <span className="text-xs font-semibold text-[var(--accent)] bg-[var(--accent)]/15 px-2 py-0.5 rounded-full">
+          {totalActive}
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {preview.map((lobby) => {
+          const court = courts.find((c) => c.id === lobby.court_id);
+          return (
+            <Link
+              key={lobby.id}
+              href={`/courts/${lobby.court_id}`}
+              className="flex items-center justify-between bg-[var(--bg-surface)] rounded-xl px-3 py-2.5 hover:bg-[var(--bg-elevated)] transition-colors active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Volleyball className="w-4 h-4 text-[var(--accent)] flex-shrink-0" />
+                <span className="text-sm font-semibold truncate">
+                  {court?.name || "Campo"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Badge variant="success" className="text-[10px]">
+                  {lobby.participants_count}/{lobby.max_players}
+                </Badge>
+                <span className="text-xs text-[var(--text-secondary)]">
+                  {new Date(lobby.start_time).toLocaleTimeString("it-IT", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {totalActive > 3 && (
+        <div className="mt-3 text-center">
+          <span className="text-xs text-[var(--text-muted)]">
+            +{totalActive - 3} altre partite in lista
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Lobby row ───────────────────────────────────────────────────────────────
+
+function LobbyRow({
+  lobby,
+  courtName,
+  courtZone,
+  highlight,
+  user,
+  onLoginClick,
+}: {
+  lobby: Lobby;
+  courtName: string;
+  courtZone: string | null;
+  highlight?: boolean;
+  user: User | null;
+  onLoginClick: () => void;
+}) {
+  const fillPct = (lobby.participants_count / lobby.max_players) * 100;
+  const isFull = lobby.participants_count >= lobby.max_players;
+
+  return (
+    <Link
+      href={`/courts/${lobby.court_id}`}
+      className={`block rounded-xl p-3 transition-colors active:scale-[0.99] ${
+        highlight
+          ? "bg-[var(--accent)]/8 border border-[var(--accent)]/20"
+          : "bg-[var(--bg-surface)]"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="min-w-0">
+          <p className="font-semibold text-sm truncate">{courtName}</p>
+          {courtZone && (
+            <p className="text-xs text-[var(--text-muted)]">{courtZone}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <Badge variant={isFull ? "danger" : "success"} className="text-[10px]">
+            {isFull ? "Pieno" : `${lobby.participants_count}/${lobby.max_players}`}
+          </Badge>
+          <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1 rounded-full bg-[var(--bg-elevated)] overflow-hidden mb-2">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${fillPct}%`,
+            backgroundColor: isFull
+              ? "var(--danger)"
+              : fillPct > 70
+              ? "var(--warning)"
+              : "var(--success)",
+          }}
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+          <Users className="w-3.5 h-3.5" />
+          <span>
+            {new Date(lobby.start_time).toLocaleTimeString("it-IT", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        </div>
+        <span className="text-xs font-medium text-[var(--accent)]">
+          Vedi →
+        </span>
+      </div>
+    </Link>
   );
 }

@@ -14,59 +14,234 @@ interface CourtMapProps {
   }>;
   onCourtSelect?: (courtId: string) => void;
   reportedCourtIds?: string[];
+  /** courtId → number of active lobbies at this court */
+  lobbyCounts?: Record<string, number>;
 }
 
 const ROME_CENTER: [number, number] = [12.5113, 41.8919];
 
-export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: CourtMapProps) {
+const SOURCE_ID = "courts";
+const CIRCLE_LAYER_ID = "courts-circle";
+const LABEL_LAYER_ID = "courts-label";
+
+export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lobbyCounts = {} }: CourtMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
-  const courtMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const popupRef = useRef<maplibregl.Popup | null>(null);
   const [, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Initialize map
+  // Build GeoJSON from courts prop
+  const geojson = {
+    type: "FeatureCollection" as const,
+    features: courts.map((court) => ({
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: [court.lng, court.lat] },
+      properties: {
+        id: court.id,
+        name: court.name,
+        address: court.address ?? "",
+        lobbyCount: lobbyCounts[court.id] ?? 0,
+        isReported: reportedCourtIds.includes(court.id),
+      },
+    })),
+  };
+
+  // Initialize map once
   useEffect(() => {
-    if (!mapContainer.current) return;
+    if (!mapContainer.current || map.current) return;
 
-    map.current = new maplibregl.Map({
+    const mapInstance = new maplibregl.Map({
       container: mapContainer.current,
       style: {
         version: 8,
         sources: {
           osm: {
             type: "raster",
-            tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+            tiles: [
+              "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+              "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+              "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+              "https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+            ],
             tileSize: 256,
-            attribution:
-              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
           },
         },
         layers: [
-          {
-            id: "osm",
-            type: "raster",
-            source: "osm",
-          },
+          { id: "osm", type: "raster", source: "osm" },
         ],
       },
       center: ROME_CENTER,
-      zoom: 14,
+      zoom: 13,
     });
 
-    map.current.addControl(
+    map.current = mapInstance;
+
+    mapInstance.on("load", () => {
+      // Add court source
+      mapInstance.addSource(SOURCE_ID, {
+        type: "geojson",
+        data: geojson,
+      });
+
+      // Circle layer — sizes reflect lobby count
+      mapInstance.addLayer({
+        id: CIRCLE_LAYER_ID,
+        type: "circle",
+        source: SOURCE_ID,
+        paint: {
+          "circle-radius": [
+            "case",
+            [">=", ["get", "lobbyCount"], 3], 10,
+            [">=", ["get", "lobbyCount"], 2], 9,
+            [">=", ["get", "lobbyCount"], 1], 8,
+            7,
+          ],
+          "circle-color": [
+            "case",
+            ["get", "isReported"], "#ef4444",
+            [">=", ["get", "lobbyCount"], 1], "#22c55e",
+            "#6b7280",
+          ],
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+          "circle-opacity": [
+            "case",
+            [">=", ["get", "lobbyCount"], 1], 1,
+            0.6,
+          ],
+        },
+      });
+
+      // Label: lobby count (only if > 0)
+      mapInstance.addLayer({
+        id: LABEL_LAYER_ID,
+        type: "symbol",
+        source: SOURCE_ID,
+        filter: [">=", ["get", "lobbyCount"], 1],
+        layout: {
+          "text-field": ["to-string", ["get", "lobbyCount"]],
+          "text-size": 9,
+          "text-font": ["Open Sans Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "#ffffff",
+          "text-halo-width": 1,
+        },
+      });
+
+      // Popup on hover
+      popupRef.current = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 15,
+        className: "court-popup",
+      });
+
+      setMapLoaded(true);
+    });
+
+    mapInstance.addControl(
       new maplibregl.NavigationControl({ showCompass: false }),
       "bottom-right"
     );
 
     return () => {
-      map.current?.remove();
+      mapInstance.remove();
       map.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // User location marker
+  // Sync GeoJSON data when courts change
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    const source = map.current.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+    if (source) {
+      source.setData(geojson);
+    }
+  }, [geojson, mapLoaded]);
+
+  // Sync circle paint when reported/lobby data changes (no full redraw needed)
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    // Re-color reported courts
+    map.current.setPaintProperty(CIRCLE_LAYER_ID, "circle-color", [
+      "case",
+      ["get", "isReported"], "#ef4444",
+      [">=", ["get", "lobbyCount"], 1], "#22c55e",
+      "#6b7280",
+    ]);
+  }, [reportedCourtIds, lobbyCounts, mapLoaded]);
+
+  // Click handler
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    const handleClick = (e: maplibregl.MapMouseEvent) => {
+      const features = map.current!.queryRenderedFeatures(e.point, {
+        layers: [CIRCLE_LAYER_ID],
+      });
+      if (!features.length) return;
+      const props = features[0].properties;
+      if (!props?.id) return;
+      popupRef.current?.remove();
+      onCourtSelect?.(props.id);
+    };
+
+    const handleMouseEnter = (e: maplibregl.MapMouseEvent) => {
+      if (!map.current) return;
+      map.current.getCanvas().style.cursor = "pointer";
+
+      const features = map.current.queryRenderedFeatures(e.point, {
+        layers: [CIRCLE_LAYER_ID],
+      });
+      if (!features.length) return;
+      const props = features[0].properties;
+      if (!props) return;
+
+      const lng = (features[0].geometry as GeoJSON.Point).coordinates[0];
+      const lat = (features[0].geometry as GeoJSON.Point).coordinates[1];
+
+      const html = `
+        <div style="font-family: inherit; padding: 2px 0;">
+          <strong style="font-size: 13px;">${props.name}</strong>
+          ${props.lobbyCount > 0 ? `<div style="font-size: 11px; color: #22c55e; margin-top: 2px;">● ${props.lobbyCount} lobby attiv${props.lobbyCount === 1 ? "a" : "e"}</div>` : ""}
+        </div>
+      `;
+
+      popupRef.current
+        ?.setLngLat([lng, lat])
+        .setHTML(html)
+        .addTo(map.current!);
+    };
+
+    const handleMouseLeave = () => {
+      if (!map.current) return;
+      map.current.getCanvas().style.cursor = "";
+      popupRef.current?.remove();
+    };
+
+    map.current.on("click", handleClick);
+    map.current.on("mouseenter", CIRCLE_LAYER_ID, handleMouseEnter);
+    map.current.on("mouseleave", CIRCLE_LAYER_ID, handleMouseLeave);
+
+    return () => {
+      if (!map.current) return;
+      map.current.off("click", handleClick);
+      map.current.off("mouseenter", CIRCLE_LAYER_ID, handleMouseEnter);
+      map.current.off("mouseleave", CIRCLE_LAYER_ID, handleMouseLeave);
+    };
+  }, [mapLoaded, onCourtSelect]);
+
+  // User location marker — separate DOM element, no zoom jank concern
   useEffect(() => {
     if (!map.current) return;
 
@@ -91,6 +266,19 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
           el.style.border = "2px solid white";
           el.style.boxShadow = "0 2px 4px rgba(0,0,0,0.3)";
           el.style.pointerEvents = "none";
+          el.style.position = "relative";
+
+          // Pulsing outer ring
+          const ring = document.createElement("div");
+          ring.style.position = "absolute";
+          ring.style.top = "-4px";
+          ring.style.left = "-4px";
+          ring.style.width = "24px";
+          ring.style.height = "24px";
+          ring.style.borderRadius = "50%";
+          ring.style.border = "2px solid rgba(59,130,246,0.5)";
+          ring.style.animation = "ping 1.5s cubic-bezier(0,0,0.2,1) infinite";
+          el.appendChild(ring);
 
           userMarkerRef.current = new maplibregl.Marker({ element: el })
             .setLngLat([longitude, latitude])
@@ -103,83 +291,12 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
     }
   }, []);
 
-  // Court markers — rebuild when courts or reportedCourtIds change
-  useEffect(() => {
-    if (!map.current) return;
-
-    // Remove old court markers
-    courtMarkersRef.current.forEach((m) => m.remove());
-    courtMarkersRef.current = [];
-
-    if (courts.length === 0) return;
-
-    const reportedSet = new Set(reportedCourtIds || []);
-
-    courts.forEach((court) => {
-      if (!map.current) return;
-
-      const isReported = reportedSet.has(court.id);
-      const bgColor = isReported ? "var(--danger)" : "var(--accent)";
-      const iconColor = isReported ? "#ffffff" : "white";
-
-      // Create a clickable inner element (the visible dot)
-      const inner = document.createElement("div");
-      inner.style.width = "40px";
-      inner.style.height = "40px";
-      inner.style.borderRadius = "50%";
-      inner.style.backgroundColor = bgColor;
-      inner.style.border = "2px solid white";
-      inner.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
-      inner.style.cursor = "pointer";
-      inner.style.display = "flex";
-      inner.style.alignItems = "center";
-      inner.style.justifyContent = "center";
-      inner.style.transition = "transform 0.15s ease";
-      inner.setAttribute("role", "button");
-      inner.setAttribute("tabindex", "0");
-      inner.setAttribute(
-        "aria-label",
-        `Campo: ${court.name}${court.address ? `, ${court.address}` : ""}`
-      );
-
-      if (isReported) {
-        inner.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-      } else {
-        inner.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>`;
-      }
-
-      inner.addEventListener("mouseenter", () => {
-        inner.style.opacity = "0.85";
-      });
-      inner.addEventListener("mouseleave", () => {
-        inner.style.opacity = "";
-      });
-
-      const activateCourt = (e: MouseEvent | KeyboardEvent) => {
-        e.stopPropagation();
-        onCourtSelect?.(court.id);
-      };
-
-      inner.addEventListener("click", activateCourt);
-      inner.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          activateCourt(e);
-        }
-      });
-
-      const marker = new maplibregl.Marker({ element: inner })
-        .setLngLat([court.lng, court.lat])
-        .addTo(map.current);
-      courtMarkersRef.current.push(marker);
-    });
-  }, [courts, onCourtSelect, reportedCourtIds]);
-
   return (
     <div
-      className="relative w-full h-full min-h-[50vh]"
+      className="relative w-full"
+      style={{ height: "clamp(280px, 60dvh, 600px)" }}
       role="region"
-      aria-label="Mappa dei campi da basket"
+      aria-label="Mappa dei campi"
     >
       <div ref={mapContainer} className="w-full h-full" />
       {locationError && (
@@ -188,11 +305,29 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
           role="alert"
           aria-live="polite"
         >
-          <p className="text-sm text-[var(--text-secondary)]">
-            {locationError}
-          </p>
+          <p className="text-sm text-[var(--text-secondary)]">{locationError}</p>
         </div>
       )}
+      {/* Inject ping animation for user location pulse */}
+      <style>{`
+        @keyframes ping {
+          75%, 100% { transform: scale(1.5); opacity: 0; }
+          0% { transform: scale(1); opacity: 0.5; }
+        }
+        .court-popup .maplibregl-popup-content {
+          background: var(--bg-elevated, #1e1e2e);
+          color: var(--text-primary, #e2e8f0);
+          border-radius: 12px;
+          padding: 10px 14px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+          font-family: inherit;
+          font-size: 13px;
+          border: 1px solid rgba(255,255,255,0.1);
+        }
+        .court-popup .maplibregl-popup-tip {
+          border-top-color: var(--bg-elevated, #1e2e1e);
+        }
+      `}</style>
     </div>
   );
 }

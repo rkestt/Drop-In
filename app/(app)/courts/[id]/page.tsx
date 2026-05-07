@@ -1,13 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { CheckInButton } from "@/components/check-in/check-in-button";
 import { CreateLobbyButton } from "@/components/lobby/create-lobby-button";
 import { ReportButton } from "@/components/report/report-button";
 import { LoginPrompt } from "@/components/auth/login-prompt";
 import { BanBannerWrapper } from "@/components/karma/ban-banner-wrapper";
-import { MapPin, AlertTriangle, Clock, Users, Navigation, Layers, Zap } from "lucide-react";
+import {
+  MapPin, AlertTriangle, Users, Navigation, Layers, Zap,
+  ExternalLink, ArrowLeft, SunDim
+} from "lucide-react";
 import { CourtMiniMap } from "@/components/map/court-mini-map";
+import { LobbyJoinCard } from "@/components/lobby/lobby-join-card";
 import Link from "next/link";
 
 export default async function CourtPage({
@@ -27,6 +30,14 @@ export default async function CourtPage({
   if (!court) {
     notFound();
   }
+
+  // Active check-ins for this court (last 2 hours)
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  const { data: activeCheckIns } = await supabase
+    .from("check_ins")
+    .select("id")
+    .eq("court_id", id)
+    .gte("checked_in_at", twoHoursAgo);
 
   const { data: lobbies } = await supabase
     .from("lobbies")
@@ -70,16 +81,7 @@ export default async function CourtPage({
     sand: "Sabbia",
   };
 
-  const surfaceColor: Record<string, string> = {
-    asphalt: "bg-[var(--cool-muted)]/20 text-[var(--cool-muted)]",
-    concrete: "bg-[var(--cool-muted)]/20 text-[var(--cool-muted)]",
-    tartan: "bg-[var(--accent)]/15 text-[var(--accent)]",
-    artificial_turf: "bg-[success)]/15 text-[var(--success)]",
-    ground: "bg-[var(--warm)]/15 text-[var(--warm)]",
-    grass: "bg-[success)]/15 text-[var(--success)]",
-  };
-
-  const surfaceIcon: Record<string, string> = {
+  const surfaceEmoji: Record<string, string> = {
     asphalt: "🏟️",
     concrete: "🧱",
     tartan: "🏃",
@@ -94,238 +96,295 @@ export default async function CourtPage({
     sand: "🏖️",
   };
 
-  const surfaceStyle = court.surface_type
-    ? (surfaceColor[court.surface_type] || "bg-[var(--cool-muted)]/20 text-[var(--cool-muted)]")
-    : null;
-  const surfaceEmoji = court.surface_type
-    ? (surfaceIcon[court.surface_type] || "")
-    : null;
+  const sportEmoji: Record<string, string> = {
+    volleyball: "🏐",
+    basketball: "🏀",
+    tennis: "🎾",
+    football: "⚽",
+    general: "🏟️",
+  };
 
-  // Count total open slots across all lobbies
-  const totalSlots = lobbies?.reduce((sum, l) => sum + ((l as unknown as { max_players: number; lobby_participants?: { count: number }[] }).max_players - ((l as unknown as { lobby_participants?: { count: number }[] }).lobby_participants?.[0]?.count ?? 0)), 0) ?? 0;
-  const totalPlayers = lobbies?.reduce((sum, l) => sum + (((l as unknown as { lobby_participants?: { count: number }[] }).lobby_participants?.[0]?.count ?? 0)), 0) ?? 0;
+  const sportLabels: Record<string, string> = {
+    volleyball: "Pallavolo",
+    basketball: "Basket",
+    tennis: "Tennis",
+    football: "Calcetto",
+    general: "Sport",
+  };
+
+  const courtAny = court as Record<string, unknown>;
+  const courtZone = courtAny.zone as string | null;
+  const courtSport = courtAny.sport as string | null;
+  const courtVenueType = courtAny.venue_type as string | null;
+
+  const activeCheckInCount = activeCheckIns?.length ?? 0;
+  const totalSlots = lobbies?.reduce((sum, l) => {
+    const lp = l as unknown as { max_players: number; lobby_participants?: { count: number }[] };
+    return sum + (lp.max_players - (lp.lobby_participants?.[0]?.count ?? 0));
+  }, 0) ?? 0;
+  const totalPlayersInLobbies = lobbies?.reduce((sum, l) => {
+    const lp = l as unknown as { lobby_participants?: { count: number }[] };
+    return sum + (lp.lobby_participants?.[0]?.count ?? 0);
+  }, 0) ?? 0;
+
+  const mapUrl = court.address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(court.address + ", Roma")}`
+    : `https://www.google.com/maps/search/?api=1&query=${court.lat},${court.lng}`;
 
   return (
-    <main className="flex-1 space-y-4">
-      {/* Header Card */}
-      <div className="bg-[var(--bg-surface)] rounded-2xl p-5 space-y-4">
-        {/* Court name + address */}
-        <div>
-          <h1 className="text-2xl font-bold font-[family-name:var(--font-syne)] text-[var(--text-primary)] leading-tight">
-            {court.name}
-          </h1>
-          <div className="flex items-start gap-1.5 mt-2 text-[var(--text-secondary)] text-sm">
-            <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <span>{court.address || "Indirizzo non disponibile"}</span>
-          </div>
-        </div>
-
-        {/* Quick stats row */}
-        <div className="flex gap-3">
-          {court.surface_type && surfaceStyle && (
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${surfaceStyle}`}>
-              <span>{surfaceEmoji}</span>
-              <span>{surfaceLabels[court.surface_type] || court.surface_type}</span>
-            </div>
-          )}
-          {court.hoop_count && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--accent)]/15 text-[var(--accent)]">
-              <Layers className="w-3.5 h-3.5" />
-              <span>{court.hoop_count} {court.hoop_count === 1 ? "canestro" : "canestri"}</span>
-            </div>
-          )}
-          {(court as { zone?: string }).zone && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--cool-muted)]/15 text-[var(--text-secondary)]">
-              <Navigation className="w-3.5 h-3.5" />
-              <span>{(court as { zone?: string }).zone}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Open slots highlight */}
-        {lobbies && lobbies.length > 0 && (
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-[var(--accent)]/10 border border-[var(--accent)]/20">
-            <div className="w-10 h-10 rounded-full bg-[var(--accent)]/20 flex items-center justify-center">
-              <Users className="w-5 h-5 text-[var(--accent)]" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
-                {totalPlayers} giocatori in {lobbies.length} {lobbies.length === 1 ? "partita" : "partite"}
-              </p>
-              <p className="text-xs text-[var(--text-secondary)]">
-                {totalSlots} posti ancora disponibili
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Active reports */}
-        {reports && reports.length > 0 && (
-          <div className="flex items-start gap-2 p-3 rounded-xl bg-[var(--danger)]/10 border border-[var(--danger)]/20">
-            <AlertTriangle className="w-4 h-4 mt-0.5 text-[var(--danger)] flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-[var(--danger)]">
-                {reports.length} {reports.length === 1 ? "segnalazione" : "segnalazioni"} attive
-              </p>
-              <ul className="mt-1 space-y-1">
-                {reports.slice(0, 3).map((r) => (
-                  <li key={r.id} className="text-xs text-[var(--text-secondary)]">
-                    • {reportCategories[r.category] || r.category}
-                  </li>
-                ))}
-                {reports.length > 3 && (
-                  <li className="text-xs text-[var(--text-muted)]">
-                    + altre {reports.length - 3}
-                  </li>
-                )}
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {/* Mini map */}
-        <CourtMiniMap
-          lat={court.lat}
-          lng={court.lng}
-          courtName={court.name}
-          zone={(court as { zone?: string }).zone}
-        />
-
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2">
-          {user ? (
-            <>
-              <CheckInButton
-                courtId={court.id}
-                courtName={court.name}
-                courtLat={court.lat}
-                courtLng={court.lng}
-              />
-              <CreateLobbyButton
-                courtId={court.id}
-                courtName={court.name}
-              />
-              <ReportButton
-                courtId={court.id}
-                courtName={court.name}
-              />
-            </>
-          ) : (
-            <LoginPrompt />
-          )}
-        </div>
-      </div>
+    <div className="flex-1 overflow-y-auto overscroll-contain">
+    <main className="px-4 pt-5 pb-8 max-w-[1600px] mx-auto">
 
       {/* Ban/Karma Warning */}
       <BanBannerWrapper userId={user?.id ?? null} />
 
-      {/* Lobbies */}
-      <div>
-        <div className="flex items-center justify-between mb-3 px-1">
-          <h2 className="text-lg font-bold font-[family-name:var(--font-syne)] text-[var(--text-primary)]">
-            Partite su questo campo
-          </h2>
-          {lobbies && lobbies.length > 0 && (
-            <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-surface)] px-2 py-1 rounded-full">
-              {lobbies.length} {lobbies.length === 1 ? "attiva" : "attive"}
-            </span>
-          )}
+      {/* Desktop: 2-column layout | Mobile: stacked */}
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 items-start">
+
+        {/* LEFT COLUMN — Info */}
+        <div className="space-y-4">
+
+          {/* Back link */}
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Torna alla mappa</span>
+          </Link>
+
+          {/* Court header card */}
+          <div className="bg-[var(--bg-surface)] rounded-2xl p-5 space-y-4">
+
+            {/* Name + address + navigate */}
+            <div>
+              <h1 className="text-2xl font-bold font-[family-name:var(--font-syne)] text-[var(--text-primary)] leading-tight">
+                {court.name}
+              </h1>
+              <div className="flex items-start gap-1.5 mt-2 text-[var(--text-secondary)] text-sm">
+                <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>{court.address || "Indirizzo non disponibile"}</span>
+              </div>
+              <a
+                href={mapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 mt-2 text-sm font-medium text-[var(--accent)] hover:text-[var(--accent)]/80 transition-colors"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Apri in Google Maps</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
+            {/* Court info chips */}
+            <div className="flex flex-wrap gap-2">
+              {court.surface_type && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--cool-muted)]/15 text-[var(--cool-muted)]">
+                  <span>{surfaceEmoji[court.surface_type] ?? "🏟️"}</span>
+                  <span>{surfaceLabels[court.surface_type] ?? court.surface_type}</span>
+                </div>
+              )}
+              {court.hoop_count && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--accent)]/15 text-[var(--accent)]">
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>{court.hoop_count} {court.hoop_count === 1 ? "canestro" : "canestri"}</span>
+                </div>
+              )}
+              {courtSport && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--warm)]/15 text-[var(--warm)]">
+                  <span>{sportEmoji[courtSport] ?? "🏟️"}</span>
+                  <span>{sportLabels[courtSport] ?? courtSport}</span>
+                </div>
+              )}
+              {courtVenueType && courtVenueType !== "field_multi" && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--cool-muted)]/15 text-[var(--cool-muted)]">
+                  <span>🏟️</span>
+                  <span>{courtVenueType}</span>
+                </div>
+              )}
+              {courtZone && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--cool-muted)]/15 text-[var(--text-secondary)]">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>{courtZone}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Mini map */}
+            <CourtMiniMap
+              lat={court.lat}
+              lng={court.lng}
+              courtName={court.name}
+              zone={courtZone ?? undefined}
+            />
+
+            {/* Active reports */}
+            {reports && reports.length > 0 && (
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-[var(--danger)]/10 border border-[var(--danger)]/20">
+                <AlertTriangle className="w-4 h-4 mt-0.5 text-[var(--danger)] flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[var(--danger)]">
+                    {reports.length} {reports.length === 1 ? "segnalazione" : "segnalazioni"} attive
+                  </p>
+                  <ul className="mt-1 space-y-0.5">
+                    {reports.slice(0, 3).map((r) => (
+                      <li key={r.id} className="text-xs text-[var(--text-secondary)]">
+                        • {reportCategories[r.category] || r.category}
+                      </li>
+                    ))}
+                    {reports.length > 3 && (
+                      <li className="text-xs text-[var(--text-muted)]">
+                        + altre {reports.length - 3}
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            {user ? (
+              <div className="flex flex-wrap gap-2">
+                <CheckInButton
+                  courtId={court.id}
+                  courtName={court.name}
+                  courtLat={court.lat}
+                  courtLng={court.lng}
+                />
+                <ReportButton
+                  courtId={court.id}
+                  courtName={court.name}
+                />
+              </div>
+            ) : (
+              <LoginPrompt />
+            )}
+          </div>
         </div>
 
-        {lobbies && lobbies.length > 0 ? (
-          <div className="space-y-3">
-            {lobbies.map((lobby: {
-              id: string;
-              start_time: string;
-              max_players: number;
-              status: string;
-              lobby_participants?: { count: number }[];
-            }) => {
-              const count = lobby.lobby_participants?.[0]?.count ?? 0;
-              const fill = count / lobby.max_players;
-              const isFull = count >= lobby.max_players;
-              const startDate = new Date(lobby.start_time);
-              const isToday = startDate.toDateString() === new Date().toDateString();
-              const isTomorrow = startDate.toDateString() === new Date(Date.now() + 86400000).toDateString();
+        {/* RIGHT COLUMN — Now + Lobbies */}
+        <div className="space-y-4 min-w-0">
 
-              let timeLabel = startDate.toLocaleDateString("it-IT", {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              });
-              if (isToday) timeLabel = "Oggi " + startDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-              if (isTomorrow) timeLabel = "Domani " + startDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+          {/* "Now" card */}
+          <div className="bg-[var(--bg-surface)] rounded-2xl p-4 sm:p-5 space-y-3">
 
-              return (
-                <div
-                  key={lobby.id}
-                  className="bg-[var(--bg-surface)] rounded-2xl p-4 space-y-3"
-                >
-                  {/* Top row: time + status */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-[var(--accent)]" />
-                      <span className="text-sm font-semibold text-[var(--text-primary)]">
-                        {timeLabel}
-                      </span>
-                    </div>
-                    <Badge variant={isFull ? "danger" : "accent"}>
-                      {isFull ? "Completa" : "Aperta"}
-                    </Badge>
-                  </div>
-
-                  {/* Player count bar */}
-                  <div>
-                    <div className="flex items-center justify-between text-xs text-[var(--text-secondary)] mb-1.5">
-                      <div className="flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5" />
-                        <span>{count} / {lobby.max_players} giocatori</span>
-                      </div>
-                      <span>{Math.round(fill * 100)}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-[var(--cool-muted)]/20 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${isFull ? "bg-[var(--danger)]" : fill > 0.7 ? "bg-[var(--warm)]" : "bg-[var(--accent)]"}`}
-                        style={{ width: `${Math.round(fill * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Join button */}
-                  <Link
-                    href={`/courts/${court.id}`}
-                    className="block w-full text-center text-sm font-medium py-2 rounded-xl bg-[var(--bg-elevated)] text-[var(--text-primary)] hover:bg-[var(--cool-muted)]/20 transition-colors"
-                  >
-                    {isFull ? "Vedi dettagli" : "Entra nella partita"}
-                  </Link>
+            {/* Now header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-full bg-[var(--accent)]/15 flex items-center justify-center">
+                  <SunDim className="w-5 h-5 text-[var(--accent)]" />
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="bg-[var(--bg-surface)] rounded-2xl p-8 text-center space-y-3">
-            <div className="w-14 h-14 rounded-full bg-[var(--cool-muted)]/10 flex items-center justify-center mx-auto">
-              <Zap className="w-7 h-7 text-[var(--text-muted)]" />
+                <div>
+                  <h2 className="font-bold font-[family-name:var(--font-syne)] text-[var(--text-primary)]">
+                    Ora su questo campo
+                  </h2>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="font-semibold text-[var(--text-primary)]">
-                Nessuna partita attiva
-              </p>
-              <p className="text-sm text-[var(--text-secondary)] mt-1">
-                Sii il primo a organizzare una partita su questo campo!
-              </p>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Active check-ins */}
+              <div className="bg-[var(--bg-elevated)] rounded-xl p-3 text-center">
+                <p className="text-2xl font-bold text-[var(--text-primary)] font-[family-name:var(--font-syne)]">
+                  {activeCheckInCount}
+                </p>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                  {activeCheckInCount === 1 ? "in campo" : "in campo"}
+                </p>
+              </div>
+              {/* Open lobbies */}
+              <div className="bg-[var(--bg-elevated)] rounded-xl p-3 text-center">
+                <p className="text-2xl font-bold text-[var(--accent)] font-[family-name:var(--font-syne)]">
+                  {lobbies?.length ?? 0}
+                </p>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                  {(lobbies?.length ?? 0) === 1 ? "partita aperta" : "partite aperte"}
+                </p>
+              </div>
             </div>
-            {user && (
+
+            {/* Slots available */}
+            {lobbies && lobbies.length > 0 && totalSlots > 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <Users className="w-4 h-4 text-[var(--text-secondary)]" />
+                <span className="text-[var(--text-secondary)]">
+                  {totalPlayersInLobbies} giocatori in campo,
+                  <span className="text-[var(--text-primary)] font-medium"> {totalSlots} posti liberi</span> nelle partite aperte
+                </span>
+              </div>
+            )}
+
+            {lobbies && lobbies.length > 0 && (
               <CreateLobbyButton
                 courtId={court.id}
                 courtName={court.name}
               />
             )}
           </div>
-        )}
+
+          {/* Lobbies list */}
+          <div>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h2 className="text-lg font-bold font-[family-name:var(--font-syne)] text-[var(--text-primary)]">
+                Prossime partite
+              </h2>
+              {lobbies && lobbies.length > 0 && (
+                <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-surface)] px-2 py-1 rounded-full">
+                  {lobbies.length} {lobbies.length === 1 ? "attiva" : "attive"}
+                </span>
+              )}
+            </div>
+
+            {lobbies && lobbies.length > 0 ? (
+              <div className="space-y-3">
+                {lobbies.map((lobby) => {
+                  const lp = lobby as unknown as {
+                    id: string;
+                    court_id: string;
+                    creator_id: string;
+                    start_time: string;
+                    max_players: number;
+                    status: string;
+                    sport?: string;
+                    lobby_participants?: { count: number }[];
+                  };
+
+                  return (
+                    <LobbyJoinCard
+                      key={lp.id}
+                      lobby={lp}
+                      userId={user?.id}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-[var(--bg-surface)] rounded-2xl p-8 text-center space-y-3">
+                <div className="w-14 h-14 rounded-full bg-[var(--cool-muted)]/10 flex items-center justify-center mx-auto">
+                  <Zap className="w-7 h-7 text-[var(--text-muted)]" />
+                </div>
+                <div>
+                  <p className="font-semibold text-[var(--text-primary)]">
+                    Nessuna partita attiva
+                  </p>
+                  <p className="text-sm text-[var(--text-secondary)] mt-1">
+                    Sii il primo a organizzare una partita su questo campo!
+                  </p>
+                </div>
+                {user && (
+                  <CreateLobbyButton
+                    courtId={court.id}
+                    courtName={court.name}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </main>
+    </div>
   );
 }
