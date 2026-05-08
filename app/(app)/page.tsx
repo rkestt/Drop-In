@@ -24,11 +24,9 @@ interface Court {
   name: string;
   lat: number;
   lng: number;
-  address: string | null;
-  surface_type: string | null;
-  hoop_count: number | null;
-  status: string | null;
-  zone: string | null;
+  address?: string | null;
+  sport?: string | null;
+  zone?: string | null;
 }
 
 interface Lobby {
@@ -47,17 +45,8 @@ export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
-  const [selectedZone, setSelectedZone] = useState<string | null>(null);
+  const [selectedSports, setSelectedSports] = useState<string[]>([]);
   const supabase = useMemo(() => createClient(), []);
-
-  // Extract unique zones from courts
-  const availableZones = useMemo(() => {
-    const zones = new Set<string>();
-    courts.forEach((c) => {
-      if (c.zone) zones.add(c.zone);
-    });
-    return Array.from(zones).sort();
-  }, [courts]);
 
   // Lobby count per court — for map markers
   const lobbyCounts = useMemo(() => {
@@ -68,13 +57,15 @@ export default function HomePage() {
     return counts;
   }, [lobbies]);
 
-  // Filter courts by selected zone
+  // Filter courts by selected sport
   const filteredCourts = useMemo(() => {
-    if (selectedZone) {
-      return courts.filter((c) => c.zone === selectedZone);
+    if (selectedSports.length > 0) {
+      return courts.filter(
+        (c) => c.sport && selectedSports.some((s) => c.sport!.includes(s))
+      );
     }
     return courts;
-  }, [courts, selectedZone]);
+  }, [courts, selectedSports]);
 
   // Today's lobbies only (for hero card)
   const todayLobbies = useMemo(() => {
@@ -90,20 +81,32 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch basketball courts only
-        const { data: courtsData } = await supabase
-          .from("courts")
-          .select("*")
-          .ilike("sport", "*basketball*")
-          .not("access", "in", '("private","customers")')
-          .limit(500);
-        setCourts((courtsData || []) as unknown as Court[]);
+        // Fetch ALL courts with pagination (PostgREST max_rows=1000)
+        // Filter by sport client-side from selectedSports
+        let allCourts: Court[] = [];
+        let page = 0;
+        const pageSize = 1000;
+        while (true) {
+          const from = page * pageSize;
+          const { data } = await supabase
+            .from("courts")
+            .select("id, name, lat, lng, address, sport, zone")
+            .range(from, from + pageSize - 1);
+          if (!data || data.length === 0) break;
+          allCourts = allCourts.concat(data as Court[]);
+          if (data.length < pageSize) break;
+          page++;
+        }
+        console.log("courts fetched:", allCourts.length);
+        setCourts(allCourts);
 
-        // Fetch active lobbies with participant counts
+        // Fetch active lobbies (status=open AND start_time >= now)
+        const now = new Date().toISOString();
         const { data: lobbiesData } = await supabase
           .from("lobbies")
           .select("*, lobby_participants(count)")
           .eq("status", "open")
+          .gte("start_time", now)
           .order("start_time", { ascending: true })
           .limit(20);
 
@@ -180,28 +183,36 @@ export default function HomePage() {
       {/* ── DESKTOP: top bar (lg+) ──────────────────────────────── */}
       <div className="hidden lg:flex lg:items-center lg:gap-3 lg:px-4 lg:py-3 lg:border-b lg:border-[var(--cool-muted)]/20 lg:bg-[var(--bg-surface)]">
         <h1 className="font-bold font-[family-name:var(--font-syne)] text-sm text-[var(--text-primary)]">
-          Drop-In — Basket
+          Drop in
         </h1>
 
-        {/* Zone filter */}
-        <select
-          value={selectedZone ?? ""}
-          onChange={(e) => setSelectedZone(e.target.value || null)}
-          className="flex-1 max-w-48 px-3 py-2 rounded-xl text-sm bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--cool-muted)]/20 appearance-none cursor-pointer ml-auto"
-        >
-          <option value="">Tutte le zone ({filteredCourts.length})</option>
-          {availableZones.map((zone) => {
-            const count = courts.filter((c) => c.zone === zone).length;
-            return (
-              <option key={zone} value={zone}>
-                {zone} ({count})
-              </option>
-            );
-          })}
-        </select>
+        {/* Desktop sport filter chips */}
+        <div className="flex items-center gap-1.5 ml-2">
+          {["basketball","volleyball","soccer","tennis","padel"].map((s) => (
+            <button
+              key={s}
+              onClick={() =>
+                setSelectedSports((prev) =>
+                  prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
+                )
+              }
+              className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
+                selectedSports.includes(s)
+                  ? "bg-[var(--accent)] text-white border-transparent"
+                  : "text-[var(--text-secondary)] border-[var(--cool-muted)]/30 bg-[var(--bg-elevated)] hover:border-[var(--cool-muted)]/50"
+              }`}
+            >
+              {s === "basketball" ? "🏀 Basket" :
+               s === "volleyball" ? "🏐 Pallavolo" :
+               s === "soccer" ? "⚽ Calcetto" :
+               s === "tennis" ? "🎾 Tennis" :
+               s === "padel" ? "🎾 Padel" : s}
+            </button>
+          ))}
+        </div>
 
         {!user && (
-          <Button variant="ghost" size="sm" onClick={() => setShowLogin(true)}>
+          <Button variant="ghost" size="sm" onClick={() => setShowLogin(true)} className="ml-auto">
             Accedi
           </Button>
         )}
@@ -225,23 +236,27 @@ export default function HomePage() {
         {/* ── Right: sidebar (mobile: scrollable below, desktop: 40%) ── */}
         <div className="flex flex-col flex-1 lg:w-[420px] lg:flex-shrink-0 bg-[var(--bg-base)] lg:border-l lg:border-[var(--cool-muted)]/20 overflow-hidden">
 
-          {/* MOBILE only: zone filter */}
-          <div className="lg:hidden px-3 pt-3 pb-2 space-y-2 flex-shrink-0">
-            {/* Zone select */}
-            {availableZones.length > 0 && (
-              <select
-                value={selectedZone ?? ""}
-                onChange={(e) => setSelectedZone(e.target.value || null)}
-                className="w-full px-3 py-2 rounded-xl text-sm bg-[var(--bg-elevated)] text-[var(--text-primary)] border border-[var(--cool-muted)]/20 appearance-none cursor-pointer"
-              >
-                <option value="">Tutte le zone</option>
-                {availableZones.map((zone) => (
-                  <option key={zone} value={zone}>
-                    {zone}
-                  </option>
-                ))}
-              </select>
-            )}
+          {/* MOBILE only: sport filter chips */}
+          <div className="lg:hidden px-3 pt-3 pb-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {["basketball","volleyball","soccer","tennis","padel"].map((s) => (
+                <button
+                  key={s}
+                  onClick={() =>
+                    setSelectedSports((prev) =>
+                      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
+                    )
+                  }
+                  className={`px-2 py-1 rounded-full text-xs font-semibold border ${
+                    selectedSports.includes(s)
+                      ? "bg-[var(--accent)] text-white border-transparent"
+                      : "text-[var(--text-secondary)] border-[var(--cool-muted)]/30 bg-[var(--bg-elevated)]"
+                  }`}
+                >
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Hero card — "partite oggi" (desktop only at top of sidebar) */}

@@ -16,13 +16,13 @@ const sourceSans = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "Drop-In — Street Edition",
+  title: "Drop in — Street Edition",
   description: "Trova campetti, unisciti a partite, gioca a basket in strada.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Drop-In",
+    title: "Drop in",
   },
 };
 

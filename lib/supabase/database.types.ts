@@ -10,7 +10,7 @@ export type Database = {
   public: {
     Tables: {
       courts: {
-        Row: {
+Row: {
           id: string;
           osm_id: string | null;
           name: string;
@@ -23,6 +23,10 @@ export type Database = {
           updated_at: string;
           status: string | null;
           location: unknown | null;
+          venue_type: string | null;
+          sport: string | null;
+          zone: string | null;
+          access: string | null;
         };
         Insert: {
           id?: string;

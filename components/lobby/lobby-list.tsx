@@ -32,8 +32,9 @@ export function LobbyList() {
     const fetchLobbies = async () => {
       try {
         const { data: authData } = await supabase.auth.getUser();
-        const currentUserId = authData.user?.id || null;
+const currentUserId = authData.user?.id || null;
 
+        const now = new Date().toISOString();
         const { data: lobbiesData } = await supabase
           .from("lobbies")
           .select(
@@ -42,6 +43,7 @@ export function LobbyList() {
             lobby_participants(user_id)`
           )
           .eq("status", "open")
+          .gte("start_time", now)
           .order("start_time", { ascending: true });
 
         // Collect all unique user_ids from lobby participants

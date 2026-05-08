@@ -40,11 +40,13 @@ export default async function CourtPage({
     .eq("court_id", id)
     .gte("checked_in_at", twoHoursAgo);
 
+  const now = new Date().toISOString();
   const { data: lobbies } = await supabase
     .from("lobbies")
     .select("*, lobby_participants(count)")
     .eq("court_id", id)
     .eq("status", "open")
+    .gte("start_time", now)
     .order("start_time", { ascending: true });
 
   const { data: reports } = await supabase

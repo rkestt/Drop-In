@@ -11,10 +11,12 @@ export default async function LobbiesPage() {
     redirect("/?login=required");
   }
 
+const now = new Date().toISOString();
   const { data: lobbies } = await supabase
     .from("lobbies")
     .select("*, courts(name)")
     .eq("status", "open")
+    .gte("start_time", now)
     .order("start_time", { ascending: true });
 
   const lobbiesList = (lobbies as unknown as Array<{

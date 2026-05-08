@@ -37,11 +37,10 @@ export function NotificationToast() {
             table: "profiles",
             filter: `user_id=eq.${user.id}`,
           },
-          (payload) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const old = payload.old as Record<string, any>;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const newV = payload.new as Record<string, any>;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload: any) => {
+            const old = payload.old as Record<string, unknown>;
+            const newV = payload.new as Record<string, unknown>;
 
             const oldKarma = old.karma_score ?? 90;
             const newKarma = newV.karma_score ?? oldKarma;
@@ -50,7 +49,7 @@ export function NotificationToast() {
 
             // Karma decreased
             if (newKarma < oldKarma) {
-              const diff = oldKarma - newKarma;
+              const diff = (oldKarma as number) - (newKarma as number);
               const id = `karma-${Date.now()}`;
               setToasts((prev) => [
                 ...prev,
@@ -71,7 +70,7 @@ export function NotificationToast() {
                 {
                   id,
                   type: "ban_applied",
-                  message: `Sei stato bannato fino al ${new Date(newBan).toLocaleString("it-IT")}`,
+                  message: `Sei stato bannato fino al ${new Date(newBan as string).toLocaleString("it-IT")}`,
                 },
               ]);
               setTimeout(() => removeToast(id), 8000);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -11,11 +11,16 @@ interface CourtMapProps {
     lat: number;
     lng: number;
     address?: string | null;
+    sport?: string | null;
   }>;
   onCourtSelect?: (courtId: string) => void;
   reportedCourtIds?: string[];
   /** courtId → number of active lobbies at this court */
   lobbyCounts?: Record<string, number>;
+  /** sport key → { label, color } */
+  sportConfig?: Record<string, { label: string; color: string }>;
+  /** debug: show count overlay */
+  debugCount?: boolean;
 }
 
 const ROME_CENTER: [number, number] = [12.5113, 41.8919];
@@ -24,7 +29,7 @@ const SOURCE_ID = "courts";
 const CIRCLE_LAYER_ID = "courts-circle";
 const LABEL_LAYER_ID = "courts-label";
 
-export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lobbyCounts = {} }: CourtMapProps) {
+export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lobbyCounts = {}, sportConfig: _sportConfig }: CourtMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
@@ -33,8 +38,8 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
   const [locationError, setLocationError] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Build GeoJSON from courts prop
-  const geojson = {
+  // Build GeoJSON from courts prop — memoize to avoid re-creating on every render
+  const geojson = useMemo(() => ({
     type: "FeatureCollection" as const,
     features: courts.map((court) => ({
       type: "Feature" as const,
@@ -45,9 +50,10 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         address: court.address ?? "",
         lobbyCount: lobbyCounts[court.id] ?? 0,
         isReported: reportedCourtIds.includes(court.id),
+        sport: court.sport ?? "basketball",
       },
     })),
-  };
+  }), [courts, lobbyCounts, reportedCourtIds]);
 
   // Initialize map once
   useEffect(() => {
@@ -87,7 +93,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         data: geojson,
       });
 
-      // Circle layer — sizes reflect lobby count
+      // Circle layer — sizes reflect lobby count, colors by sport + reported
       mapInstance.addLayer({
         id: CIRCLE_LAYER_ID,
         type: "circle",
@@ -103,7 +109,18 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
           "circle-color": [
             "case",
             ["get", "isReported"], "#ef4444",
-            [">=", ["get", "lobbyCount"], 1], "#22c55e",
+            ["==", ["get", "sport"], "basketball"], "#f97316",
+            ["==", ["get", "sport"], "volleyball"], "#eab308",
+            ["==", ["get", "sport"], "soccer"], "#22c55e",
+            ["==", ["get", "sport"], "tennis"], "#06b6d4",
+            ["==", ["get", "sport"], "skate"], "#ec4899",
+            ["==", ["get", "sport"], "calisthenics"], "#a855f7",
+            ["==", ["get", "sport"], "football"], "#84cc16",
+            ["==", ["get", "sport"], "rugby"], "#14b8a6",
+            ["==", ["get", "sport"], "handball"], "#f43f5e",
+            ["==", ["get", "sport"], "badminton"], "#8b5cf6",
+            ["==", ["get", "sport"], "baseball"], "#fb923c",
+            ["==", ["get", "sport"], "hockey"], "#0ea5e9",
             "#6b7280",
           ],
           "circle-stroke-width": 2,
@@ -111,7 +128,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
           "circle-opacity": [
             "case",
             [">=", ["get", "lobbyCount"], 1], 1,
-            0.6,
+            0.7,
           ],
         },
       });
@@ -168,15 +185,26 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
     }
   }, [geojson, mapLoaded]);
 
-  // Sync circle paint when reported/lobby data changes (no full redraw needed)
+  // Sync circle paint when reported/lobby/sport data changes (no full redraw needed)
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
-    // Re-color reported courts
+    // Re-color: reported courts red, otherwise sport color
     map.current.setPaintProperty(CIRCLE_LAYER_ID, "circle-color", [
       "case",
       ["get", "isReported"], "#ef4444",
-      [">=", ["get", "lobbyCount"], 1], "#22c55e",
+      ["==", ["get", "sport"], "basketball"], "#f97316",
+      ["==", ["get", "sport"], "volleyball"], "#eab308",
+      ["==", ["get", "sport"], "soccer"], "#22c55e",
+      ["==", ["get", "sport"], "tennis"], "#06b6d4",
+      ["==", ["get", "sport"], "skate"], "#ec4899",
+      ["==", ["get", "sport"], "calisthenics"], "#a855f7",
+      ["==", ["get", "sport"], "football"], "#84cc16",
+      ["==", ["get", "sport"], "rugby"], "#14b8a6",
+      ["==", ["get", "sport"], "handball"], "#f43f5e",
+      ["==", ["get", "sport"], "badminton"], "#8b5cf6",
+      ["==", ["get", "sport"], "baseball"], "#fb923c",
+      ["==", ["get", "sport"], "hockey"], "#0ea5e9",
       "#6b7280",
     ]);
   }, [reportedCourtIds, lobbyCounts, mapLoaded]);

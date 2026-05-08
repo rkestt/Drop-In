@@ -16,6 +16,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_IGNORE_ESLINT=1
 RUN npm run build
 
 # Production image, copy all the files and run next
