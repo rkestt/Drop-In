@@ -81,24 +81,23 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch ALL courts with pagination (PostgREST max_rows=1000)
-        // Filter by sport client-side from selectedSports
-        let allCourts: Court[] = [];
-        let page = 0;
-        const pageSize = 1000;
-        while (true) {
-          const from = page * pageSize;
-          const { data } = await supabase
-            .from("courts")
-            .select("id, name, lat, lng, address, sport, zone")
-            .range(from, from + pageSize - 1);
-          if (!data || data.length === 0) break;
-          allCourts = allCourts.concat(data as Court[]);
-          if (data.length < pageSize) break;
-          page++;
-        }
-        console.log("courts fetched:", allCourts.length);
-        setCourts(allCourts);
+        // Fetch courts for: basketball, volleyball, calcetto/futsal, tennis, padel (multi too)
+        // Fetch courts for: basketball, volleyball, calcetto/futsal, tennis, padel (multi too)
+        // Use .or() with .ilike() to catch courts with sport containing the keyword (e.g. "basketball;volleyball")
+        const { data } = await supabase
+          .from("courts")
+          .select("id, name, lat, lng, address, sport, zone")
+          .or(
+            "sport.ilike.*basket*,sport.eq.basketball," +
+            "sport.ilike.*volleyball*,sport.eq.volleyball," +
+            "sport.ilike.*soccer*,sport.eq.soccer,sport.eq.futsal,sport.ilike.*futsal*," +
+            "sport.ilike.*tennis*,sport.eq.tennis," +
+            "sport.ilike.*padel*,sport.eq.padel," +
+            "sport.eq.multi"
+          )
+          .limit(10000);
+        console.log("courts fetched:", data?.length ?? 0);
+        setCourts((data as Court[]) || []);
 
         // Fetch active lobbies (status=open AND start_time >= now)
         const now = new Date().toISOString();
