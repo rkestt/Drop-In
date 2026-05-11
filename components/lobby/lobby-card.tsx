@@ -109,7 +109,6 @@ export function LobbyCard({ lobby, userId }: LobbyCardProps) {
             </span>
           </div>
         </div>
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         <Badge variant={statusVariant as any}>
           {lobby.status === "open" ? "Aperta" : lobby.status === "in_progress" ? "In corso" : "Chiusa"}
         </Badge>

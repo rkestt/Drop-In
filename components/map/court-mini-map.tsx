@@ -12,7 +12,6 @@ interface CourtMiniMapProps {
 
 export function CourtMiniMap({ lat, lng, courtName: _courtName, zone }: CourtMiniMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapInstanceRef = useRef<any>(null);
 
   useEffect(() => {

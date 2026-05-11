@@ -24,7 +24,7 @@ interface LobbyJoinCardProps {
 export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
   const [joining, setJoining] = useState(false);
   const [alreadyJoined, setAlreadyJoined] = useState(false);
-  const [loadingJoined, setLoadingJoined] = useState(true);
+  const [loadingJoined, setLoadingJoined] = useState(!userId);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
@@ -32,12 +32,8 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
   const count = lobby.lobby_participants?.[0]?.count ?? 0;
   const isFull = count >= lobby.max_players;
 
-  // Check if user already joined on mount
   useEffect(() => {
-    if (!userId) {
-      setLoadingJoined(false);
-      return;
-    }
+    if (!userId) return;
 
     supabase
       .from("lobby_participants")
@@ -98,6 +94,7 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
 
   const startDate = new Date(lobby.start_time);
   const isToday = startDate.toDateString() === new Date().toDateString();
+  // eslint-disable-next-line react-hooks/purity
   const isTomorrow = startDate.toDateString() === new Date(Date.now() + 86400000).toDateString();
 
   let timeLabel = startDate.toLocaleDateString("it-IT", {

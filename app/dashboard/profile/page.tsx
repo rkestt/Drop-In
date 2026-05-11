@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { EditProfileSheet } from "@/components/profile/edit-profile-sheet";
 import { KarmaSection } from "@/components/profile/karma-section";
 import { Button } from "@/components/ui/button";
@@ -386,12 +387,12 @@ export default async function ProfilePage() {
                   Unisciti alla tua prima partita per vederla qui!
                 </p>
               </div>
-              <a
+              <Link
                 href="/"
                 className="mt-1 text-xs text-[var(--accent)] font-medium hover:underline"
               >
                 Trova un campo
-              </a>
+              </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">

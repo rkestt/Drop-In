@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { CacheFirst, ExpirationPlugin, Serwist } from "serwist";
+import { CacheFirst, ExpirationPlugin, NetworkOnly, Serwist } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -28,6 +28,13 @@ const serwist = new Serwist({
           }),
         ],
       }),
+    },
+    {
+      matcher: ({ request }) => {
+        const url = new URL(request.url);
+        return url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.hostname.endsWith('.supabase.co');
+      },
+      handler: new NetworkOnly(),
     },
   ],
 });

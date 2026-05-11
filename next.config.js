@@ -1,4 +1,6 @@
-const withSerwist = require('@serwist/next').default;
+import withSerwist from '@serwist/next';
+
+const isDev = process.env.NODE_ENV === 'development';
 
 if (typeof withSerwist !== 'function') {
   console.warn("@serwist/next not loaded — PWA disabled");
@@ -9,10 +11,9 @@ const nextConfig = {
   output: 'standalone',
 };
 
-module.exports = withSerwist
-  ? withSerwist({
+export default isDev || !withSerwist
+  ? nextConfig
+  : withSerwist({
       swSrc: 'app/sw.ts',
       swDest: 'public/sw.js',
-      disable: process.env.NODE_ENV === 'development',
-    })(nextConfig)
-  : nextConfig;
+    })(nextConfig);

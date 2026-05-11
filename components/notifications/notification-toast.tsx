@@ -37,7 +37,6 @@ export function NotificationToast() {
             table: "profiles",
             filter: `user_id=eq.${user.id}`,
           },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (payload: any) => {
             const old = payload.old as Record<string, unknown>;
             const newV = payload.new as Record<string, unknown>;

@@ -9,12 +9,10 @@ import { Button } from "@/components/ui/button";
 import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
 import { Badge } from "@/components/ui/badge";
 import {
-  MapPin,
   Users,
   ChevronRight,
   Volleyball,
   Zap,
-  LocateFixed,
 } from "lucide-react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
@@ -376,8 +374,8 @@ function HeroCard({
   lobbies,
   courts,
   totalActive,
-  user,
-  onLoginClick,
+  user: _user,
+  onLoginClick: _onLoginClick,
 }: {
   lobbies: Lobby[];
   courts: Court[];
@@ -450,8 +448,8 @@ function LobbyRow({
   courtName,
   courtZone,
   highlight,
-  user,
-  onLoginClick,
+  user: _user,
+  onLoginClick: _onLoginClick,
 }: {
   lobby: Lobby;
   courtName: string;

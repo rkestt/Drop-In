@@ -14,6 +14,8 @@ import { CourtMiniMap } from "@/components/map/court-mini-map";
 import { LobbyJoinCard } from "@/components/lobby/lobby-join-card";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default async function CourtPage({
   params,
 }: {
@@ -33,7 +35,8 @@ export default async function CourtPage({
   }
 
   // Active check-ins for this court (last 2 hours)
-  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  // eslint-disable-next-line react-hooks/purity
+  const twoHoursAgo = new Date(Date.now() - 7200000).toISOString();
   const { data: activeCheckIns } = await supabase
     .from("check_ins")
     .select("id")
