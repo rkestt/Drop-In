@@ -4,6 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
+interface LobbyInfo {
+  id: string;
+  court_id: string;
+  start_time: string;
+  max_players: number;
+  participants_count: number;
+  sport?: string;
+}
+
 interface CourtMapProps {
   courts?: Array<{
     id: string;
@@ -15,21 +24,21 @@ interface CourtMapProps {
   }>;
   onCourtSelect?: (courtId: string) => void;
   reportedCourtIds?: string[];
-  /** courtId → number of active lobbies at this court */
   lobbyCounts?: Record<string, number>;
-  /** sport key → { label, color } */
+  lobbies?: LobbyInfo[];
   sportConfig?: Record<string, { label: string; color: string }>;
-  /** debug: show count overlay */
   debugCount?: boolean;
 }
 
 const ROME_CENTER: [number, number] = [12.5113, 41.8919];
 
 const SOURCE_ID = "courts";
+const CLUSTER_LAYER_ID = "clusters";
+const CLUSTER_COUNT_LAYER_ID = "cluster-count";
 const CIRCLE_LAYER_ID = "courts-circle";
 const LABEL_LAYER_ID = "courts-label";
 
-export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lobbyCounts = {}, sportConfig: _sportConfig }: CourtMapProps) {
+export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lobbyCounts = {}, lobbies = [], sportConfig: _sportConfig }: CourtMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
@@ -87,17 +96,69 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
     map.current = mapInstance;
 
     mapInstance.on("load", () => {
-      // Add court source
+      // Add court source with clustering
       mapInstance.addSource(SOURCE_ID, {
         type: "geojson",
         data: geojson,
+        cluster: true,
+        clusterMaxZoom: 14,
+        clusterRadius: 50,
       });
 
-      // Circle layer — sizes reflect lobby count, colors by sport + reported
+      // Cluster circles - color by density (blue → yellow → red)
+      mapInstance.addLayer({
+        id: CLUSTER_LAYER_ID,
+        type: "circle",
+        source: SOURCE_ID,
+        filter: ["has", "point_count"],
+        paint: {
+          "circle-color": [
+            "interpolate",
+            ["linear"],
+            ["get", "point_count"],
+            10, "#3b82f6",
+            50, "#22c55e",
+            100, "#eab308",
+            200, "#f97316",
+            500, "#ef4444",
+          ],
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["get", "point_count"],
+            10, 18,
+            50, 24,
+            100, 30,
+            200, 38,
+            500, 48,
+          ],
+        },
+      });
+
+      // Cluster count labels
+      mapInstance.addLayer({
+        id: CLUSTER_COUNT_LAYER_ID,
+        type: "symbol",
+        source: SOURCE_ID,
+        filter: ["has", "point_count"],
+        layout: {
+          "text-field": "{point_count_abbreviated}",
+          "text-font": ["Arial Unicode MS Bold", "Open Sans Bold"],
+          "text-size": 13,
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "#000000",
+          "text-halo-width": 2,
+        },
+      });
+
+      // Circle layer — sizes reflect lobby count, colors by sport + reported (unclustered points only)
       mapInstance.addLayer({
         id: CIRCLE_LAYER_ID,
         type: "circle",
         source: SOURCE_ID,
+        filter: ["!", ["has", "point_count"]],
         paint: {
           "circle-radius": [
             "case",
@@ -133,12 +194,12 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         },
       });
 
-      // Label: lobby count (only if > 0)
+      // Label: lobby count (only if > 0, unclustered points only)
       mapInstance.addLayer({
         id: LABEL_LAYER_ID,
         type: "symbol",
         source: SOURCE_ID,
-        filter: [">=", ["get", "lobbyCount"], 1],
+        filter: ["all", ["!", ["has", "point_count"]], [">=", ["get", "lobbyCount"], 1]],
         layout: {
           "text-field": ["to-string", ["get", "lobbyCount"]],
           "text-size": 9,
@@ -209,25 +270,113 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
     ]);
   }, [reportedCourtIds, lobbyCounts, mapLoaded]);
 
-  // Click handler
+  // Click handler - handles both clusters and individual markers
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
-    const handleClick = (e: maplibregl.MapMouseEvent) => {
-      const features = map.current!.queryRenderedFeatures(e.point, {
+const handleClick = (e: maplibregl.MapMouseEvent) => {
+      if (!map.current) return;
+      
+      // Check for cluster click first
+      const clusterFeatures = map.current.queryRenderedFeatures(e.point, {
+        layers: [CLUSTER_LAYER_ID],
+      });
+      
+      if (clusterFeatures.length) {
+        const coords = clusterFeatures[0].geometry;
+        if (coords && coords.type === "Point") {
+          const coordinates = coords.coordinates as [number, number];
+          const currentZoom = map.current.getZoom();
+          
+          map.current.easeTo({
+            center: coordinates,
+            zoom: Math.min(currentZoom + 2, 18),
+          });
+        }
+        return;
+      }
+
+      // Check for individual marker click
+      const features = map.current.queryRenderedFeatures(e.point, {
         layers: [CIRCLE_LAYER_ID],
       });
       if (!features.length) return;
-      const props = features[0].properties;
+      const feature = features[0];
+      const props = feature.properties;
       if (!props?.id) return;
+      
+      const courtId = props.id;
+      const courtName = props.name ?? "Campo";
+      const courtAddress = props.address ?? "";
+      const courtLobbies = lobbies?.filter ? lobbies.filter(l => l.court_id === courtId) : [];
+      
       popupRef.current?.remove();
-      onCourtSelect?.(props.id);
+      
+      if (courtLobbies.length > 0) {
+        const lobbiesHtml = courtLobbies.map(l => {
+          const startDate = new Date(l.start_time);
+          const time = startDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+          const date = startDate.toLocaleDateString("it-IT", { weekday: "short", month: "short", day: "numeric" });
+          const freeSpots = l.max_players - l.participants_count;
+          const sportEmoji = l.sport === "basketball" ? "🏀" : l.sport === "volleyball" ? "🏐" : l.sport === "tennis" ? "🎾" : l.sport === "soccer" ? "⚽" : "🏟️";
+          
+          return `
+            <div style="border-bottom: 1px solid #e5e7eb; padding: 8px 0;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px;">${sportEmoji} ${date} ${time}</span>
+                <span style="font-size: 11px; color: ${freeSpots > 2 ? "#22c55e" : freeSpots > 0 ? "#eab308" : "#ef4444"};">${freeSpots}/${l.max_players} posti</span>
+              </div>
+              <a href="/courts/${courtId}" style="display: block; margin-top: 4px; font-size: 11px; color: #2563eb; text-decoration: underline;">Unisciti →</a>
+            </div>
+          `;
+        }).join("");
+        
+        const html = `
+          <div style="font-family: inherit; min-width: 180px;">
+            <strong style="font-size: 14px;">${courtName}</strong>
+            <div style="font-size: 11px; color: #6b7280; margin: 4px 0 8px 0;">${courtAddress}</div>
+            <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px;">${courtLobbies.length} lobby attive:</div>
+            ${lobbiesHtml}
+            <a href="/courts/${courtId}" style="display: block; text-align: center; margin-top: 8px; padding: 6px 12px; background: #2563eb; color: white; border-radius: 6px; font-size: 12px; text-decoration: none;">Vedi dettagli</a>
+          </div>
+        `;
+        
+        const geomCoords = feature.geometry;
+        if (geomCoords && geomCoords.type === "Point") {
+          const coords = geomCoords.coordinates as [number, number];
+          popupRef.current
+            ?.setLngLat(coords)
+            .setHTML(html)
+            .addTo(map.current);
+        }
+      } else {
+        onCourtSelect?.(courtId);
+      }
     };
 
     const handleMouseEnter = (e: maplibregl.MapMouseEvent) => {
       if (!map.current) return;
       map.current.getCanvas().style.cursor = "pointer";
 
+      // Check for cluster first
+      const clusterFeatures = map.current.queryRenderedFeatures(e.point, {
+        layers: [CLUSTER_LAYER_ID],
+      });
+      
+      if (clusterFeatures.length) {
+        const props = clusterFeatures[0].properties;
+        const pointCount = props?.point_count ?? 0;
+        const lng = (clusterFeatures[0].geometry as GeoJSON.Point).coordinates[0];
+        const lat = (clusterFeatures[0].geometry as GeoJSON.Point).coordinates[1];
+        
+        popupRef.current
+          ?.setLngLat([lng, lat])
+          .setHTML(`<div style="font-family: inherit; padding: 4px 0;"><strong style="font-size: 13px;">${pointCount} campi</strong><div style="font-size: 11px; color: #6b7280; margin-top: 2px;">Clicca per espandere</div></div>`)
+          .addTo(map.current!);
+        return;
+      }
+
+      // Individual marker
       const features = map.current.queryRenderedFeatures(e.point, {
         layers: [CIRCLE_LAYER_ID],
       });
@@ -258,15 +407,20 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
     };
 
     map.current.on("click", handleClick);
+    map.current.on("mouseenter", CLUSTER_LAYER_ID, handleMouseEnter);
+    map.current.on("mouseleave", CLUSTER_LAYER_ID, handleMouseLeave);
     map.current.on("mouseenter", CIRCLE_LAYER_ID, handleMouseEnter);
     map.current.on("mouseleave", CIRCLE_LAYER_ID, handleMouseLeave);
 
     return () => {
       if (!map.current) return;
       map.current.off("click", handleClick);
+      map.current.off("mouseenter", CLUSTER_LAYER_ID, handleMouseEnter);
+      map.current.off("mouseleave", CLUSTER_LAYER_ID, handleMouseLeave);
       map.current.off("mouseenter", CIRCLE_LAYER_ID, handleMouseEnter);
       map.current.off("mouseleave", CIRCLE_LAYER_ID, handleMouseLeave);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapLoaded, onCourtSelect]);
 
   // User location marker — separate DOM element, no zoom jank concern

@@ -44,6 +44,8 @@ export default function HomePage() {
   const [showLogin, setShowLogin] = useState(false);
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<"time" | "distance" | "spots">("time");
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
   // Lobby count per court — for map markers
@@ -65,16 +67,45 @@ export default function HomePage() {
     return courts;
   }, [courts, selectedSports]);
 
-  // Today's lobbies only (for hero card)
+  // Today's lobbies only (for hero card) - with sorting
   const todayLobbies = useMemo(() => {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-    return lobbies.filter((l) => {
+    
+    let filtered = lobbies.filter((l) => {
       const t = new Date(l.start_time);
       return t >= startOfDay && t <= endOfDay;
     });
-  }, [lobbies]);
+    
+    if (sortBy === "distance" && userLocation) {
+      // Add distance to each lobby's court
+      filtered = filtered.map(lobby => {
+        const court = courts.find(c => c.id === lobby.court_id);
+        let distance = Infinity;
+        if (court) {
+          distance = Math.sqrt(
+            Math.pow((court.lat - userLocation.lat) * 111, 2) + 
+            Math.pow((court.lng - userLocation.lng) * 111 * Math.cos(userLocation.lat * Math.PI / 180), 2)
+          );
+        }
+        return { ...lobby, distance };
+      }).sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+    } else if (sortBy === "spots") {
+      filtered = [...filtered].sort((a, b) => {
+        const freeA = a.max_players - a.participants_count;
+        const freeB = b.max_players - b.participants_count;
+        return freeB - freeA;
+      });
+    } else {
+      // Default: sort by time
+      filtered = [...filtered].sort((a, b) => 
+        new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+      );
+    }
+    
+    return filtered;
+  }, [lobbies, courts, sortBy, userLocation]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -155,6 +186,24 @@ export default function HomePage() {
     };
   }, [supabase]);
 
+  // Get user location for distance sorting
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      () => {
+        // Location denied - fallback to time sorting
+        setSortBy("time");
+      }
+    );
+  }, []);
+
   if (loading) {
     return (
       <main
@@ -223,6 +272,7 @@ export default function HomePage() {
             courts={filteredCourts}
             reportedCourtIds={reportedCourtIds}
             lobbyCounts={lobbyCounts}
+            lobbies={lobbies}
             onCourtSelect={(id) => {
               window.location.href = `/courts/${id}`;
             }}
@@ -300,12 +350,25 @@ export default function HomePage() {
                   ? `${totalActiveLobbies} partite attive`
                   : "Nessuna partita"}
               </h2>
-              {totalActiveLobbies > 0 && (
-                <span className="flex items-center gap-1 text-xs text-[var(--success)] font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-pulse" />
-                  Live
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {totalActiveLobbies > 0 && (
+                  <span className="flex items-center gap-1 text-xs text-[var(--success)] font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-pulse" />
+                    Live
+                  </span>
+                )}
+                {todayLobbies.length > 0 && (
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as "time" | "distance" | "spots")}
+                    className="text-xs bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--cool-muted)]/30 rounded px-2 py-1 cursor-pointer"
+                  >
+                    <option value="time">🕐 Orario</option>
+                    {userLocation && <option value="distance">📍 Vicino</option>}
+                    <option value="spots">👥 Posti</option>
+                  </select>
+                )}
+              </div>
             </div>
 
             {lobbies.length === 0 ? (
