@@ -22,10 +22,7 @@ const serwist = new Serwist({
         const url = new URL(request.url);
         return url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.hostname.endsWith('.supabase.co');
       },
-      handler: new NetworkOnly({
-        cacheName: "local-and-supabase",
-        plugins: [],
-      }),
+      handler: new NetworkOnly(),
     },
     {
       matcher: /^https:\/\/.*\.tile\.openstreetmap\.org\/.*$/,

@@ -38,6 +38,17 @@ const CLUSTER_COUNT_LAYER_ID = "cluster-count";
 const CIRCLE_LAYER_ID = "courts-circle";
 const LABEL_LAYER_ID = "courts-label";
 
+const CLUSTER_PAINT = {
+  "circle-color": "#3b82f6",
+  "circle-radius": 20,
+};
+
+const getLabelLayout = () => ({
+  "text-field": "{point_count_abbreviated}",
+  "text-font": ["Arial Unicode MS Bold", "Open Sans Bold"] as [string, string],
+  "text-size": 13,
+});
+
 export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lobbyCounts = {}, lobbies = [], sportConfig: _sportConfig }: CourtMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -111,10 +122,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         type: "circle",
         source: SOURCE_ID,
         filter: ["has", "point_count"],
-        paint: {
-          "circle-color": "#3b82f6",
-          "circle-radius": 20,
-        },
+        paint: CLUSTER_PAINT,
       });
 
       // Cluster count labels
@@ -123,11 +131,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         type: "symbol",
         source: SOURCE_ID,
         filter: ["has", "point_count"],
-        layout: {
-          "text-field": "{point_count_abbreviated}",
-          "text-font": ["Arial Unicode MS Bold", "Open Sans Bold"],
-          "text-size": 13,
-        },
+        layout: getLabelLayout(),
         paint: {
           "text-color": "#ffffff",
           "text-halo-color": "#000000",
@@ -136,44 +140,20 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
       });
 
       // Circle layer — sizes reflect lobby count, colors by sport + reported (unclustered points only)
+      const circlePaint = {
+        "circle-radius": 7,
+        "circle-color": "#f97316",
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "#ffffff",
+        "circle-opacity": 0.7,
+      };
+
       mapInstance.addLayer({
         id: CIRCLE_LAYER_ID,
         type: "circle",
         source: SOURCE_ID,
         filter: ["!", ["has", "point_count"]],
-        paint: {
-          "circle-radius": [
-            "case",
-            [">=", ["get", "lobbyCount"], 3], 10,
-            [">=", ["get", "lobbyCount"], 2], 9,
-            [">=", ["get", "lobbyCount"], 1], 8,
-            7,
-          ],
-          "circle-color": [
-            "case",
-            ["get", "isReported"], "#ef4444",
-            ["==", ["get", "sport"], "basketball"], "#f97316",
-            ["==", ["get", "sport"], "volleyball"], "#eab308",
-            ["==", ["get", "sport"], "soccer"], "#22c55e",
-            ["==", ["get", "sport"], "tennis"], "#06b6d4",
-            ["==", ["get", "sport"], "skate"], "#ec4899",
-            ["==", ["get", "sport"], "calisthenics"], "#a855f7",
-            ["==", ["get", "sport"], "football"], "#84cc16",
-            ["==", ["get", "sport"], "rugby"], "#14b8a6",
-            ["==", ["get", "sport"], "handball"], "#f43f5e",
-            ["==", ["get", "sport"], "badminton"], "#8b5cf6",
-            ["==", ["get", "sport"], "baseball"], "#fb923c",
-            ["==", ["get", "sport"], "hockey"], "#0ea5e9",
-            "#6b7280",
-          ],
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#ffffff",
-          "circle-opacity": [
-            "case",
-            [">=", ["get", "lobbyCount"], 1], 1,
-            0.7,
-          ],
-        },
+        paint: circlePaint,
       });
 
       // Label: lobby count (only if > 0, unclustered points only)
@@ -232,24 +212,8 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
-    // Re-color: reported courts red, otherwise sport color
-    map.current.setPaintProperty(CIRCLE_LAYER_ID, "circle-color", [
-      "case",
-      ["get", "isReported"], "#ef4444",
-      ["==", ["get", "sport"], "basketball"], "#f97316",
-      ["==", ["get", "sport"], "volleyball"], "#eab308",
-      ["==", ["get", "sport"], "soccer"], "#22c55e",
-      ["==", ["get", "sport"], "tennis"], "#06b6d4",
-      ["==", ["get", "sport"], "skate"], "#ec4899",
-      ["==", ["get", "sport"], "calisthenics"], "#a855f7",
-      ["==", ["get", "sport"], "football"], "#84cc16",
-      ["==", ["get", "sport"], "rugby"], "#14b8a6",
-      ["==", ["get", "sport"], "handball"], "#f43f5e",
-      ["==", ["get", "sport"], "badminton"], "#8b5cf6",
-      ["==", ["get", "sport"], "baseball"], "#fb923c",
-      ["==", ["get", "sport"], "hockey"], "#0ea5e9",
-      "#6b7280",
-    ]);
+    // Re-color: reported courts red, otherwise default orange
+    map.current.setPaintProperty(CIRCLE_LAYER_ID, "circle-color", "#f97316");
   }, [reportedCourtIds, lobbyCounts, mapLoaded]);
 
   // Click handler - handles both clusters and individual markers
