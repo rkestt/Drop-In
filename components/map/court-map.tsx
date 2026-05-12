@@ -38,15 +38,61 @@ const CLUSTER_COUNT_LAYER_ID = "cluster-count";
 const CIRCLE_LAYER_ID = "courts-circle";
 const LABEL_LAYER_ID = "courts-label";
 
+// Sport colors map
+const SPORT_COLORS: Record<string, string> = {
+  basketball: "#f97316",
+  volleyball: "#eab308",
+  soccer: "#22c55e",
+  tennis: "#06b6d4",
+  skate: "#ec4899",
+  calisthenics: "#a855f7",
+  football: "#84cc16",
+  rugby: "#14b8a6",
+  handball: "#f43f5e",
+  badminton: "#8b5cf6",
+  baseball: "#fb923c",
+  hockey: "#0ea5e9",
+};
+
+const SPORTS_LIST = Object.keys(SPORT_COLORS);
+
+// Create shadow layer paint for a given sport
+const getMarkerShadowPaint = (sport: string) => {
+  const color = SPORT_COLORS[sport] || "#6b7280";
+  return {
+    "circle-color": color,
+    "circle-radius": 18,
+    "circle-opacity": 0.25,
+    "circle-blur": 0.7,
+  };
+};
+
+// Create main marker paint for a given sport
+const getMarkerPaint = (sport: string) => {
+  const color = SPORT_COLORS[sport] || "#6b7280";
+  return {
+    "circle-color": color,
+    "circle-radius": 10,
+    "circle-stroke-width": 2,
+    "circle-stroke-color": "#ffffff",
+    "circle-opacity": 0.95,
+  };
+};
+
+// Cluster paint - blue with white border and shadow effect
 const CLUSTER_PAINT = {
   "circle-color": "#3b82f6",
-  "circle-radius": 20,
+  "circle-radius": 24,
+  "circle-stroke-width": 3,
+  "circle-stroke-color": "#ffffff",
+  "circle-opacity": 0.9,
 };
 
 const getLabelLayout = () => ({
   "text-field": "{point_count_abbreviated}",
   "text-font": ["Arial Unicode MS Bold", "Open Sans Bold"] as [string, string],
-  "text-size": 13,
+  "text-size": 14,
+  "text-anchor": "center",
 });
 
 export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lobbyCounts = {}, lobbies = [], sportConfig: _sportConfig }: CourtMapProps) {
@@ -116,7 +162,21 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         clusterRadius: 50,
       });
 
-      // Cluster circles - color by density
+      // Cluster outer ring (shadow/glow effect)
+      mapInstance.addLayer({
+        id: CLUSTER_LAYER_ID + "-outer",
+        type: "circle",
+        source: SOURCE_ID,
+        filter: ["has", "point_count"],
+        paint: {
+          "circle-color": "#1e3a5f",
+          "circle-radius": 36,
+          "circle-opacity": 0.3,
+          "circle-blur": 0.8,
+        },
+      });
+
+      // Cluster main circle
       mapInstance.addLayer({
         id: CLUSTER_LAYER_ID,
         type: "circle",
@@ -134,26 +194,30 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         layout: getLabelLayout(),
         paint: {
           "text-color": "#ffffff",
-          "text-halo-color": "#000000",
-          "text-halo-width": 2,
+          "text-halo-color": "#1e3a5f",
+          "text-halo-width": 3,
         },
       });
 
-      // Circle layer — sizes reflect lobby count, colors by sport + reported (unclustered points only)
-      const circlePaint = {
-        "circle-radius": 7,
-        "circle-color": "#f97316",
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#ffffff",
-        "circle-opacity": 0.7,
-      };
+      // Add marker layers for each sport type (inside mapInstance.on callback)
+      SPORTS_LIST.forEach((sport) => {
+        // Shadow layer
+        mapInstance.addLayer({
+          id: `${CIRCLE_LAYER_ID}-${sport}-shadow`,
+          type: "circle",
+          source: SOURCE_ID,
+          filter: ["all", ["!", ["has", "point_count"]], ["==", ["get", "sport"], sport]],
+          paint: getMarkerShadowPaint(sport),
+        });
 
-      mapInstance.addLayer({
-        id: CIRCLE_LAYER_ID,
-        type: "circle",
-        source: SOURCE_ID,
-        filter: ["!", ["has", "point_count"]],
-        paint: circlePaint,
+        // Main circle layer
+        mapInstance.addLayer({
+          id: `${CIRCLE_LAYER_ID}-${sport}`,
+          type: "circle",
+          source: SOURCE_ID,
+          filter: ["all", ["!", ["has", "point_count"]], ["==", ["get", "sport"], sport]],
+          paint: getMarkerPaint(sport),
+        });
       });
 
       // Label: lobby count (only if > 0, unclustered points only)
@@ -165,7 +229,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         layout: {
           "text-field": ["to-string", ["get", "lobbyCount"]],
           "text-size": 9,
-          "text-font": ["Open Sans Bold"],
+          "text-font": ["Open Sans Bold"] as [string],
           "text-allow-overlap": true,
           "text-ignore-placement": true,
         },
@@ -208,14 +272,6 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
     }
   }, [geojson, mapLoaded]);
 
-  // Sync circle paint when reported/lobby/sport data changes (no full redraw needed)
-  useEffect(() => {
-    if (!map.current || !mapLoaded) return;
-
-    // Re-color: reported courts red, otherwise default orange
-    map.current.setPaintProperty(CIRCLE_LAYER_ID, "circle-color", "#f97316");
-  }, [reportedCourtIds, lobbyCounts, mapLoaded]);
-
   // Click handler - handles both clusters and individual markers
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
@@ -223,9 +279,9 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
 const handleClick = (e: maplibregl.MapMouseEvent) => {
       if (!map.current) return;
       
-      // Check for cluster click first
+      // Check for cluster click first (check both outer and inner layers)
       const clusterFeatures = map.current.queryRenderedFeatures(e.point, {
-        layers: [CLUSTER_LAYER_ID],
+        layers: [CLUSTER_LAYER_ID, CLUSTER_LAYER_ID + "-outer"],
       });
       
       if (clusterFeatures.length) {
@@ -322,9 +378,13 @@ const handleClick = (e: maplibregl.MapMouseEvent) => {
         return;
       }
 
-      // Individual marker
+      // Individual marker - check all sport layers
+      const allCircleLayers = SPORTS_LIST.flatMap((sport) => [
+        `${CIRCLE_LAYER_ID}-${sport}`,
+        `${CIRCLE_LAYER_ID}-${sport}-shadow`,
+      ]);
       const features = map.current.queryRenderedFeatures(e.point, {
-        layers: [CIRCLE_LAYER_ID],
+        layers: allCircleLayers,
       });
       if (!features.length) return;
       const props = features[0].properties;
@@ -355,16 +415,28 @@ const handleClick = (e: maplibregl.MapMouseEvent) => {
     map.current.on("click", handleClick);
     map.current.on("mouseenter", CLUSTER_LAYER_ID, handleMouseEnter);
     map.current.on("mouseleave", CLUSTER_LAYER_ID, handleMouseLeave);
-    map.current.on("mouseenter", CIRCLE_LAYER_ID, handleMouseEnter);
-    map.current.on("mouseleave", CIRCLE_LAYER_ID, handleMouseLeave);
+    // Add event listeners for all sport layers
+    SPORTS_LIST.forEach((sport) => {
+      map.current.on("mouseenter", `${CIRCLE_LAYER_ID}-${sport}`, handleMouseEnter);
+      map.current.on("mouseleave", `${CIRCLE_LAYER_ID}-${sport}`, handleMouseLeave);
+      map.current.on("mouseenter", `${CIRCLE_LAYER_ID}-${sport}-shadow`, handleMouseEnter);
+      map.current.on("mouseleave", `${CIRCLE_LAYER_ID}-${sport}-shadow`, handleMouseLeave);
+    });
 
     return () => {
       if (!map.current) return;
       map.current.off("click", handleClick);
       map.current.off("mouseenter", CLUSTER_LAYER_ID, handleMouseEnter);
       map.current.off("mouseleave", CLUSTER_LAYER_ID, handleMouseLeave);
-      map.current.off("mouseenter", CIRCLE_LAYER_ID, handleMouseEnter);
-      map.current.off("mouseleave", CIRCLE_LAYER_ID, handleMouseLeave);
+      map.current.off("mouseenter", CLUSTER_LAYER_ID + "-outer", handleMouseEnter);
+      map.current.off("mouseleave", CLUSTER_LAYER_ID + "-outer", handleMouseLeave);
+      // Remove listeners for all sport layers
+      SPORTS_LIST.forEach((sport) => {
+        map.current?.off("mouseenter", `${CIRCLE_LAYER_ID}-${sport}`, handleMouseEnter);
+        map.current?.off("mouseleave", `${CIRCLE_LAYER_ID}-${sport}`, handleMouseLeave);
+        map.current?.off("mouseenter", `${CIRCLE_LAYER_ID}-${sport}-shadow`, handleMouseEnter);
+        map.current?.off("mouseleave", `${CIRCLE_LAYER_ID}-${sport}-shadow`, handleMouseLeave);
+      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapLoaded, onCourtSelect]);
