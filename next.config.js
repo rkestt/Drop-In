@@ -6,14 +6,30 @@ if (typeof withSerwist !== 'function') {
   console.warn("@serwist/next not loaded — PWA disabled");
 }
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const withCacheDisabled = (nextConfig) => ({
+  ...nextConfig,
+  experimental: {
+    ...nextConfig.experimental,
+    turbo: {
+      ...nextConfig.experimental?.turbo,
+      rules: {
+        '*': { cache: false },
+      },
+    },
+  },
+  compiler: {
+    ...nextConfig.compiler,
+    removeConsole: isDev ? false : true,
+  },
+});
+
+const baseConfig = {
   output: 'standalone',
 };
 
 export default isDev || !withSerwist
-  ? nextConfig
+  ? withCacheDisabled(baseConfig)
   : withSerwist({
       swSrc: 'app/sw.ts',
       swDest: 'public/sw.js',
-    })(nextConfig);
+    })(withCacheDisabled(baseConfig));

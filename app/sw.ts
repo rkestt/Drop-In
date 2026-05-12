@@ -18,6 +18,16 @@ const serwist = new Serwist({
   runtimeCaching: [
     ...defaultCache,
     {
+      matcher: ({ request }) => {
+        const url = new URL(request.url);
+        return url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.hostname.endsWith('.supabase.co');
+      },
+      handler: new NetworkOnly({
+        cacheName: "local-and-supabase",
+        plugins: [],
+      }),
+    },
+    {
       matcher: /^https:\/\/.*\.tile\.openstreetmap\.org\/.*$/,
       handler: new CacheFirst({
         cacheName: "map-tiles",
@@ -28,13 +38,6 @@ const serwist = new Serwist({
           }),
         ],
       }),
-    },
-    {
-      matcher: ({ request }) => {
-        const url = new URL(request.url);
-        return url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.hostname.endsWith('.supabase.co');
-      },
-      handler: new NetworkOnly(),
     },
   ],
 });

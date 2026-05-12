@@ -105,33 +105,15 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         clusterRadius: 50,
       });
 
-      // Cluster circles - color by density (blue → yellow → red)
+      // Cluster circles - color by density
       mapInstance.addLayer({
         id: CLUSTER_LAYER_ID,
         type: "circle",
         source: SOURCE_ID,
         filter: ["has", "point_count"],
         paint: {
-          "circle-color": [
-            "interpolate",
-            ["linear"],
-            ["get", "point_count"],
-            10, "#3b82f6",
-            50, "#22c55e",
-            100, "#eab308",
-            200, "#f97316",
-            500, "#ef4444",
-          ],
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["get", "point_count"],
-            10, 18,
-            50, 24,
-            100, 30,
-            200, 38,
-            500, 48,
-          ],
+          "circle-color": "#3b82f6",
+          "circle-radius": 20,
         },
       });
 
