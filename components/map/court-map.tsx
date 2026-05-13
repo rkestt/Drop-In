@@ -59,11 +59,22 @@ const SPORT_COLORS: Record<string, string> = {
 };
 
 const SPORTS_LIST = Object.keys(SPORT_COLORS);
+const FILTER_SPORTS = ["basketball", "volleyball", "soccer", "tennis", "padel"];
 
 const getSportKey = (sport: string): string => {
   if (!sport) return "other";
   const normalized = sport.toLowerCase().trim();
-  if (SPORT_COLORS[normalized]) return normalized;
+
+  // Multi sport (contains semicolon) → purple "multi"
+  if (normalized.includes(";")) return "multi";
+
+  // Exact "multi" value → purple "multi"
+  if (normalized === "multi") return "multi";
+
+  // Single sport that's in FILTER_SPORTS → use that sport
+  if (FILTER_SPORTS.includes(normalized)) return normalized;
+
+  // Fallback for any other sport (shouldn't happen with API filtering)
   return "other";
 };
 

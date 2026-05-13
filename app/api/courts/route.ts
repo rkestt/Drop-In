@@ -3,21 +3,30 @@ import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "edge";
 
+const FILTER_SPORTS = ["basketball", "volleyball", "soccer", "tennis", "padel"];
+
 export async function GET() {
   try {
     const supabase = await createClient();
 
+    // Build OR conditions for exact matches
+    const exactConditions = FILTER_SPORTS.map(
+      (s) => `sport.eq.${s}`
+    ).join(",");
+    exactConditions.split(",");
+
+    // Build ILIKE conditions for multi-sport courts (e.g., "basketball;soccer")
+    const likeConditions = FILTER_SPORTS.map(
+      (s) => `sport.ilike.*${s}*`
+    ).join(",");
+
+    // Combine: exact matches OR containing any filter sport
+    const orConditions = `${exactConditions},${likeConditions},sport.eq.multi`;
+
     const { data, error } = await supabase
       .from("courts")
       .select("id, name, lat, lng, address, sport, zone")
-      .or(
-        "sport.ilike.*basket*,sport.eq.basketball," +
-        "sport.ilike.*volleyball*,sport.eq.volleyball," +
-        "sport.ilike.*soccer*,sport.eq.soccer,sport.eq.futsal,sport.ilike.*futsal*," +
-        "sport.ilike.*tennis*,sport.eq.tennis," +
-        "sport.ilike.*padel*,sport.eq.padel," +
-        "sport.eq.multi"
-      )
+      .or(orConditions)
       .limit(10000);
 
     if (error) {
