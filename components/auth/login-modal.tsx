@@ -34,7 +34,16 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           email,
           password,
         });
-        if (error) throw error;
+        if (error) {
+          if (error.message.toLowerCase().includes("already registered") || error.message.toLowerCase().includes("user already exists")) {
+            setError("Email già registrata. Prova ad accedere.");
+            setIsSignUp(false);
+          } else {
+            setError(error.message);
+          }
+          setLoading(false);
+          return;
+        }
         setMessage("Controlla la tua email per confermare l'account.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -55,6 +64,13 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   const handleGoogleAuth = async () => {
     setLoading(true);
     setError(null);
+
+    const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!googleClientId || googleClientId === "your-google-client-id") {
+      setError("Accesso con Google non configurato. Usa email e password oppure contatta il supporto.");
+      setLoading(false);
+      return;
+    }
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
