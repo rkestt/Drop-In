@@ -6,7 +6,6 @@ export function DevSwReset() {
   const [isDev, setIsDev] = useState(false);
 
   useEffect(() => {
-    // Check if we're in development mode (client-side check)
     const checkDev = () => {
       const dev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
       setIsDev(dev);
@@ -24,9 +23,22 @@ export function DevSwReset() {
           await reg.unregister();
         }
 
-        // Register fresh dev sw with cache-bust query
         const swUrl = "/dev-sw.js?" + Date.now();
-        await navigator.serviceWorker.register(swUrl, { scope: "/" });
+        const reg = await navigator.serviceWorker.register(swUrl, { scope: "/" });
+
+        reg.addEventListener('updatefound', () => {
+          const newSw = reg.installing;
+          if (newSw) {
+            newSw.addEventListener('statechange', () => {
+              if (newSw.state === 'activated') {
+                // Cache the current page for offline use
+                caches.open('dev-dropin-' + DEV_SW_VERSION).then((cache) => {
+                  cache.add(window.location.href);
+                });
+              }
+            });
+          }
+        });
 
         console.log("Dev SW registered:", swUrl);
       } catch (err) {
@@ -34,7 +46,6 @@ export function DevSwReset() {
       }
     };
 
-    // Reset on every page load in dev
     resetSw();
   }, []);
 
@@ -42,3 +53,5 @@ export function DevSwReset() {
 
   return null;
 }
+
+const DEV_SW_VERSION = 'dev-v3';
