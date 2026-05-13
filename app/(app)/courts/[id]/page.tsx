@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { CheckInButton } from "@/components/check-in/check-in-button";
 import { CreateLobbyButton } from "@/components/lobby/create-lobby-button";
-import { LobbyChat } from "@/components/lobby/lobby-chat";
 import { ReportButton } from "@/components/report/report-button";
 import { LoginPrompt } from "@/components/auth/login-prompt";
 import { BanBannerWrapper } from "@/components/karma/ban-banner-wrapper";
@@ -365,13 +364,6 @@ export default async function CourtPage({
                         lobby={lp}
                         userId={user?.id}
                       />
-                      {user && (
-                        <LobbyChat
-                          lobbyId={lp.id}
-                          userId={user.id}
-                          maxHeight={300}
-                        />
-                      )}
                     </div>
                   );
                 })}

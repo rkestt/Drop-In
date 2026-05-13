@@ -12,9 +12,18 @@ export default async function LobbiesPage() {
   }
 
 const now = new Date().toISOString();
+
+  const { data: participations } = await supabase
+    .from("lobby_participants")
+    .select("lobby_id")
+    .eq("user_id", user.id);
+
+  const lobbyIds = participations?.map((p) => p.lobby_id) ?? [];
+
   const { data: lobbies } = await supabase
     .from("lobbies")
     .select("*, courts(name)")
+    .in("id", lobbyIds)
     .eq("status", "open")
     .gte("start_time", now)
     .order("start_time", { ascending: true });

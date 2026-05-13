@@ -23,6 +23,7 @@ interface LobbyJoinCardProps {
 
 export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
   const [joining, setJoining] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [alreadyJoined, setAlreadyJoined] = useState(false);
   const [loadingJoined, setLoadingJoined] = useState(!userId);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +90,30 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
       setError(msg);
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!userId) return;
+    setLeaving(true);
+    setError(null);
+
+    try {
+      const { error: deleteError } = await supabase
+        .from("lobby_participants")
+        .delete()
+        .eq("lobby_id", lobby.id)
+        .eq("user_id", userId);
+
+      if (deleteError) throw deleteError;
+
+      setAlreadyJoined(false);
+      router.refresh();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Errore durante l'abbandono.";
+      setError(msg);
+    } finally {
+      setLeaving(false);
     }
   };
 
@@ -182,23 +207,42 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
 
       {/* Join button */}
       {lobby.status === "open" && (
-        <Button
-          variant={alreadyJoined ? "secondary" : "primary"}
-          size="sm"
-          className="w-full"
-          onClick={handleJoin}
-          disabled={joining || isFull || alreadyJoined || loadingJoined}
-        >
-          {loadingJoined
-            ? "..."
-            : joining
-            ? "Unione..."
-            : alreadyJoined
-            ? "Sei dentro"
-            : isFull
-            ? "Al completo"
-            : "Entra nella partita"}
-        </Button>
+        loadingJoined ? (
+          <Button variant="primary" size="sm" className="w-full" disabled>
+            ...
+          </Button>
+        ) : alreadyJoined ? (
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="flex-1"
+              disabled
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Sei dentro
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLeave}
+              disabled={leaving}
+              className="flex-shrink-0 text-[var(--danger)]"
+            >
+              {leaving ? "..." : "Abbandona"}
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="primary"
+            size="sm"
+            className="w-full"
+            onClick={handleJoin}
+            disabled={joining || isFull || loadingJoined}
+          >
+            {joining ? "Unione..." : isFull ? "Al completo" : "Entra nella partita"}
+          </Button>
+        )
       )}
     </div>
   );

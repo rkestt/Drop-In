@@ -11,7 +11,6 @@ import { LoginModal } from "@/components/auth/login-modal";
 import { BanBanner } from "@/components/karma/ban-banner";
 import { Button } from "@/components/ui/button";
 import { QuickCreateFAB } from "@/components/ui/fab";
-import { QuickCreateSheet } from "@/components/ui/quick-create";
 import { RecentCourtsSheet } from "@/components/ui/recent-courts-sheet";
 import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +49,6 @@ export default function HomePage() {
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [loading, setLoading] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
-  const [showQuickCreate, setShowQuickCreate] = useState(false);
   const [showRecentCourts, setShowRecentCourts] = useState(false);
 
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
@@ -479,31 +477,6 @@ export default function HomePage() {
         recentCourts={recentCourts}
         favoriteIds={favoriteIds}
         onToggleFavorite={toggleFavorite}
-      />
-
-      {/* Quick Create Sheet */}
-      <QuickCreateSheet
-        open={showQuickCreate}
-        onClose={() => {
-          setShowQuickCreate(false);
-        }}
-        onSubmit={async (data) => {
-          if (!user || !data.courtId) return;
-
-          const { error } = await supabase.from("lobbies").insert({
-            court_id: data.courtId,
-            creator_id: user.id,
-            start_time: data.startTime,
-            max_players: data.maxPlayers,
-            status: "open",
-          });
-
-          if (error) {
-            console.error("Error creating lobby:", error);
-          }
-        }}
-        initialCourtId={undefined}
-        allCourts={courts}
       />
     </main>
   );
