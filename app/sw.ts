@@ -25,6 +25,21 @@ const serwist = new Serwist({
       handler: new NetworkOnly(),
     },
     {
+      matcher: ({ request }) => {
+        const url = new URL(request.url);
+        return url.pathname.startsWith('/api/courts');
+      },
+      handler: new CacheFirst({
+        cacheName: "courts-api",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 10,
+            maxAgeSeconds: 60 * 60,
+          }),
+        ],
+      }),
+    },
+    {
       matcher: /^https:\/\/.*\.tile\.openstreetmap\.org\/.*$/,
       handler: new CacheFirst({
         cacheName: "map-tiles",

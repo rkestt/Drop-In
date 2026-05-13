@@ -92,7 +92,7 @@ const getLabelLayout = () => ({
   "text-field": "{point_count_abbreviated}",
   "text-font": ["Arial Unicode MS Bold", "Open Sans Bold"] as [string, string],
   "text-size": 14,
-  "text-anchor": "center",
+  "text-anchor": "center" as const,
 });
 
 export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lobbyCounts = {}, lobbies = [], sportConfig: _sportConfig }: CourtMapProps) {
@@ -412,30 +412,30 @@ const handleClick = (e: maplibregl.MapMouseEvent) => {
       popupRef.current?.remove();
     };
 
-    map.current.on("click", handleClick);
-    map.current.on("mouseenter", CLUSTER_LAYER_ID, handleMouseEnter);
-    map.current.on("mouseleave", CLUSTER_LAYER_ID, handleMouseLeave);
-    // Add event listeners for all sport layers
+    const mapInstance = map.current;
+    mapInstance.on("click", handleClick);
+    mapInstance.on("mouseenter", CLUSTER_LAYER_ID, handleMouseEnter);
+    mapInstance.on("mouseleave", CLUSTER_LAYER_ID, handleMouseLeave);
     SPORTS_LIST.forEach((sport) => {
-      map.current.on("mouseenter", `${CIRCLE_LAYER_ID}-${sport}`, handleMouseEnter);
-      map.current.on("mouseleave", `${CIRCLE_LAYER_ID}-${sport}`, handleMouseLeave);
-      map.current.on("mouseenter", `${CIRCLE_LAYER_ID}-${sport}-shadow`, handleMouseEnter);
-      map.current.on("mouseleave", `${CIRCLE_LAYER_ID}-${sport}-shadow`, handleMouseLeave);
+      mapInstance.on("mouseenter", `${CIRCLE_LAYER_ID}-${sport}`, handleMouseEnter);
+      mapInstance.on("mouseleave", `${CIRCLE_LAYER_ID}-${sport}`, handleMouseLeave);
+      mapInstance.on("mouseenter", `${CIRCLE_LAYER_ID}-${sport}-shadow`, handleMouseEnter);
+      mapInstance.on("mouseleave", `${CIRCLE_LAYER_ID}-${sport}-shadow`, handleMouseLeave);
     });
 
     return () => {
       if (!map.current) return;
-      map.current.off("click", handleClick);
-      map.current.off("mouseenter", CLUSTER_LAYER_ID, handleMouseEnter);
-      map.current.off("mouseleave", CLUSTER_LAYER_ID, handleMouseLeave);
-      map.current.off("mouseenter", CLUSTER_LAYER_ID + "-outer", handleMouseEnter);
-      map.current.off("mouseleave", CLUSTER_LAYER_ID + "-outer", handleMouseLeave);
-      // Remove listeners for all sport layers
+      const cleanupMap = map.current;
+      cleanupMap.off("click", handleClick);
+      cleanupMap.off("mouseenter", CLUSTER_LAYER_ID, handleMouseEnter);
+      cleanupMap.off("mouseleave", CLUSTER_LAYER_ID, handleMouseLeave);
+      cleanupMap.off("mouseenter", CLUSTER_LAYER_ID + "-outer", handleMouseEnter);
+      cleanupMap.off("mouseleave", CLUSTER_LAYER_ID + "-outer", handleMouseLeave);
       SPORTS_LIST.forEach((sport) => {
-        map.current?.off("mouseenter", `${CIRCLE_LAYER_ID}-${sport}`, handleMouseEnter);
-        map.current?.off("mouseleave", `${CIRCLE_LAYER_ID}-${sport}`, handleMouseLeave);
-        map.current?.off("mouseenter", `${CIRCLE_LAYER_ID}-${sport}-shadow`, handleMouseEnter);
-        map.current?.off("mouseleave", `${CIRCLE_LAYER_ID}-${sport}-shadow`, handleMouseLeave);
+        cleanupMap.off("mouseenter", `${CIRCLE_LAYER_ID}-${sport}`, handleMouseEnter);
+        cleanupMap.off("mouseleave", `${CIRCLE_LAYER_ID}-${sport}`, handleMouseLeave);
+        cleanupMap.off("mouseenter", `${CIRCLE_LAYER_ID}-${sport}-shadow`, handleMouseEnter);
+        cleanupMap.off("mouseleave", `${CIRCLE_LAYER_ID}-${sport}-shadow`, handleMouseLeave);
       });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

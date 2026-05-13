@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { getCachedCourts, setCachedCourts } from "@/lib/cache/courts";
-import { createClient } from "@/lib/supabase/client";
 import type { Court } from "@/lib/cache/types";
 import { USE_COURT_CACHE } from "@/lib/cache/types";
 
@@ -8,7 +7,6 @@ export function useCourtCache() {
   const [courts, setCourts] = useState<Court[]>([]);
   const [loading, setLoading] = useState(true);
   const [isStale, setIsStale] = useState(false);
-  const supabase = createClient();
 
   useEffect(() => {
     let cancelled = false;
@@ -32,23 +30,20 @@ export function useCourtCache() {
 
     const fetchFresh = async () => {
       try {
-        const { data } = await supabase
-          .from("courts")
-          .select("id, name, lat, lng, address, sport, zone")
-          .or(
-            "sport.ilike.*basket*,sport.eq.basketball," +
-            "sport.ilike.*volleyball*,sport.eq.volleyball," +
-            "sport.ilike.*soccer*,sport.eq.soccer,sport.eq.futsal,sport.ilike.*futsal*," +
-            "sport.ilike.*tennis*,sport.eq.tennis," +
-            "sport.ilike.*padel*,sport.eq.padel," +
-            "sport.eq.multi"
-          )
-          .limit(10000);
+        const response = await fetch("/api/courts", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
 
         if (!cancelled) {
-          if (data) {
-            setCachedCourts(data as Court[]);
-            setCourts(data as Court[]);
+          if (result.data) {
+            setCachedCourts(result.data as Court[]);
+            setCourts(result.data as Court[]);
           }
           setIsStale(false);
         }
@@ -69,7 +64,7 @@ export function useCourtCache() {
     return () => {
       cancelled = true;
     };
-  }, [supabase]);
+  }, []);
 
   return { courts, loading, isStale };
 }
