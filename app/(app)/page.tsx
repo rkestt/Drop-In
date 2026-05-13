@@ -57,14 +57,20 @@ export default function HomePage() {
     return counts;
   }, [lobbies]);
 
+  // All available sport filters (these are the only ones with UI buttons)
+  const FILTER_SPORTS = ["basketball", "volleyball", "soccer", "tennis", "padel"] as const;
+
   // Filter courts by selected sport
+  // When ALL filter sports are selected, show ALL courts (same as "Tutti")
   const filteredCourts = useMemo(() => {
-    if (selectedSports.length > 0) {
-      return courts.filter(
-        (c) => c.sport && selectedSports.some((s) => c.sport!.includes(s))
-      );
+    // If no filters selected OR all filters selected, show all courts
+    if (selectedSports.length === 0 || selectedSports.length === FILTER_SPORTS.length) {
+      return courts;
     }
-    return courts;
+    // Otherwise, filter by selected sports
+    return courts.filter(
+      (c) => c.sport && selectedSports.some((s) => c.sport!.includes(s))
+    );
   }, [courts, selectedSports]);
 
   // Today's lobbies only (for hero card) - with sorting
@@ -234,7 +240,18 @@ export default function HomePage() {
 
         {/* Desktop sport filter chips */}
         <div className="flex items-center gap-1.5 ml-2">
-          {["basketball","volleyball","soccer","tennis","padel"].map((s) => (
+          {/* "Tutti" button - shows all when active or when all filters are selected */}
+          <button
+            onClick={() => setSelectedSports(FILTER_SPORTS as unknown as string[])}
+            className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
+              selectedSports.length === 0
+                ? "bg-[var(--accent)] text-white border-transparent"
+                : "text-[var(--text-secondary)] border-[var(--cool-muted)]/30 bg-[var(--bg-elevated)] hover:border-[var(--cool-muted)]/50"
+            }`}
+          >
+            Tutti
+          </button>
+          {FILTER_SPORTS.map((s) => (
             <button
               key={s}
               onClick={() =>
@@ -286,7 +303,18 @@ export default function HomePage() {
           {/* MOBILE only: sport filter chips */}
           <div className="lg:hidden px-3 pt-3 pb-2 flex-shrink-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              {["basketball","volleyball","soccer","tennis","padel"].map((s) => (
+              {/* "Tutti" button - shows all when active or when all filters are selected */}
+              <button
+                onClick={() => setSelectedSports(FILTER_SPORTS as unknown as string[])}
+                className={`px-2 py-1 rounded-full text-xs font-semibold border ${
+                  selectedSports.length === 0
+                    ? "bg-[var(--accent)] text-white border-transparent"
+                    : "text-[var(--text-secondary)] border-[var(--cool-muted)]/30 bg-[var(--bg-elevated)]"
+                }`}
+              >
+                Tutti
+              </button>
+              {FILTER_SPORTS.map((s) => (
                 <button
                   key={s}
                   onClick={() =>
