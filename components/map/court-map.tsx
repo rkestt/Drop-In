@@ -60,6 +60,13 @@ const SPORT_COLORS: Record<string, string> = {
 
 const SPORTS_LIST = Object.keys(SPORT_COLORS);
 
+const getSportKey = (sport: string): string => {
+  if (!sport) return "other";
+  const normalized = sport.toLowerCase().trim();
+  if (SPORT_COLORS[normalized]) return normalized;
+  return "other";
+};
+
 // Create shadow layer paint for a given sport
 const getMarkerShadowPaint = (sport: string) => {
   const color = SPORT_COLORS[sport] || "#6b7280";
@@ -128,7 +135,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         address: court.address ?? "",
         lobbyCount: lobbyCounts[court.id] ?? 0,
         isReported: reportedCourtIds.includes(court.id),
-        sport: court.sport ?? "basketball",
+        sport: getSportKey(court.sport ?? ""),
       },
     })),
   }), [courts, lobbyCounts, reportedCourtIds]);
@@ -328,8 +335,9 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
               const pointsArray = leaves?.map(leaf => ({
                 lng: (leaf.geometry as GeoJSON.Point).coordinates[0],
                 lat: (leaf.geometry as GeoJSON.Point).coordinates[1],
-                sport: leaf.properties?.sport ?? "unknown",
+                sport: getSportKey(leaf.properties?.sport ?? ""),
                 name: leaf.properties?.name ?? "unknown",
+                originalSport: leaf.properties?.sport ?? "",
               })) ?? [];
 
               // Get expansion zoom
@@ -680,6 +688,9 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
                   <div className="flex justify-between">
                     <span className="text-white">{point.name}</span>
                     <span className="text-[var(--accent)]">{point.sport}</span>
+                  </div>
+                  <div className="text-[var(--text-muted)] text-xs">
+                    Originale: {point.originalSport || "(vuoto)"}
                   </div>
                   <div className="text-[var(--text-muted)]">
                     📍 {point.lat.toFixed(6)}, {point.lng.toFixed(6)}
