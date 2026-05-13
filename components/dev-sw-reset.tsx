@@ -54,4 +54,4 @@ export function DevSwReset() {
   return null;
 }
 
-const DEV_SW_VERSION = 'dev-v3';
+const DEV_SW_VERSION = 'dev-v4';
