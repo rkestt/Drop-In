@@ -290,9 +290,17 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
       console.log("[DEBUG] Map clicked at:", e.lngLat);
 
       // Check for cluster click first (check both outer and inner layers)
-      const clusterFeatures = map.current.queryRenderedFeatures(e.point, {
-        layers: [CLUSTER_LAYER_ID, CLUSTER_LAYER_ID + "-outer"],
+      const clusterLayerIds = [CLUSTER_LAYER_ID, CLUSTER_LAYER_ID + "-outer"].filter(layerId => {
+        if (!map.current) return false;
+        const layer = map.current.getLayer(layerId);
+        return !!layer;
       });
+
+      const clusterFeatures = clusterLayerIds.length > 0
+        ? map.current.queryRenderedFeatures(e.point, {
+            layers: clusterLayerIds,
+          })
+        : [];
 
       console.log("[DEBUG] Cluster features found:", clusterFeatures.length);
       
@@ -371,7 +379,15 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
       const sportLayers = SPORTS_LIST.flatMap(s => [
         `${CIRCLE_LAYER_ID}-${s}`,
         `${CIRCLE_LAYER_ID}-${s}-shadow`
-      ]);
+      ]).filter(layerId => {
+        // Only query layers that exist
+        if (!map.current) return false;
+        const layer = map.current.getLayer(layerId);
+        return !!layer;
+      });
+
+      if (sportLayers.length === 0) return;
+
       const features = map.current.queryRenderedFeatures(e.point, {
         layers: sportLayers,
       });
