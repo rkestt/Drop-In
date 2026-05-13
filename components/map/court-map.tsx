@@ -298,9 +298,13 @@ const handleClick = (e: maplibregl.MapMouseEvent) => {
         return;
       }
 
-      // Check for individual marker click
+      // Check for individual marker click (query all sport layers)
+      const sportLayers = SPORTS_LIST.flatMap(s => [
+        `${CIRCLE_LAYER_ID}-${s}`,
+        `${CIRCLE_LAYER_ID}-${s}-shadow`
+      ]);
       const features = map.current.queryRenderedFeatures(e.point, {
-        layers: [CIRCLE_LAYER_ID],
+        layers: sportLayers,
       });
       if (!features.length) return;
       const feature = features[0];
