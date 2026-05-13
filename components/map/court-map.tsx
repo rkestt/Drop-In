@@ -284,13 +284,17 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
-const handleClick = (e: maplibregl.MapMouseEvent) => {
+    const handleClick = (e: maplibregl.MapMouseEvent) => {
       if (!map.current) return;
-      
+
+      console.log("[DEBUG] Map clicked at:", e.lngLat);
+
       // Check for cluster click first (check both outer and inner layers)
       const clusterFeatures = map.current.queryRenderedFeatures(e.point, {
         layers: [CLUSTER_LAYER_ID, CLUSTER_LAYER_ID + "-outer"],
       });
+
+      console.log("[DEBUG] Cluster features found:", clusterFeatures.length);
       
       if (clusterFeatures.length) {
         const coords = clusterFeatures[0].geometry;
@@ -300,51 +304,59 @@ const handleClick = (e: maplibregl.MapMouseEvent) => {
           const clusterId = clusterFeatures[0].properties?.cluster_id;
           const pointCount = clusterFeatures[0].properties?.point_count ?? 0;
 
+          console.log("[DEBUG] Cluster clicked:", { clusterId, pointCount, coordinates });
+
           // Get source to get cluster expansion zoom and leaves
           const source = map.current.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
-          let expansionZoom = currentZoom + 2;
-          let points: Array<{ lng: number; lat: number; sport: string; name: string }> = [];
 
           if (source && clusterId !== undefined) {
-            // Get expansion zoom
-            source.getClusterExpansionZoom(clusterId).then(zoom => {
-              expansionZoom = zoom;
-            }).catch(() => {});
-
-            // Get all points in cluster
+            // Get all points in cluster first
             source.getClusterLeaves(clusterId, 1000, 0).then(leaves => {
-              if (leaves) {
-                points = leaves.map(leaf => ({
-                  lng: (leaf.geometry as GeoJSON.Point).coordinates[0],
-                  lat: (leaf.geometry as GeoJSON.Point).coordinates[1],
-                  sport: leaf.properties?.sport ?? "unknown",
-                  name: leaf.properties?.name ?? "unknown",
-                }));
-              }
+              console.log("[DEBUG] Cluster leaves:", leaves);
+              const pointsArray = leaves?.map(leaf => ({
+                lng: (leaf.geometry as GeoJSON.Point).coordinates[0],
+                lat: (leaf.geometry as GeoJSON.Point).coordinates[1],
+                sport: leaf.properties?.sport ?? "unknown",
+                name: leaf.properties?.name ?? "unknown",
+              })) ?? [];
 
-              // Show debug panel
-              setDebugInfo({
-                show: true,
-                clusterId,
-                pointCount,
-                expansionZoom,
-                currentZoom: currentZoom + 2,
-                points,
+              // Get expansion zoom
+              return source.getClusterExpansionZoom(clusterId).then(zoom => {
+                console.log("[DEBUG] Expansion zoom:", zoom);
+                setDebugInfo({
+                  show: true,
+                  clusterId,
+                  pointCount,
+                  expansionZoom: zoom,
+                  currentZoom: currentZoom + 2,
+                  points: pointsArray,
+                });
+
+                setTimeout(() => setDebugInfo(null), 8000);
               });
-
-              // Hide after 8 seconds
-              setTimeout(() => setDebugInfo(null), 8000);
-            }).catch(() => {
+            }).catch(err => {
+              console.error("[DEBUG] Cluster error:", err);
               setDebugInfo({
                 show: true,
                 clusterId,
                 pointCount,
-                expansionZoom,
+                expansionZoom: currentZoom + 2,
                 currentZoom: currentZoom + 2,
                 points: [],
               });
               setTimeout(() => setDebugInfo(null), 8000);
             });
+          } else {
+            console.log("[DEBUG] No source or clusterId:", { source: !!source, clusterId });
+            setDebugInfo({
+              show: true,
+              clusterId,
+              pointCount,
+              expansionZoom: currentZoom + 2,
+              currentZoom: currentZoom + 2,
+              points: [],
+            });
+            setTimeout(() => setDebugInfo(null), 8000);
           }
 
           map.current.easeTo({
