@@ -103,6 +103,14 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
   const [, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<{
+    show: boolean;
+    clusterId?: number;
+    pointCount?: number;
+    expansionZoom?: number;
+    currentZoom?: number;
+    points?: Array<{ lng: number; lat: number; sport: string; name: string }>;
+  } | null>(null);
 
   // Build GeoJSON from courts prop — memoize to avoid re-creating on every render
   const geojson = useMemo(() => ({
@@ -289,7 +297,56 @@ const handleClick = (e: maplibregl.MapMouseEvent) => {
         if (coords && coords.type === "Point") {
           const coordinates = coords.coordinates as [number, number];
           const currentZoom = map.current.getZoom();
-          
+          const clusterId = clusterFeatures[0].properties?.cluster_id;
+          const pointCount = clusterFeatures[0].properties?.point_count ?? 0;
+
+          // Get source to get cluster expansion zoom and leaves
+          const source = map.current.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+          let expansionZoom = currentZoom + 2;
+          let points: Array<{ lng: number; lat: number; sport: string; name: string }> = [];
+
+          if (source && clusterId !== undefined) {
+            // Get expansion zoom
+            source.getClusterExpansionZoom(clusterId).then(zoom => {
+              expansionZoom = zoom;
+            }).catch(() => {});
+
+            // Get all points in cluster
+            source.getClusterLeaves(clusterId, 1000, 0).then(leaves => {
+              if (leaves) {
+                points = leaves.map(leaf => ({
+                  lng: (leaf.geometry as GeoJSON.Point).coordinates[0],
+                  lat: (leaf.geometry as GeoJSON.Point).coordinates[1],
+                  sport: leaf.properties?.sport ?? "unknown",
+                  name: leaf.properties?.name ?? "unknown",
+                }));
+              }
+
+              // Show debug panel
+              setDebugInfo({
+                show: true,
+                clusterId,
+                pointCount,
+                expansionZoom,
+                currentZoom: currentZoom + 2,
+                points,
+              });
+
+              // Hide after 8 seconds
+              setTimeout(() => setDebugInfo(null), 8000);
+            }).catch(() => {
+              setDebugInfo({
+                show: true,
+                clusterId,
+                pointCount,
+                expansionZoom,
+                currentZoom: currentZoom + 2,
+                points: [],
+              });
+              setTimeout(() => setDebugInfo(null), 8000);
+            });
+          }
+
           map.current.easeTo({
             center: coordinates,
             zoom: Math.min(currentZoom + 2, 18),
@@ -531,7 +588,75 @@ const handleClick = (e: maplibregl.MapMouseEvent) => {
         .court-popup .maplibregl-popup-tip {
           border-top-color: var(--bg-elevated, #1e2e1e);
         }
+        @keyframes debug-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
       `}</style>
+
+      {/* Cluster Debug Panel */}
+      {debugInfo?.show && (
+        <div
+          className="absolute top-4 left-4 right-4 bg-[var(--bg-elevated)] rounded-xl p-4 shadow-xl z-20 border border-[var(--accent)]"
+          style={{ maxHeight: "80%", overflow: "auto", animation: "debug-pulse 2s infinite" }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold font-[family-name:var(--font-syne)] text-sm text-[var(--accent)]">
+              🔍 Cluster Debug
+            </h3>
+            <button
+              onClick={() => setDebugInfo(null)}
+              className="text-xs text-[var(--text-muted)] hover:text-white"
+            >
+              ✕ Chiudi
+            </button>
+          </div>
+
+          <div className="space-y-2 text-xs font-mono">
+            <div className="flex justify-between">
+              <span className="text-[var(--text-muted)]">Cluster ID:</span>
+              <span className="text-white">{debugInfo.clusterId}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[var(--text-muted)]">Punti nel cluster:</span>
+              <span className="text-[var(--accent)] font-bold">{debugInfo.pointCount}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[var(--text-muted)]">Zoom attuale:</span>
+              <span className="text-white">{debugInfo.currentZoom?.toFixed(1)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[var(--text-muted)]">Expansion zoom:</span>
+              <span className="text-white">{debugInfo.expansionZoom?.toFixed(1)}</span>
+            </div>
+
+            <div className="border-t border-[var(--cool-muted)]/30 pt-2 mt-2">
+              <span className="text-[var(--text-muted)] block mb-2">Punti nel cluster:</span>
+              {debugInfo.points?.map((point, i) => (
+                <div key={i} className="bg-[var(--bg-surface)] rounded p-2 mb-1">
+                  <div className="flex justify-between">
+                    <span className="text-white">{point.name}</span>
+                    <span className="text-[var(--accent)]">{point.sport}</span>
+                  </div>
+                  <div className="text-[var(--text-muted)]">
+                    📍 {point.lat.toFixed(6)}, {point.lng.toFixed(6)}
+                  </div>
+                  {i > 0 && debugInfo.points?.[0] && (
+                    <div className={`text-xs mt-1 ${Math.abs(point.lat - debugInfo.points[0].lat) < 0.00001 && Math.abs(point.lng - debugInfo.points[0].lng) < 0.00001 ? "text-[var(--danger)]" : "text-[var(--success)]"}`}>
+                      {Math.abs(point.lat - debugInfo.points[0].lat) < 0.00001 && Math.abs(point.lng - debugInfo.points[0].lng) < 0.00001
+                        ? "⚠️ STESSE COORDINATE!"
+                        : "✓ Coordinate diverse"}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {(!debugInfo.points || debugInfo.points.length === 0) && (
+                <div className="text-[var(--warning)]">⏳ Caricamento punti...</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
