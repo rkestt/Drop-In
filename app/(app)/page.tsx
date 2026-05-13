@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useCourtCache } from "@/lib/hooks/useCourtCache";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { CourtMap } from "@/components/map/court-map";
 import { LoginModal } from "@/components/auth/login-modal";
@@ -39,9 +40,9 @@ interface Lobby {
 
 export default function HomePage() {
   const { courts } = useCourtCache();
+  const { user } = useAuth();
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
@@ -146,10 +147,6 @@ export default function HomePage() {
           }));
 
         setLobbies(formattedLobbies);
-
-        // Check auth
-        const { data: authData } = await supabase.auth.getUser();
-        setUser(authData.user);
       } catch (err) {
         console.error("Error fetching data:", err);
       } finally {
