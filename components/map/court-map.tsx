@@ -52,6 +52,10 @@ const SPORT_COLORS: Record<string, string> = {
   badminton: "#8b5cf6",
   baseball: "#fb923c",
   hockey: "#0ea5e9",
+  futsal: "#22c55e",
+  multi: "#6366f1",
+  padel: "#06b6d4",
+  other: "#6b7280",
 };
 
 const SPORTS_LIST = Object.keys(SPORT_COLORS);
