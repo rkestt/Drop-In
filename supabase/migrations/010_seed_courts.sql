@@ -1,4 +1,3 @@
-@reportscript_seed_courts.sql
 -- Auto-generated seed: 3768 courts
 BEGIN;
 
