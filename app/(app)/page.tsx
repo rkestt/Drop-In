@@ -8,6 +8,8 @@ import { CourtMap } from "@/components/map/court-map";
 import { LoginModal } from "@/components/auth/login-modal";
 import { BanBanner } from "@/components/karma/ban-banner";
 import { Button } from "@/components/ui/button";
+import { QuickCreateFAB } from "@/components/ui/fab";
+import { QuickCreateSheet } from "@/components/ui/quick-create";
 import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -44,6 +46,8 @@ export default function HomePage() {
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [loading, setLoading] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
+  const [quickCreateCourtId, setQuickCreateCourtId] = useState<string | undefined>();
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"time" | "distance" | "spots">("time");
@@ -438,6 +442,45 @@ export default function HomePage() {
       </div>
 
       <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
+
+      {/* FAB - Create Lobby */}
+      <QuickCreateFAB
+        onCreateClick={() => {
+          if (!user) {
+            setShowLogin(true);
+          } else {
+            setQuickCreateCourtId(undefined);
+            setShowQuickCreate(true);
+          }
+        }}
+        onSelectCourtClick={() => {
+          if (!user) {
+            setShowLogin(true);
+          }
+        }}
+      />
+
+      {/* Quick Create Sheet */}
+      <QuickCreateSheet
+        open={showQuickCreate}
+        onClose={() => setShowQuickCreate(false)}
+        onSubmit={async (data) => {
+          if (!user || !data.courtId) return;
+
+          const { error } = await supabase.from("lobbies").insert({
+            court_id: data.courtId,
+            creator_id: user.id,
+            start_time: data.startTime,
+            max_players: data.maxPlayers,
+            status: "open",
+          });
+
+          if (error) {
+            console.error("Error creating lobby:", error);
+          }
+        }}
+        initialCourtId={quickCreateCourtId}
+      />
     </main>
   );
 }
