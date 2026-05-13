@@ -450,16 +450,21 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
       map.current.getCanvas().style.cursor = "pointer";
 
       // Check for cluster first
-      const clusterFeatures = map.current.queryRenderedFeatures(e.point, {
-        layers: [CLUSTER_LAYER_ID],
+      const clusterLayers = [CLUSTER_LAYER_ID].filter(layerId => {
+        const layer = map.current?.getLayer(layerId);
+        return !!layer;
       });
-      
+
+      const clusterFeatures = clusterLayers.length > 0
+        ? map.current.queryRenderedFeatures(e.point, { layers: clusterLayers })
+        : [];
+
       if (clusterFeatures.length) {
         const props = clusterFeatures[0].properties;
         const pointCount = props?.point_count ?? 0;
         const lng = (clusterFeatures[0].geometry as GeoJSON.Point).coordinates[0];
         const lat = (clusterFeatures[0].geometry as GeoJSON.Point).coordinates[1];
-        
+
         popupRef.current
           ?.setLngLat([lng, lat])
           .setHTML(`<div style="font-family: inherit; padding: 4px 0;"><strong style="font-size: 13px;">${pointCount} campi</strong><div style="font-size: 11px; color: #6b7280; margin-top: 2px;">Clicca per espandere</div></div>`)
@@ -467,11 +472,17 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         return;
       }
 
-      // Individual marker - check all sport layers
+      // Individual marker - check all sport layers that exist
       const allCircleLayers = SPORTS_LIST.flatMap((sport) => [
         `${CIRCLE_LAYER_ID}-${sport}`,
         `${CIRCLE_LAYER_ID}-${sport}-shadow`,
-      ]);
+      ]).filter(layerId => {
+        const layer = map.current?.getLayer(layerId);
+        return !!layer;
+      });
+
+      if (allCircleLayers.length === 0) return;
+
       const features = map.current.queryRenderedFeatures(e.point, {
         layers: allCircleLayers,
       });
