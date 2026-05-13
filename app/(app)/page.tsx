@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useCourtCache } from "@/lib/hooks/useCourtCache";
 import { createClient } from "@/lib/supabase/client";
 import { CourtMap } from "@/components/map/court-map";
 import { LoginModal } from "@/components/auth/login-modal";
@@ -37,9 +38,9 @@ interface Lobby {
 }
 
 export default function HomePage() {
-  const [courts, setCourts] = useState<Court[]>([]);
+  const { courts } = useCourtCache();
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
@@ -63,8 +64,9 @@ export default function HomePage() {
   // Filter courts by selected sport
   // When ALL filter sports are selected, show ALL courts (same as "Tutti")
   const filteredCourts = useMemo(() => {
+    const totalSports = 5;
     // If no filters selected OR all filters selected, show all courts
-    if (selectedSports.length === 0 || selectedSports.length === FILTER_SPORTS.length) {
+    if (selectedSports.length === 0 || selectedSports.length === totalSports) {
       return courts;
     }
     // Otherwise, filter by selected sports
@@ -116,24 +118,6 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch courts for: basketball, volleyball, calcetto/futsal, tennis, padel (multi too)
-        // Fetch courts for: basketball, volleyball, calcetto/futsal, tennis, padel (multi too)
-        // Use .or() with .ilike() to catch courts with sport containing the keyword (e.g. "basketball;volleyball")
-        const { data } = await supabase
-          .from("courts")
-          .select("id, name, lat, lng, address, sport, zone")
-          .or(
-            "sport.ilike.*basket*,sport.eq.basketball," +
-            "sport.ilike.*volleyball*,sport.eq.volleyball," +
-            "sport.ilike.*soccer*,sport.eq.soccer,sport.eq.futsal,sport.ilike.*futsal*," +
-            "sport.ilike.*tennis*,sport.eq.tennis," +
-            "sport.ilike.*padel*,sport.eq.padel," +
-            "sport.eq.multi"
-          )
-          .limit(10000);
-        console.log("courts fetched:", data?.length ?? 0);
-        setCourts((data as Court[]) || []);
-
         // Fetch active lobbies (status=open AND start_time >= now)
         const now = new Date().toISOString();
         const { data: lobbiesData } = await supabase
@@ -210,7 +194,9 @@ export default function HomePage() {
     );
   }, []);
 
-  if (loading) {
+  const isInitialLoading = loading || courts.length === 0;
+
+  if (isInitialLoading) {
     return (
       <main
         className="flex-1 flex items-center justify-center"
