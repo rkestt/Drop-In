@@ -6,6 +6,7 @@ import { LobbyChat } from "@/components/lobby/lobby-chat";
 import { ReportButton } from "@/components/report/report-button";
 import { LoginPrompt } from "@/components/auth/login-prompt";
 import { BanBannerWrapper } from "@/components/karma/ban-banner-wrapper";
+import { FavoriteButtonWrapper } from "@/components/favorites/favorite-button-wrapper";
 import {
   MapPin, AlertTriangle, Users, Navigation, Layers, Zap,
   ExternalLink, ArrowLeft, SunDim
@@ -258,6 +259,7 @@ export default async function CourtPage({
                   courtLat={court.lat}
                   courtLng={court.lng}
                 />
+                <FavoriteButtonWrapper courtId={court.id} />
                 <ReportButton
                   courtId={court.id}
                   courtName={court.name}

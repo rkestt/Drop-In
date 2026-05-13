@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useCourtCache } from "@/lib/hooks/useCourtCache";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useRecentCourts } from "@/lib/hooks/useRecentCourts";
+import { useFavorites } from "@/lib/hooks/useFavorites";
 import { createClient } from "@/lib/supabase/client";
 import { CourtMap } from "@/components/map/court-map";
 import { LoginModal } from "@/components/auth/login-modal";
@@ -10,13 +12,13 @@ import { BanBanner } from "@/components/karma/ban-banner";
 import { Button } from "@/components/ui/button";
 import { QuickCreateFAB } from "@/components/ui/fab";
 import { QuickCreateSheet } from "@/components/ui/quick-create";
+import { RecentCourtsSheet } from "@/components/ui/recent-courts-sheet";
 import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
 import { Badge } from "@/components/ui/badge";
 import {
   Users,
   ChevronRight,
   Volleyball,
-  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
@@ -43,11 +45,14 @@ interface Lobby {
 export default function HomePage() {
   const { courts } = useCourtCache();
   const { user } = useAuth();
+  const { recentCourts, addRecent } = useRecentCourts();
+  const { favoriteIds, toggleFavorite } = useFavorites();
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [loading, setLoading] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showQuickCreate, setShowQuickCreate] = useState(false);
-  const [quickCreateCourtId, setQuickCreateCourtId] = useState<string | undefined>();
+  const [showRecentCourts, setShowRecentCourts] = useState(false);
+
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"time" | "distance" | "spots">("time");
@@ -277,6 +282,9 @@ export default function HomePage() {
             reportedCourtIds={reportedCourtIds}
             lobbyCounts={lobbyCounts}
             lobbies={lobbies}
+            onCourtClick={(court) => {
+              addRecent(court);
+            }}
             onCourtSelect={(id) => {
               window.location.href = `/courts/${id}`;
             }}
@@ -395,12 +403,17 @@ export default function HomePage() {
                 <p className="text-[var(--text-muted)] text-xs mt-1">
                   Sii il primo a crearne una!
                 </p>
-                <Link href="/dashboard/profile" className="inline-block mt-4">
-                  <Button size="sm" variant="primary">
-                    <Zap className="w-4 h-4" />
-                    Crea partita
-                  </Button>
-                </Link>
+                <div className="mt-4">
+                  <QuickCreateFAB
+                    onClick={() => {
+                      if (!user) {
+                        setShowLogin(true);
+                      } else {
+                        setShowRecentCourts(true);
+                      }
+                    }}
+                  />
+                </div>
               </div>
             ) : (
               <>
@@ -426,16 +439,15 @@ export default function HomePage() {
           {/* CTA sticky at bottom of sidebar */}
           {lobbies.length > 0 && (
             <div className="flex-shrink-0 p-3 border-t border-[var(--cool-muted)]/20">
-              <Link href="/dashboard/profile">
-                <Button
-                  variant="primary"
-                  className="w-full"
-                  size="default"
-                >
-                  <Zap className="w-4 h-4" />
-                  Crea una partita
-                </Button>
-              </Link>
+              <QuickCreateFAB
+                onClick={() => {
+                  if (!user) {
+                    setShowLogin(true);
+                  } else {
+                    setShowRecentCourts(true);
+                  }
+                }}
+              />
             </div>
           )}
         </div>
@@ -443,27 +455,38 @@ export default function HomePage() {
 
       <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
 
-      {/* FAB - Create Lobby */}
-      <QuickCreateFAB
-        onCreateClick={() => {
-          if (!user) {
-            setShowLogin(true);
-          } else {
-            setQuickCreateCourtId(undefined);
-            setShowQuickCreate(true);
-          }
+      {/* FAB - fixed bottom on mobile, inline in sidebar on desktop */}
+      <div className="lg:hidden fixed bottom-20 left-3 right-3 z-30">
+        <QuickCreateFAB
+          onClick={() => {
+            if (!user) {
+              setShowLogin(true);
+            } else {
+              setShowRecentCourts(true);
+            }
+          }}
+        />
+      </div>
+
+      {/* Recent Courts Sheet */}
+      <RecentCourtsSheet
+        open={showRecentCourts}
+        onClose={() => setShowRecentCourts(false)}
+        onSelectCourt={(courtId) => {
+          setShowRecentCourts(false);
+          window.location.href = `/courts/${courtId}`;
         }}
-        onSelectCourtClick={() => {
-          if (!user) {
-            setShowLogin(true);
-          }
-        }}
+        recentCourts={recentCourts}
+        favoriteIds={favoriteIds}
+        onToggleFavorite={toggleFavorite}
       />
 
       {/* Quick Create Sheet */}
       <QuickCreateSheet
         open={showQuickCreate}
-        onClose={() => setShowQuickCreate(false)}
+        onClose={() => {
+          setShowQuickCreate(false);
+        }}
         onSubmit={async (data) => {
           if (!user || !data.courtId) return;
 
@@ -479,7 +502,8 @@ export default function HomePage() {
             console.error("Error creating lobby:", error);
           }
         }}
-        initialCourtId={quickCreateCourtId}
+        initialCourtId={undefined}
+        allCourts={courts}
       />
     </main>
   );
