@@ -125,14 +125,6 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
   const [, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<{
-    show: boolean;
-    clusterId?: number;
-    pointCount?: number;
-    expansionZoom?: number;
-    currentZoom?: number;
-    points?: Array<{ lng: number; lat: number; sport: string; name: string }>;
-  } | null>(null);
 
   // Build GeoJSON from courts prop — memoize to avoid re-creating on every render
   const geojson = useMemo(() => ({
@@ -325,7 +317,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         : [];
 
       console.log("[DEBUG] Cluster features found:", clusterFeatures.length);
-      
+
       if (clusterFeatures.length) {
         const coords = clusterFeatures[0].geometry;
         if (coords && coords.type === "Point") {
@@ -340,9 +332,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
           const source = map.current.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
 
           if (source && clusterId !== undefined) {
-            // Get all points in cluster first
             source.getClusterLeaves(clusterId, 1000, 0).then(leaves => {
-              console.log("[DEBUG] Cluster leaves:", leaves);
               const pointsArray = leaves?.map(leaf => ({
                 lng: (leaf.geometry as GeoJSON.Point).coordinates[0],
                 lat: (leaf.geometry as GeoJSON.Point).coordinates[1],
@@ -351,43 +341,11 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
                 originalSport: leaf.properties?.sport ?? "",
               })) ?? [];
 
-              // Get expansion zoom
-              return source.getClusterExpansionZoom(clusterId).then(zoom => {
-                console.log("[DEBUG] Expansion zoom:", zoom);
-                setDebugInfo({
-                  show: true,
-                  clusterId,
-                  pointCount,
-                  expansionZoom: zoom,
-                  currentZoom: currentZoom + 2,
-                  points: pointsArray,
-                });
-
-                setTimeout(() => setDebugInfo(null), 8000);
-              });
+              console.log("[CLUSTER DEBUG] Cluster ID:", clusterId, "| Points:", pointCount);
+              console.log("[CLUSTER DEBUG] Points:", pointsArray);
             }).catch(err => {
-              console.error("[DEBUG] Cluster error:", err);
-              setDebugInfo({
-                show: true,
-                clusterId,
-                pointCount,
-                expansionZoom: currentZoom + 2,
-                currentZoom: currentZoom + 2,
-                points: [],
-              });
-              setTimeout(() => setDebugInfo(null), 8000);
+              console.error("[CLUSTER DEBUG] Error:", err);
             });
-          } else {
-            console.log("[DEBUG] No source or clusterId:", { source: !!source, clusterId });
-            setDebugInfo({
-              show: true,
-              clusterId,
-              pointCount,
-              expansionZoom: currentZoom + 2,
-              currentZoom: currentZoom + 2,
-              points: [],
-            });
-            setTimeout(() => setDebugInfo(null), 8000);
           }
 
           map.current.easeTo({
@@ -650,78 +608,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
         .court-popup .maplibregl-popup-tip {
           border-top-color: var(--bg-elevated, #1e2e1e);
         }
-        @keyframes debug-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.7; }
-        }
       `}</style>
-
-      {/* Cluster Debug Panel */}
-      {debugInfo?.show && (
-        <div
-          className="absolute top-4 left-4 right-4 bg-[var(--bg-elevated)] rounded-xl p-4 shadow-xl z-20 border border-[var(--accent)]"
-          style={{ maxHeight: "80%", overflow: "auto", animation: "debug-pulse 2s infinite" }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold font-[family-name:var(--font-syne)] text-sm text-[var(--accent)]">
-              🔍 Cluster Debug
-            </h3>
-            <button
-              onClick={() => setDebugInfo(null)}
-              className="text-xs text-[var(--text-muted)] hover:text-white"
-            >
-              ✕ Chiudi
-            </button>
-          </div>
-
-          <div className="space-y-2 text-xs font-mono">
-            <div className="flex justify-between">
-              <span className="text-[var(--text-muted)]">Cluster ID:</span>
-              <span className="text-white">{debugInfo.clusterId}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[var(--text-muted)]">Punti nel cluster:</span>
-              <span className="text-[var(--accent)] font-bold">{debugInfo.pointCount}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[var(--text-muted)]">Zoom attuale:</span>
-              <span className="text-white">{debugInfo.currentZoom?.toFixed(1)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[var(--text-muted)]">Expansion zoom:</span>
-              <span className="text-white">{debugInfo.expansionZoom?.toFixed(1)}</span>
-            </div>
-
-            <div className="border-t border-[var(--cool-muted)]/30 pt-2 mt-2">
-              <span className="text-[var(--text-muted)] block mb-2">Punti nel cluster:</span>
-              {debugInfo.points?.map((point, i) => (
-                <div key={i} className="bg-[var(--bg-surface)] rounded p-2 mb-1">
-                  <div className="flex justify-between">
-                    <span className="text-white">{point.name}</span>
-                    <span className="text-[var(--accent)]">{point.sport}</span>
-                  </div>
-                  <div className="text-[var(--text-muted)] text-xs">
-                    Originale: {point.originalSport || "(vuoto)"}
-                  </div>
-                  <div className="text-[var(--text-muted)]">
-                    📍 {point.lat.toFixed(6)}, {point.lng.toFixed(6)}
-                  </div>
-                  {i > 0 && debugInfo.points?.[0] && (
-                    <div className={`text-xs mt-1 ${Math.abs(point.lat - debugInfo.points[0].lat) < 0.00001 && Math.abs(point.lng - debugInfo.points[0].lng) < 0.00001 ? "text-[var(--danger)]" : "text-[var(--success)]"}`}>
-                      {Math.abs(point.lat - debugInfo.points[0].lat) < 0.00001 && Math.abs(point.lng - debugInfo.points[0].lng) < 0.00001
-                        ? "⚠️ STESSE COORDINATE!"
-                        : "✓ Coordinate diverse"}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {(!debugInfo.points || debugInfo.points.length === 0) && (
-                <div className="text-[var(--warning)]">⏳ Caricamento punti...</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
