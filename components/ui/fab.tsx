@@ -11,7 +11,7 @@ interface QuickCreateFABProps {
 export function QuickCreateFAB({ onClick, className }: QuickCreateFABProps) {
   return (
     <div className={className}>
-      <Button onClick={onClick} className="w-full">
+      <Button onClick={onClick} className="w-full" size="sm">
         <Zap className="w-4 h-4" />
           Seleziona campo
       </Button>

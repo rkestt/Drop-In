@@ -290,7 +290,7 @@ export default function HomePage() {
         </div>
 
         {/* ── Right: sidebar (mobile: scrollable below, desktop: 40%) ── */}
-        <div className="flex flex-col flex-1 lg:w-[420px] lg:flex-shrink-0 bg-[var(--bg-base)] lg:border-l lg:border-[var(--cool-muted)]/20 overflow-hidden">
+        <div className="flex flex-col flex-1 min-h-[300px] lg:min-h-0 lg:w-[420px] lg:flex-shrink-0 bg-[var(--bg-base)] lg:border-l lg:border-[var(--cool-muted)]/20 overflow-hidden">
 
           {/* MOBILE only: sport filter chips */}
           <div className="lg:hidden px-3 pt-3 pb-2 flex-shrink-0">
@@ -324,6 +324,19 @@ export default function HomePage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Mobile FAB - inside sidebar, dedicated area */}
+          <div className="lg:hidden px-3 pb-2 flex-shrink-0">
+            <QuickCreateFAB
+              onClick={() => {
+                if (!user) {
+                  setShowLogin(true);
+                } else {
+                  setShowRecentCourts(true);
+                }
+              }}
+            />
           </div>
 
           {/* Hero card — "partite oggi" (desktop only at top of sidebar) */}
@@ -433,9 +446,9 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* CTA sticky at bottom of sidebar */}
+          {/* CTA sticky at bottom of sidebar - desktop only */}
           {lobbies.length > 0 && (
-            <div className="flex-shrink-0 p-3 border-t border-[var(--cool-muted)]/20">
+            <div className="hidden lg:block flex-shrink-0 p-3 border-t border-[var(--cool-muted)]/20">
               <QuickCreateFAB
                 onClick={() => {
                   if (!user) {
@@ -451,19 +464,6 @@ export default function HomePage() {
       </div>
 
       <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
-
-      {/* FAB - fixed bottom on mobile, inline in sidebar on desktop */}
-      <div className="lg:hidden fixed bottom-20 left-3 right-3 z-30">
-        <QuickCreateFAB
-          onClick={() => {
-            if (!user) {
-              setShowLogin(true);
-            } else {
-              setShowRecentCourts(true);
-            }
-          }}
-        />
-      </div>
 
       {/* Recent Courts Sheet */}
       <RecentCourtsSheet
@@ -496,34 +496,34 @@ function HeroCard({
   user: User | null;
   onLoginClick: () => void;
 }) {
-  const preview = lobbies.slice(0, 3);
+  const preview = lobbies.slice(0, 5);
 
   return (
-    <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-2xl p-4">
-      <div className="flex items-center justify-between mb-3">
+    <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <span className="text-lg">🔥</span>
+          <span className="text-xl">🔥</span>
           <span className="text-sm font-bold text-[var(--accent)] uppercase tracking-wide">
             {totalActive > 3 ? "Oggi" : "Attive ora"}
           </span>
         </div>
-        <span className="text-xs font-semibold text-[var(--accent)] bg-[var(--accent)]/15 px-2 py-0.5 rounded-full">
+        <span className="text-xs font-semibold text-[var(--accent)] bg-[var(--accent)]/15 px-2.5 py-1 rounded-full">
           {totalActive}
         </span>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {preview.map((lobby) => {
           const court = courts.find((c) => c.id === lobby.court_id);
           return (
             <Link
               key={lobby.id}
               href={`/courts/${lobby.court_id}`}
-              className="flex items-center justify-between bg-[var(--bg-surface)] rounded-xl px-3 py-2.5 hover:bg-[var(--bg-elevated)] transition-colors active:scale-[0.99]"
+              className="flex items-center justify-between bg-[var(--bg-surface)] rounded-xl px-4 py-3 hover:bg-[var(--bg-elevated)] transition-colors active:scale-[0.99]"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <Volleyball className="w-4 h-4 text-[var(--accent)] flex-shrink-0" />
-                <span className="text-sm font-semibold truncate">
+              <div className="flex items-center gap-3 min-w-0">
+                <Volleyball className="w-5 h-5 text-[var(--accent)] flex-shrink-0" />
+                <span className="text-base font-semibold truncate">
                   {court?.name || "Campo"}
                 </span>
               </div>
@@ -531,7 +531,7 @@ function HeroCard({
                 <Badge variant="success" className="text-[10px]">
                   {lobby.participants_count}/{lobby.max_players}
                 </Badge>
-                <span className="text-xs text-[var(--text-secondary)]">
+                <span className="text-sm text-[var(--text-secondary)]">
                   {new Date(lobby.start_time).toLocaleTimeString("it-IT", {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -543,10 +543,10 @@ function HeroCard({
         })}
       </div>
 
-      {totalActive > 3 && (
+      {totalActive > 5 && (
         <div className="mt-3 text-center">
           <span className="text-xs text-[var(--text-muted)]">
-            +{totalActive - 3} altre partite in lista
+            +{totalActive - 5} altre partite in lista
           </span>
         </div>
       )}
@@ -577,7 +577,7 @@ function LobbyRow({
   return (
     <Link
       href={`/courts/${lobby.court_id}`}
-      className={`block rounded-xl p-3 transition-colors active:scale-[0.99] ${
+      className={`block rounded-xl p-4 lg:p-3 transition-colors active:scale-[0.99] ${
         highlight
           ? "bg-[var(--accent)]/8 border border-[var(--accent)]/20"
           : "bg-[var(--bg-surface)]"
