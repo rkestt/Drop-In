@@ -4,13 +4,15 @@ import { useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Clock, Users, Zap } from "lucide-react";
+import { Clock, Users, Zap, MapPin, ChevronRight } from "lucide-react";
+import type { Court } from "@/lib/cache/types";
 
 interface QuickCreateProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: { sport: string; startTime: string; maxPlayers: number; courtId: string }) => void;
   initialCourtId?: string;
+  allCourts?: Court[];
 }
 
 const SPORTS = [
@@ -30,15 +32,49 @@ const TIME_PRESETS = [
 
 const PLAYER_COUNTS = [2, 4, 6, 8, 10, 12];
 
-export function QuickCreateSheet({ open, onClose, onSubmit, initialCourtId }: QuickCreateProps) {
+function getSportEmoji(sport: string | null | undefined): string {
+  if (!sport) return "🏟️";
+  const s = sport.toLowerCase();
+  if (s.includes("basket")) return "🏀";
+  if (s.includes("volley")) return "🏐";
+  if (s.includes("soccer") || s.includes("calcetto") || s.includes("futsal")) return "⚽";
+  if (s.includes("tennis") || s.includes("padel")) return "🎾";
+  if (s.includes(";")) return "🏟️";
+  return "🏟️";
+}
+
+function getSportForCourt(sport: string | null | undefined): string {
+  if (!sport) return "basketball";
+  const s = sport.toLowerCase();
+  if (s.includes("basket")) return "basketball";
+  if (s.includes("volley")) return "volleyball";
+  if (s.includes("soccer") || s.includes("calcetto") || s.includes("futsal")) return "soccer";
+  if (s.includes("tennis")) return "tennis";
+  if (s.includes("padel")) return "padel";
+  if (s.includes(";")) return "basketball";
+  return "basketball";
+}
+
+export function QuickCreateSheet({ open, onClose, onSubmit, initialCourtId, allCourts = [] }: QuickCreateProps) {
   const [selectedSport, setSelectedSport] = useState<string>("basketball");
   const [selectedTime, setSelectedTime] = useState<number>(0);
   const [selectedPlayers, setSelectedPlayers] = useState<number>(6);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
+  const [showCourtSelector, setShowCourtSelector] = useState(!initialCourtId && allCourts.length > 0);
+
+  const effectiveCourtId = selectedCourt?.id ?? initialCourtId;
+  const effectiveSport = selectedCourt ? getSportForCourt(selectedCourt.sport) : selectedSport;
+
+  const handleCourtSelect = (court: Court) => {
+    setSelectedCourt(court);
+    setSelectedSport(getSportForCourt(court.sport));
+    setShowCourtSelector(false);
+  };
 
   const handleSubmit = async () => {
-    if (!initialCourtId) {
-      console.warn("No court selected");
+    if (!effectiveCourtId) {
+      setShowCourtSelector(true);
       return;
     }
 
@@ -48,10 +84,10 @@ export function QuickCreateSheet({ open, onClose, onSubmit, initialCourtId }: Qu
       startTime.setMinutes(startTime.getMinutes() + selectedTime);
 
       await onSubmit({
-        sport: selectedSport,
+        sport: effectiveSport,
         startTime: startTime.toISOString(),
         maxPlayers: selectedPlayers,
-        courtId: initialCourtId,
+        courtId: effectiveCourtId,
       });
       onClose();
     } finally {
@@ -61,6 +97,8 @@ export function QuickCreateSheet({ open, onClose, onSubmit, initialCourtId }: Qu
 
   const handleClose = () => {
     if (!submitting) {
+      setSelectedCourt(null);
+      setShowCourtSelector(!initialCourtId && allCourts.length > 0);
       onClose();
     }
   };
@@ -68,6 +106,80 @@ export function QuickCreateSheet({ open, onClose, onSubmit, initialCourtId }: Qu
   return (
     <BottomSheet open={open} onClose={handleClose} title="Crea Partita">
       <div className="space-y-6">
+        {/* Court Selection */}
+        <div className="space-y-3">
+          <label className="block text-sm font-medium text-[var(--text-secondary)]">
+            Campo
+          </label>
+          <button
+            onClick={() => setShowCourtSelector(!showCourtSelector)}
+            className={cn(
+              "w-full flex items-center justify-between px-4 py-3 rounded-xl",
+              "border min-h-[48px] transition-all",
+              "bg-[var(--bg-surface)] hover:bg-[var(--bg-elevated)]",
+              selectedCourt || initialCourtId
+                ? "border-[var(--accent)]/40"
+                : "border-[var(--cool-muted)]/30"
+            )}
+          >
+            {selectedCourt ? (
+              <div className="flex items-center gap-2 text-left">
+                <span>{getSportEmoji(selectedCourt.sport)}</span>
+                <div>
+                  <div className="text-sm font-medium">{selectedCourt.name}</div>
+                  {selectedCourt.address && (
+                    <div className="text-xs text-[var(--text-muted)] truncate max-w-[240px]">
+                      {selectedCourt.address}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                <MapPin className="w-4 h-4" />
+                <span className="text-sm">Seleziona un campo</span>
+              </div>
+            )}
+            <ChevronRight className={cn("w-4 h-4 text-[var(--text-muted)] transition-transform", showCourtSelector && "rotate-90")} />
+          </button>
+
+          {showCourtSelector && (
+            <div className="max-h-[280px] overflow-y-auto rounded-xl border border-[var(--cool-muted)]/20 bg-[var(--bg-elevated)]">
+              {allCourts.length === 0 ? (
+                <div className="p-4 text-center text-sm text-[var(--text-muted)]">
+                  Nessun campo disponibile
+                </div>
+              ) : (
+                allCourts.map((court) => (
+                  <button
+                    key={court.id}
+                    onClick={() => handleCourtSelect(court)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 text-left",
+                      "border-b border-[var(--cool-muted)]/10 last:border-b-0",
+                      "hover:bg-[var(--bg-surface)] transition-colors",
+                      "min-h-[52px]"
+                    )}
+                  >
+                    <span className="text-lg">{getSportEmoji(court.sport)}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{court.name}</div>
+                      {court.address && (
+                        <div className="text-xs text-[var(--text-muted)] truncate">
+                          {court.address}
+                        </div>
+                      )}
+                    </div>
+                    {(selectedCourt?.id === court.id || (!selectedCourt && initialCourtId === court.id)) && (
+                      <span className="w-2 h-2 rounded-full bg-[var(--accent)] flex-shrink-0" />
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Sport Selection */}
         <div className="space-y-3">
           <label className="block text-sm font-medium text-[var(--text-secondary)]">
@@ -82,7 +194,7 @@ export function QuickCreateSheet({ open, onClose, onSubmit, initialCourtId }: Qu
                   "flex items-center gap-2 px-4 py-2.5 rounded-full",
                   "text-sm font-medium transition-all duration-150",
                   "border min-h-[44px]",
-                  selectedSport === sport.id
+                  effectiveSport === sport.id
                     ? "bg-[var(--accent)] text-white border-transparent"
                     : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--cool-muted)]/30 hover:border-[var(--cool-muted)]"
                 )}
@@ -148,7 +260,7 @@ export function QuickCreateSheet({ open, onClose, onSubmit, initialCourtId }: Qu
         <div className="pt-2">
           <Button
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || !effectiveCourtId}
             className="w-full"
             size="default"
           >
