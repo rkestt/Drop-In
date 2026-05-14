@@ -4,15 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-interface LobbyInfo {
-  id: string;
-  court_id: string;
-  start_time: string;
-  max_players: number;
-  participants_count: number;
-  sport?: string;
-}
-
 interface CourtMapProps {
   courts?: Array<{
     id: string;
@@ -23,9 +14,9 @@ interface CourtMapProps {
     sport?: string | null;
   }>;
   onCourtSelect?: (courtId: string) => void;
+  onCourtClick?: (court: { id: string; name: string; address?: string | null; sport?: string | null }) => void;
   reportedCourtIds?: string[];
   lobbyCounts?: Record<string, number>;
-  lobbies?: LobbyInfo[];
   sportConfig?: Record<string, { label: string; color: string }>;
   debugCount?: boolean;
 }
@@ -117,7 +108,7 @@ const getLabelLayout = () => ({
   "text-anchor": "center" as const,
 });
 
-export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lobbyCounts = {}, lobbies = [], sportConfig: _sportConfig }: CourtMapProps) {
+export function CourtMap({ courts = [], onCourtSelect, onCourtClick, reportedCourtIds = [], lobbyCounts = {}, sportConfig: _sportConfig }: CourtMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
@@ -378,52 +369,14 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], lo
       if (!props?.id) return;
       
       const courtId = props.id;
-      const courtName = props.name ?? "Campo";
-      const courtAddress = props.address ?? "";
-      const courtLobbies = lobbies?.filter ? lobbies.filter(l => l.court_id === courtId) : [];
-      
+
       popupRef.current?.remove();
       
-      if (courtLobbies.length > 0) {
-        const lobbiesHtml = courtLobbies.map(l => {
-          const startDate = new Date(l.start_time);
-          const time = startDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-          const date = startDate.toLocaleDateString("it-IT", { weekday: "short", month: "short", day: "numeric" });
-          const freeSpots = l.max_players - l.participants_count;
-          const sportEmoji = l.sport === "basketball" ? "🏀" : l.sport === "volleyball" ? "🏐" : l.sport === "tennis" ? "🎾" : l.sport === "soccer" ? "⚽" : "🏟️";
-          
-          return `
-            <div style="border-bottom: 1px solid #e5e7eb; padding: 8px 0;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 12px;">${sportEmoji} ${date} ${time}</span>
-                <span style="font-size: 11px; color: ${freeSpots > 2 ? "#22c55e" : freeSpots > 0 ? "#eab308" : "#ef4444"};">${freeSpots}/${l.max_players} posti</span>
-              </div>
-              <a href="/courts/${courtId}" style="display: block; margin-top: 4px; font-size: 11px; color: #2563eb; text-decoration: underline;">Unisciti →</a>
-            </div>
-          `;
-        }).join("");
-        
-        const html = `
-          <div style="font-family: inherit; min-width: 180px;">
-            <strong style="font-size: 14px;">${courtName}</strong>
-            <div style="font-size: 11px; color: #6b7280; margin: 4px 0 8px 0;">${courtAddress}</div>
-            <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px;">${courtLobbies.length} lobby attive:</div>
-            ${lobbiesHtml}
-            <a href="/courts/${courtId}" style="display: block; text-align: center; margin-top: 8px; padding: 6px 12px; background: #2563eb; color: white; border-radius: 6px; font-size: 12px; text-decoration: none;">Vedi dettagli</a>
-          </div>
-        `;
-        
-        const geomCoords = feature.geometry;
-        if (geomCoords && geomCoords.type === "Point") {
-          const coords = geomCoords.coordinates as [number, number];
-          popupRef.current
-            ?.setLngLat(coords)
-            .setHTML(html)
-            .addTo(map.current);
-        }
-      } else {
-        onCourtSelect?.(courtId);
+      const court = courts.find((c) => c.id === courtId);
+      if (court) {
+        onCourtClick?.({ id: court.id, name: court.name, address: court.address, sport: court.sport });
       }
+      onCourtSelect?.(courtId);
     };
 
     const handleMouseEnter = (e: maplibregl.MapMouseEvent) => {

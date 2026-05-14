@@ -279,7 +279,6 @@ export default function HomePage() {
             courts={filteredCourts}
             reportedCourtIds={reportedCourtIds}
             lobbyCounts={lobbyCounts}
-            lobbies={lobbies}
             onCourtClick={(court) => {
               addRecent(court);
             }}
