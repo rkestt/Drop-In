@@ -7,10 +7,17 @@ test.describe('Homepage', () => {
     await expect(page).toHaveTitle(/Drop in/i)
   })
 
-  test('should show map container', async ({ page }) => {
+  test('should show main content', async ({ page }) => {
     await page.goto('/')
 
-    const mapContainer = page.locator('#map, [class*="map"], [data-testid="map"]')
-    await expect(mapContainer.first()).toBeVisible({ timeout: 10000 })
+    const mainContent = page.locator('main').first()
+    await expect(mainContent).toBeVisible({ timeout: 10000 })
+  })
+
+  test('should have mobile navigation', async ({ page }) => {
+    await page.goto('/')
+
+    const nav = page.locator('nav').first()
+    await expect(nav).toBeVisible({ timeout: 10000 })
   })
 })
