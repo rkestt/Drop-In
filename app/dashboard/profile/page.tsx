@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   Pencil,
   LogOut,
+  Settings,
   MapPin,
   Users,
   Calendar,
@@ -248,6 +249,12 @@ export default async function ProfilePage() {
                         <Pencil className="w-4 h-4" />
                       </Button>
                     </EditProfileSheet>
+
+                    <Link href="/dashboard/account">
+                      <Button variant="ghost" size="icon" className="h-9 w-9">
+                        <Settings className="w-4 h-4" />
+                      </Button>
+                    </Link>
 
                     <form action={handleLogout}>
                       <Button

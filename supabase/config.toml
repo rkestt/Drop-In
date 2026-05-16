@@ -2,14 +2,14 @@ project_id = "drop-in"
 
 [api]
 enabled = true
-port = 54321
+port = 54421
 schemas = ["public", "storage", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 10000
 
 [db]
-port = 54322
-shadow_port = 54320
+port = 54422
+shadow_port = 54420
 major_version = 15
 
 [db.pooler]
@@ -21,11 +21,11 @@ enabled = true
 
 [studio]
 enabled = true
-port = 54323
+port = 54423
 
 [inbucket]
 enabled = true
-port = 54324
+port = 54424
 
 [storage]
 enabled = true
@@ -43,7 +43,7 @@ enable_signup = true
 enabled = true
 client_id = "env(NEXT_PUBLIC_GOOGLE_CLIENT_ID)"
 secret = "env(GOOGLE_CLIENT_SECRET)"
-redirect_uri = "http://localhost:54321/auth/v1/callback"
+redirect_uri = "http://localhost:54421/auth/v1/callback"
 
 [analytics]
 enabled = false
