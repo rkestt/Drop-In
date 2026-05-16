@@ -6,7 +6,7 @@ Note di Dennis. Spiegazioni, concetti, scoperte.
 
 ## Supabase: perché l'app non funziona senza di esso
 
-**Problema:** L'app mostra `ERR_CONNECTION_REFUSED` verso `http://127.0.0.1:54321`.
+**Problema:** L'app mostra `ERR_CONNECTION_REFUSED` verso `http://127.0.0.1:54421`.
 
 **Cause:** Supabase locale non è avviato.
 
@@ -21,7 +21,7 @@ Browser (Next.js)                    Supabase (locale)
    │                                       │
    │            ERR_CONNECTION_REFUSED     │
    │ ◄─────────────────────────────────────│
-   │  (nessuno risponde sulla porta 54321) │
+   │  (nessuno risponde sulla porta 54421) │
 ```
 
 Drop-In è un **frontend** che ha bisogno di un **backend**:
@@ -36,7 +36,7 @@ Drop-In è un **frontend** che ha bisogno di un **backend**:
 npx supabase start
 ```
 
-Porta su API (54321), DB (54322), Studio (54323).
+Porta su API (54421), DB (54422), Studio (54423).
 
 ---
 
@@ -56,7 +56,7 @@ Drop-In apre una "linea telefonica sempre accesa" verso Supabase e dice "fammi s
 1. Browser carica Drop-In
    └─► React crea un client Supabase
         └─► Il client apre una connessione WebSocket a Supabase
-             ws://127.0.0.1:54321/realtime/v1/websocket?apikey=...
+             ws://127.0.0.1:54421/realtime/v1/websocket?apikey=...
              ▲ Questa connessione resta APERTA
 
 2. Il client si "iscrive" ai canali che gli interessano

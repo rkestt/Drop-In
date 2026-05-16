@@ -17,7 +17,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 npm run dev          # Next.js dev server
 npm run build        # Production build (output: standalone)
 npm run lint         # ESLint (next/core-web-vitals + typescript config)
-npx supabase start   # Local Supabase (ports: API 54321, DB 54322, Studio 54323)
+npx supabase start   # Local Supabase (ports: API 54421, DB 54422, Studio 54423)
 npx supabase db reset # Apply migrations + seed
 ```
 
@@ -28,7 +28,7 @@ No test framework configured. No typecheck script — use `tsc --noEmit` manuall
 1. `npm install`
 2. `npx supabase start` — requires Docker
 3. Copy Supabase URL/keys to `.env.local`:
-   - `NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321`
+   - `NEXT_PUBLIC_SUPABASE_URL=http://localhost:54421`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY=<from supabase status>`
 4. `npx supabase db reset` — enables PostGIS + pg_cron, runs migrations
 

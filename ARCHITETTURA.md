@@ -367,9 +367,9 @@ lucide-react           Icone
 
 ```bash
 npm install
-npx supabase start          # Docker: API :54321, DB :54322, Studio :54323
+npx supabase start          # Docker: API :54421, DB :54422, Studio :54423
 # Copia URL + anon key da supabase status in .env.local
-NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:54421
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<key>
 npx supabase db reset        # Applica migrations + PostGIS + pg_cron
 npm run dev                  # Next.js :3000

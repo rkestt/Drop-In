@@ -67,7 +67,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
 
     const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     if (!googleClientId || googleClientId === "your-google-client-id") {
-      setError("Accesso con Google non configurato. Usa email e password oppure contatta il supporto.");
+      setError("OAuth non attivo: manca GOOGLE_CLIENT_ID. Contatta l'amministratore o configura le credenziali Google.");
       setLoading(false);
       return;
     }
