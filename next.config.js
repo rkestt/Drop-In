@@ -7,7 +7,6 @@ if (typeof withSerwist !== 'function') {
 }
 
 const baseConfig = {
-  output: 'standalone',
   compiler: {
     removeConsole: isDev ? false : true,
   },
