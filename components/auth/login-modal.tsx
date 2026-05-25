@@ -123,25 +123,29 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           </Button>
         </form>
 
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-[var(--cool-muted)]/20" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-[var(--bg-elevated)] px-2 text-[var(--text-muted)]">
-              oppure
-            </span>
-          </div>
-        </div>
+        {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID !== "your-google-client-id" && (
+          <>
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[var(--cool-muted)]/20" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-[var(--bg-elevated)] px-2 text-[var(--text-muted)]">
+                  oppure
+                </span>
+              </div>
+            </div>
 
-        <Button
-          variant="secondary"
-          className="w-full"
-          onClick={handleGoogleAuth}
-          disabled={loading}
-        >
-          Continua con Google
-        </Button>
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={handleGoogleAuth}
+              disabled={loading}
+            >
+              Continua con Google
+            </Button>
+          </>
+        )}
 
         <p className="text-center text-sm text-[var(--text-secondary)]">
           {isSignUp ? "Hai già un account?" : "Non hai un account?"}{" "}
