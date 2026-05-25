@@ -415,7 +415,7 @@ export default function HomePage() {
             </div>
 
             {lobbies.length === 0 ? (
-              <div className="text-center py-10">
+              <div className="text-center py-16 select-none">
                 <Volleyball className="w-10 h-10 text-[var(--text-muted)] mx-auto mb-3 opacity-40" />
                 <p className="text-[var(--text-muted)] text-sm font-medium">
                   Nessuna partita attiva
@@ -423,17 +423,6 @@ export default function HomePage() {
                 <p className="text-[var(--text-muted)] text-xs mt-1">
                   Sii il primo a crearne una!
                 </p>
-                <div className="mt-4">
-                  <QuickCreateFAB
-                    onClick={() => {
-                      if (!user) {
-                        setShowLogin(true);
-                      } else {
-                        setShowRecentCourts(true);
-                      }
-                    }}
-                  />
-                </div>
               </div>
             ) : (
               <>
@@ -457,19 +446,17 @@ export default function HomePage() {
           </div>
 
           {/* CTA sticky at bottom of sidebar - desktop only */}
-          {lobbies.length > 0 && (
-            <div className="hidden lg:block flex-shrink-0 p-3 border-t border-[var(--cool-muted)]/20">
-              <QuickCreateFAB
-                onClick={() => {
-                  if (!user) {
-                    setShowLogin(true);
-                  } else {
-                    setShowRecentCourts(true);
-                  }
-                }}
-              />
-            </div>
-          )}
+          <div className="hidden lg:block flex-shrink-0 p-3 border-t border-[var(--cool-muted)]/20">
+            <QuickCreateFAB
+              onClick={() => {
+                if (!user) {
+                  setShowLogin(true);
+                } else {
+                  setShowRecentCourts(true);
+                }
+              }}
+            />
+          </div>
         </div>
       </div>
 
