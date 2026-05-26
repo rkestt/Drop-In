@@ -7,7 +7,8 @@ export async function GET() {
   // Double gate: only available in local development
   if (
     process.env.NODE_ENV !== "development" ||
-    !process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("localhost")
+    (!process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("localhost") &&
+      !process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("127.0.0.1"))
   ) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
