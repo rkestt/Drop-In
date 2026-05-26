@@ -37,8 +37,13 @@ export async function updateSession(request: NextRequest) {
 
   let user = cookieUser;
 
-  // Dev: auto-sign-in as dev user (compile-time dead in production)
-  if (process.env.NODE_ENV === "development" && !user) {
+  // Dev login bypass: auto-sign-in for local development only.
+  // Double gate: NODE_ENV (compile-time dead) + localhost check (defense in depth).
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("localhost") &&
+    !user
+  ) {
     user = (await ensureDevSession(supabase)) ?? null;
   }
 
