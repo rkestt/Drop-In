@@ -92,32 +92,25 @@ async function ensureDevSession(
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  // Check if dev user already exists (another middleware instance may have created it)
-  const { data: list } = await adminClient.auth.admin.listUsers();
-  const existing = list.users.find(
-    (u) => u.email === DEV_EMAIL,
-  );
+  // createUser fails harmlessly on duplicate email; retry sign-in below handles it
+  const { data: created } = await adminClient.auth.admin.createUser({
+    email: DEV_EMAIL,
+    password: DEV_PASSWORD,
+    email_confirm: true,
+    user_metadata: { dev_user: true },
+  });
 
-  if (!existing) {
-    const { data: created } = await adminClient.auth.admin.createUser({
-      email: DEV_EMAIL,
-      password: DEV_PASSWORD,
-      email_confirm: true,
-      user_metadata: { dev_user: true },
-    });
-
-    if (created.user) {
-      // Seed profile with max karma so all karma/ban checks pass naturally
-      await adminClient.from("profiles").upsert(
-        {
-          user_id: created.user.id,
-          nickname: "Dev",
-          karma_score: 999,
-          banned_until: null,
-        },
-        { onConflict: "user_id" },
-      );
-    }
+  if (created.user) {
+    // Seed profile with max karma so all karma/ban checks pass naturally
+    await adminClient.from("profiles").upsert(
+      {
+        user_id: created.user.id,
+        nickname: "Dev",
+        karma_score: 999,
+        banned_until: null,
+      },
+      { onConflict: "user_id" },
+    );
   }
 
   // 3. Retry sign-in
