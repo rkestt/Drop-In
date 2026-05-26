@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -8,55 +8,28 @@ import { ChevronRight, MapPin } from "lucide-react";
 
 export default function WelcomePage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const seen = localStorage.getItem("welcome_seen");
     if (seen) {
       router.replace("/");
-      return;
     }
-
-    setTimeout(() => setIsLoading(false), 2000);
   }, [router]);
 
-  const handleEnter = () => {
+  const setWelcomeSeen = () => {
     localStorage.setItem("welcome_seen", "true");
+    document.cookie = "welcome_seen=true; path=/; max-age=31536000; SameSite=Lax";
+  };
+
+  const handleEnter = () => {
+    setWelcomeSeen();
     router.replace("/");
   };
 
   const handleSkip = () => {
-    localStorage.setItem("welcome_seen", "true");
+    setWelcomeSeen();
     router.replace("/");
   };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[var(--bg-base)] flex flex-col items-center justify-center p-6">
-        <div className="w-28 h-28 relative mb-6">
-          <Image
-            src="/images/dropin.png"
-            alt="Drop-In"
-            fill
-            className="object-contain"
-            priority
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="w-3 h-3 rounded-full bg-[var(--accent)] animate-pulse"
-              style={{ animationDelay: `${i * 0.15}s` }}
-            />
-          ))}
-        </div>
-        <p className="text-xs text-[var(--text-muted)] mt-4">
-          Caricamento...
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)] flex flex-col">

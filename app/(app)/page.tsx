@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useCourtCache } from "@/lib/hooks/useCourtCache";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRecentCourts } from "@/lib/hooks/useRecentCourts";
@@ -43,7 +42,6 @@ interface Lobby {
 }
 
 export default function HomePage() {
-  const router = useRouter();
   const { courts } = useCourtCache();
   const { user } = useAuth();
   const { recentCourts, addRecent } = useRecentCourts();
@@ -124,14 +122,6 @@ export default function HomePage() {
     
     return filtered;
   }, [lobbies, courts, sortBy, userLocation]);
-
-  // Redirect to welcome page if first visit
-  useEffect(() => {
-    const seen = localStorage.getItem("welcome_seen");
-    if (!seen && typeof window !== "undefined") {
-      router.replace("/welcome");
-    }
-  }, [router]);
 
   useEffect(() => {
     const fetchData = async () => {
