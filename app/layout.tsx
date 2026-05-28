@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Syne, Source_Sans_3 } from "next/font/google";
 import { ToastProvider } from "@/components/notifications/toast-provider";
 import { DevSwReset } from "@/components/dev-sw-reset";
+import DevButton from "@/components/dev/dev-button";
 import "./globals.css";
 
 const syne = Syne({
@@ -55,6 +56,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-[var(--bg-base)] text-[var(--text-primary)] font-[family-name:var(--font-source-sans)]">
         <DevSwReset />
         {children}
+        <DevButton />
         <ToastProvider />
       </body>
     </html>
