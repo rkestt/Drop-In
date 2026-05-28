@@ -5,10 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Users, Clock, MapPin } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+
 
 interface Participant {
-  user_id: string;
   nickname: string | null;
 }
 
@@ -28,69 +27,76 @@ export function LobbyList() {
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
-  const router = useRouter();
+
 
   useEffect(() => {
     const fetchLobbies = async () => {
       try {
         const { data: authData } = await supabase.auth.getUser();
-const currentUserId = authData.user?.id || null;
+        const currentUserId = authData.user?.id || null;
 
         const now = new Date().toISOString();
         const { data: lobbiesData } = await supabase
           .from("lobbies")
-          .select(
-            `*,
-            courts(name),
-            lobby_participants(user_id)`
-          )
+          .select("*, courts(name)")
           .eq("status", "open")
           .gte("start_time", now)
           .order("start_time", { ascending: true });
 
-        // Collect all unique user_ids from lobby participants
-        const allUserIds = [
-          ...new Set(
-            (lobbiesData || []).flatMap(
-              (l: Record<string, unknown>) => (l.lobby_participants as Array<Record<string, string>> | undefined)?.map((p) => p.user_id) || []
-            )
-          ),
-        ];
+        const lobbyIds = (lobbiesData ?? []).map((l: Record<string, unknown>) => l.id as string);
 
-        // Fetch public profiles (nicknames) for all participant user_ids
-        const nicknameMap: Record<string, string | null> = {};
-        if (allUserIds.length > 0) {
-          const { data: profiles } = await supabase.rpc(
-            "get_public_profiles",
-            { p_user_ids: allUserIds }
+        // Get participant counts via RPC
+        let countsMap: Record<string, number> = {};
+        if (lobbyIds.length > 0) {
+          const { data: countsData } = await supabase.rpc(
+            "get_lobby_counts",
+            { p_lobby_ids: lobbyIds }
           );
-          profiles?.forEach((p: any) => {
-            nicknameMap[p.user_id] = p.nickname;
+          (countsData as Array<{ lobby_id: string; count: number }> | null)?.forEach((c) => {
+            countsMap[c.lobby_id] = Number(c.count);
           });
         }
 
+        // Get participants for each lobby via RPC
+        const participantsByLobby: Record<string, Participant[]> = {};
+        if (lobbyIds.length > 0) {
+          const results = await Promise.all(
+            lobbyIds.map((id) =>
+              supabase.rpc("get_lobby_participants", { p_lobby_id: id }).then(({ data }) => ({
+                id,
+                participants: (data ?? []).map((p: Record<string, unknown>) => ({
+                  nickname: (p.nickname as string) || null,
+                })),
+              }))
+            )
+          );
+          results.forEach(({ id, participants }) => {
+            participantsByLobby[id] = participants;
+          });
+        }
+
+        // Get joined lobby ids for current user
+        let joinedLobbyIds: Set<string> = new Set();
+        if (currentUserId) {
+          const { data: joinedData } = await supabase
+            .from("lobby_participants")
+            .select("lobby_id")
+            .eq("user_id", currentUserId);
+          joinedLobbyIds = new Set((joinedData ?? []).map((j) => j.lobby_id));
+        }
+
         const formattedLobbies =
-          (lobbiesData ?? []).map((l: Record<string, unknown>) => {
-            const participants = ((l.lobby_participants as Array<Record<string, string>> | undefined) || []).map(
-              (p) => ({
-                user_id: p.user_id,
-                nickname: nicknameMap[p.user_id] || null,
-              })
-            );
-            return {
-              id: l.id as string,
-              court_id: l.court_id as string,
-              start_time: l.start_time as string,
-              max_players: l.max_players as number,
-              status: l.status as string,
-              participants_count: participants.length,
-              participants,
-              court_name: (l.courts as { name?: string } | undefined)?.name || "Campo",
-              is_joined: participants.some(
-                (p) => p.user_id === currentUserId
-              ),
-            };
-          }) || [];
+          (lobbiesData ?? []).map((l: Record<string, unknown>) => ({
+            id: l.id as string,
+            court_id: l.court_id as string,
+            start_time: l.start_time as string,
+            max_players: l.max_players as number,
+            status: l.status as string,
+            participants_count: countsMap[l.id as string] ?? 0,
+            participants: participantsByLobby[l.id as string] ?? [],
+            court_name: (l.courts as { name?: string } | undefined)?.name || "Campo",
+            is_joined: joinedLobbyIds.has(l.id as string),
+          })) || [];
 
         setLobbies(formattedLobbies);
       } catch (err) {
@@ -175,12 +181,7 @@ const currentUserId = authData.user?.id || null;
                   {lobby.participants.slice(0, 5).map((p, i) => (
                     <span
                       key={i}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        router.push(`/users/${p.user_id}`);
-                      }}
-                      className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] cursor-pointer hover:underline"
+                      className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)]"
                     >
                       {p.nickname || "Anonimo"}
                     </span>
