@@ -21,7 +21,7 @@ L'API `/api/dev-login` ritorna 404. Il double gate nel route usa `NEXT_PUBLIC_SU
 
 ## Fix rimanenti
 1. Testare che `/api/dev-login` funzioni (non 404)
-2. Il file `app/api/favorites/route.ts` usa `process.env.SUPABASE_SERVICE_ROLE_KEY` invece di `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` — errore pre-esistente, da fixare a parte
+2. Fixato: `route.ts` e `admin.ts` usavano `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` (inesistente). Ora tutti usano `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Come testare
 ```bash

@@ -70,7 +70,7 @@ Nella schermata di import:
 |-----|-------|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://TUO_PROGETTO.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | La chiave anon che hai copiato |
-| `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` | (Opzionale) La chiave service role dalla dashboard Supabase → API |
+| `SUPABASE_SERVICE_ROLE_KEY` | (Opzionale) La chiave service role dalla dashboard Supabase → API |
 
 3. Clicca **Deploy**
 
