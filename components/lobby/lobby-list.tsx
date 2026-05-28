@@ -57,14 +57,14 @@ const currentUserId = authData.user?.id || null;
           ),
         ];
 
-        // Fetch profiles (nicknames) for all participant user_ids
+        // Fetch public profiles (nicknames) for all participant user_ids
         const nicknameMap: Record<string, string | null> = {};
         if (allUserIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("user_id, nickname")
-            .in("user_id", allUserIds);
-          profiles?.forEach((p) => {
+          const { data: profiles } = await supabase.rpc(
+            "get_public_profiles",
+            { p_user_ids: allUserIds }
+          );
+          profiles?.forEach((p: any) => {
             nicknameMap[p.user_id] = p.nickname;
           });
         }

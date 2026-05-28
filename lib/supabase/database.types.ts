@@ -240,6 +240,10 @@ Row: {
         Args: { p_lobby_id: string };
         Returns: boolean;
       };
+      get_public_profiles: {
+        Args: { p_user_ids: string[] };
+        Returns: Array<{ user_id: string; nickname: string | null; karma_score: number | null; avatar_url: string | null }>;
+      };
     };
     Enums: Record<string, never>;
   };
