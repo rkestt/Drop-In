@@ -16,7 +16,7 @@ interface LobbyJoinCardProps {
     max_players: number;
     status: string;
     sport?: string;
-    lobby_participants?: { count: number }[];
+    participant_count?: number;
   };
   userId?: string;
 }
@@ -30,7 +30,7 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
   const router = useRouter();
   const supabase = createClient();
 
-  const count = lobby.lobby_participants?.[0]?.count ?? 0;
+  const count = lobby.participant_count ?? 0;
   const isFull = count >= lobby.max_players;
 
   useEffect(() => {

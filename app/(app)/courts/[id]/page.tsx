@@ -46,11 +46,22 @@ export default async function CourtPage({
   const now = new Date().toISOString();
   const { data: lobbies } = await supabase
     .from("lobbies")
-    .select("*, lobby_participants(count)")
+    .select("*")
     .eq("court_id", id)
     .eq("status", "open")
     .gte("start_time", now)
     .order("start_time", { ascending: true });
+
+  let countsMap: Record<string, number> = {};
+  if (lobbies && lobbies.length > 0) {
+    const { data: countsData } = await supabase.rpc(
+      "get_lobby_counts",
+      { p_lobby_ids: lobbies.map((l) => l.id) }
+    );
+    countsData?.forEach((c) => {
+      countsMap[c.lobby_id] = Number(c.count);
+    });
+  }
 
   const { data: reports } = await supabase
     .from("court_reports")
@@ -125,12 +136,11 @@ export default async function CourtPage({
 
   const activeCheckInCount = activeCheckIns?.length ?? 0;
   const totalSlots = lobbies?.reduce((sum, l) => {
-    const lp = l as unknown as { max_players: number; lobby_participants?: { count: number }[] };
-    return sum + (lp.max_players - (lp.lobby_participants?.[0]?.count ?? 0));
+    const count = countsMap[l.id] ?? 0;
+    return sum + ((l as any).max_players - count);
   }, 0) ?? 0;
   const totalPlayersInLobbies = lobbies?.reduce((sum, l) => {
-    const lp = l as unknown as { lobby_participants?: { count: number }[] };
-    return sum + (lp.lobby_participants?.[0]?.count ?? 0);
+    return sum + (countsMap[l.id] ?? 0);
   }, 0) ?? 0;
 
   const mapUrl = court.address
@@ -355,13 +365,12 @@ export default async function CourtPage({
                     max_players: number;
                     status: string;
                     sport?: string;
-                    lobby_participants?: { count: number }[];
                   };
 
                   return (
                     <div key={lp.id} className="space-y-3">
                       <LobbyJoinCard
-                        lobby={lp}
+                        lobby={{ ...lp, participant_count: countsMap[lp.id] ?? 0 }}
                         userId={user?.id}
                       />
                     </div>

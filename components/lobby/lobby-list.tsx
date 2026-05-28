@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Users, Clock, MapPin } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Participant {
   user_id: string;
@@ -27,6 +28,7 @@ export function LobbyList() {
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+  const router = useRouter();
 
   useEffect(() => {
     const fetchLobbies = async () => {
@@ -170,10 +172,15 @@ const currentUserId = authData.user?.id || null;
               </div>
               {lobby.participants.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {lobby.participants.slice(0, 5).map((p) => (
+                  {lobby.participants.slice(0, 5).map((p, i) => (
                     <span
-                      key={p.user_id}
-                      className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)]"
+                      key={i}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        router.push(`/users/${p.user_id}`);
+                      }}
+                      className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] cursor-pointer hover:underline"
                     >
                       {p.nickname || "Anonimo"}
                     </span>
