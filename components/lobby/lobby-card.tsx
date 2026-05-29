@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Clock } from "lucide-react";
+import Link from "next/link";
 
 interface Participant {
   user_id: string;
@@ -117,12 +118,13 @@ export function LobbyCard({ lobby, userId }: LobbyCardProps) {
       {lobby.participants && lobby.participants.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {lobby.participants.slice(0, 4).map((p) => (
-            <span
+            <Link
               key={p.user_id}
-              className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)]"
+              href={`/users/${p.user_id}`}
+              className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] hover:underline"
             >
               {p.nickname || "Anonimo"}
-            </span>
+            </Link>
           ))}
           {lobby.participants.length > 4 && (
             <span className="text-[11px] text-[var(--text-muted)]">

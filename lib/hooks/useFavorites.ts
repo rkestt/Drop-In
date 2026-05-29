@@ -15,10 +15,9 @@ export function useFavorites() {
 
     const fetchFavorites = async () => {
       try {
-        const res = await fetch(
-          `/api/favorites?userId=${user.id}`,
-          { credentials: "include" }
-        );
+        const res = await fetch("/api/favorites", {
+          credentials: "include",
+        });
         const data = await res.json() as { favorite_court_ids?: string[] };
         if (data?.favorite_court_ids) {
           setFavoriteIds(data.favorite_court_ids);
@@ -46,7 +45,7 @@ export function useFavorites() {
         const res = await fetch("/api/favorites", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: user.id, court_id: courtId, action: isFav ? "remove" : "add" }),
+          body: JSON.stringify({ court_id: courtId, action: isFav ? "remove" : "add" }),
           credentials: "include",
         });
 

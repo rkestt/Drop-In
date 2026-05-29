@@ -1,21 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseServerClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 
-const supabase = createSupabaseServerClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get("userId");
-  if (!userId) {
-    return NextResponse.json({ error: "userId required" }, { status: 400 });
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { data, error } = await supabase
     .from("profiles")
     .select("favorite_court_ids")
-    .eq("user_id", userId)
+    .eq("user_id", user.id)
     .single();
 
   if (error) {
@@ -28,21 +25,27 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await req.json();
-  const { user_id, court_id, action } = body as {
-    user_id: string;
+  const { court_id, action } = body as {
     court_id: string;
     action: "add" | "remove";
   };
 
-  if (!user_id || !court_id || !action) {
-    return NextResponse.json({ error: "user_id, court_id, action required" }, { status: 400 });
+  if (!court_id || !action) {
+    return NextResponse.json({ error: "court_id and action required" }, { status: 400 });
   }
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("favorite_court_ids")
-    .eq("user_id", user_id)
+    .eq("user_id", user.id)
     .single();
 
   const current = (profile as unknown as { favorite_court_ids: string[] } | null)?.favorite_court_ids ?? [];
@@ -55,7 +58,7 @@ export async function PATCH(req: NextRequest) {
   const { error } = await supabase
     .from("profiles")
     .update({ favorite_court_ids: updated } as unknown as never)
-    .eq("user_id", user_id);
+    .eq("user_id", user.id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

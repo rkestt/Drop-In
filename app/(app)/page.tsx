@@ -130,11 +130,22 @@ export default function HomePage() {
         const now = new Date().toISOString();
         const { data: lobbiesData } = await supabase
           .from("lobbies")
-          .select("*, lobby_participants(count)")
+          .select("*")
           .eq("status", "open")
           .gte("start_time", now)
           .order("start_time", { ascending: true })
           .limit(20);
+
+        let countsMap: Record<string, number> = {};
+        if (lobbiesData && lobbiesData.length > 0) {
+          const { data: countsData } = await supabase.rpc(
+            "get_lobby_counts",
+            { p_lobby_ids: lobbiesData.map((l) => l.id) }
+          );
+          (countsData as Array<{ lobby_id: string; count: number }> | null)?.forEach((c) => {
+            countsMap[c.lobby_id] = Number(c.count);
+          });
+        }
 
         const formattedLobbies: Lobby[] =
           (lobbiesData as unknown as Array<{
@@ -143,14 +154,13 @@ export default function HomePage() {
             start_time: string;
             max_players: number;
             status: string;
-            lobby_participants?: { count: number }[];
           }> | null ?? []).map((l) => ({
             id: l.id,
             court_id: l.court_id,
             start_time: l.start_time,
             max_players: l.max_players,
             status: l.status,
-            participants_count: l.lobby_participants?.[0]?.count ?? 0,
+            participants_count: countsMap[l.id] ?? 0,
           }));
 
         setLobbies(formattedLobbies);

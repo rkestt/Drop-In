@@ -215,8 +215,36 @@ Row: {
         Relationships: [];
       };
     };
-    Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Views: {
+      public_lobby_participants: {
+        Row: {
+          lobby_id: string;
+          nickname: string | null;
+          joined_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+    };
+    Functions: {
+      get_lobby_participants: {
+        Args: { p_lobby_id: string };
+        Returns: Array<{ nickname: string | null; joined_at: string }>;
+      };
+      get_lobby_counts: {
+        Args: { p_lobby_ids: string[] };
+        Returns: Array<{ lobby_id: string; count: number }>;
+      };
+      is_user_in_lobby: {
+        Args: { p_lobby_id: string };
+        Returns: boolean;
+      };
+      get_public_profiles: {
+        Args: { p_user_ids: string[] };
+        Returns: Array<{ user_id: string; nickname: string | null; karma_score: number | null; avatar_url: string | null }>;
+      };
+    };
     Enums: Record<string, never>;
   };
 };

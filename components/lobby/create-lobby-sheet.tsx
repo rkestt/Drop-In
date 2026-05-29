@@ -59,6 +59,7 @@ export function CreateLobbySheet({
         );
       }
 
+      // DB trigger auto_join_creator_as_participant handles auto-join
       const { error } = await supabase.from("lobbies").insert({
         court_id: courtId,
         creator_id: user.id,

@@ -56,10 +56,9 @@ describe('useFavorites', () => {
     const { result } = renderHook(() => useFavorites())
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        `/api/favorites?userId=${mockUser.id}`,
-        { credentials: 'include' }
-      )
+      expect(fetchMock).toHaveBeenCalledWith('/api/favorites', {
+        credentials: 'include',
+      })
     })
 
     await waitFor(() => {
