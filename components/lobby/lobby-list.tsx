@@ -8,6 +8,7 @@ import Link from "next/link";
 
 
 interface Participant {
+  user_id: string;
   nickname: string | null;
 }
 
@@ -65,6 +66,7 @@ export function LobbyList() {
               supabase.rpc("get_lobby_participants", { p_lobby_id: id }).then(({ data }) => ({
                 id,
                 participants: (data ?? []).map((p: Record<string, unknown>) => ({
+                  user_id: (p.user_id as string) || "",
                   nickname: (p.nickname as string) || null,
                 })),
               }))
@@ -178,13 +180,14 @@ export function LobbyList() {
               </div>
               {lobby.participants.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {lobby.participants.slice(0, 5).map((p, i) => (
-                    <span
-                      key={i}
-                      className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)]"
+                  {lobby.participants.slice(0, 5).map((p) => (
+                    <Link
+                      key={p.user_id}
+                      href={`/users/${p.user_id}`}
+                      className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] hover:underline"
                     >
                       {p.nickname || "Anonimo"}
-                    </span>
+                    </Link>
                   ))}
                   {lobby.participants.length > 5 && (
                     <span className="text-[11px] text-[var(--text-muted)]">

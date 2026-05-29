@@ -96,6 +96,14 @@ describe('LobbyCard', () => {
     expect(screen.getByText('Player2')).toBeInTheDocument()
   })
 
+  it('links participant nicknames to public profile', () => {
+    render(<LobbyCard lobby={mockLobby} />)
+    const player1Link = screen.getByText('Player1').closest('a')
+    const player2Link = screen.getByText('Player2').closest('a')
+    expect(player1Link).toHaveAttribute('href', '/users/user-1')
+    expect(player2Link).toHaveAttribute('href', '/users/user-2')
+  })
+
   it('shows more participants indicator when > 4', () => {
     const lobbyMany = {
       ...mockLobby,
