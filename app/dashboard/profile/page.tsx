@@ -305,13 +305,16 @@ export default async function ProfilePage() {
               </p>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">Check-in</p>
             </div>
-            <div className="bg-[var(--bg-elevated)] rounded-xl p-3 text-center">
+            <Link
+              href="/dashboard/lobbies"
+              className="bg-[var(--bg-elevated)] rounded-xl p-3 text-center block hover:bg-[var(--accent-subtle)]/50 transition-colors"
+            >
               <Users className="w-5 h-5 mx-auto mb-1.5 text-[var(--accent)]" />
               <p className="text-2xl font-bold font-[family-name:var(--font-syne)] text-[var(--text-primary)]">
                 {stats.totalLobbies}
               </p>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">Partite</p>
-            </div>
+            </Link>
             <div
               className={cn(
                 "bg-[var(--bg-elevated)] rounded-xl p-3 text-center",

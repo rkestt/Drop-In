@@ -132,14 +132,6 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
   if (isToday) timeLabel = "Oggi " + startDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
   if (isTomorrow) timeLabel = "Domani " + startDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 
-  const sportEmoji: Record<string, string> = {
-    volleyball: "🏐",
-    basketball: "🏀",
-    tennis: "🎾",
-    football: "⚽",
-    general: "🏟️",
-  };
-
   return (
     <div className="bg-[var(--bg-surface)] rounded-2xl p-4 space-y-3">
       {/* Top row: time + sport + status */}
@@ -151,11 +143,6 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {lobby.sport && (
-            <span className="text-sm">
-              {sportEmoji[lobby.sport] ?? "🏐"}
-            </span>
-          )}
           {alreadyJoined ? (
             <Badge variant="success">
               <CheckCircle2 className="w-3 h-3 mr-1" />
