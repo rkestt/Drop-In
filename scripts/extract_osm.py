@@ -84,6 +84,7 @@ def parse_courts(data):
             else:
                 venue_type = "open_space"
 
+            hoops = tags.get("hoops")
             venues.append({
                 "osm_id": str(element["id"]),
                 "name": tags.get("name", "Spazio aperto"),
@@ -93,6 +94,8 @@ def parse_courts(data):
                 "surface_type": tags.get("surface") or None,
                 "venue_type": venue_type,
                 "sport": sports if leisure == "pitch" else None,
+                "access": tags.get("access") or None,
+                "hoop_count": int(hoops) if hoops and hoops.isdigit() else None,
             })
         elif element["type"] == "node":
             tags = element.get("tags", {})
@@ -110,6 +113,7 @@ def parse_courts(data):
                 else:
                     venue_type = "playground"
                 
+                hoops = tags.get("hoops")
                 venues.append({
                     "osm_id": str(element["id"]),
                     "name": tags.get("name", "Spazio aperto"),
@@ -119,12 +123,14 @@ def parse_courts(data):
                     "surface_type": tags.get("surface") or None,
                     "venue_type": venue_type,
                     "sport": sports if leisure == "pitch" else None,
+                    "access": tags.get("access") or None,
+                    "hoop_count": int(hoops) if hoops and hoops.isdigit() else None,
                 })
 
     return venues
 
 def generate_sql(venues):
-    lines = ["INSERT INTO courts (osm_id, name, address, lat, lng, surface_type, venue_type, sport) VALUES"]
+    lines = ["INSERT INTO courts (osm_id, name, address, lat, lng, surface_type, venue_type, sport, access, hoop_count) VALUES"]
     values = []
     for v in venues:
         values.append(
@@ -133,7 +139,9 @@ def generate_sql(venues):
             f"{v['lat']}, {v['lng']}, "
             f"{('NULL' if v['surface_type'] is None else chr(39)+v['surface_type'].replace(chr(39), chr(39)+chr(39))+chr(39))}, "
             f"'{v['venue_type']}', "
-            f"{('NULL' if v['sport'] is None else chr(39)+v['sport'].replace(chr(39), chr(39)+chr(39))+chr(39))})"
+            f"{('NULL' if v['sport'] is None else chr(39)+v['sport'].replace(chr(39), chr(39)+chr(39))+chr(39))}, "
+            f"{('NULL' if v['access'] is None else chr(39)+v['access'].replace(chr(39), chr(39)+chr(39))+chr(39))}, "
+            f"{'NULL' if v['hoop_count'] is None else v['hoop_count']})"
         )
     lines.append(",\n".join(values) + ";")
     return "\n".join(lines)
