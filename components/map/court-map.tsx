@@ -12,6 +12,7 @@ interface CourtMapProps {
     lng: number;
     address?: string | null;
     sport?: string | null;
+    access?: string | null;
   }>;
   onCourtSelect?: (courtId: string) => void;
   onCourtClick?: (court: { id: string; name: string; address?: string | null; sport?: string | null }) => void;
@@ -130,6 +131,7 @@ export function CourtMap({ courts = [], onCourtSelect, onCourtClick, reportedCou
         lobbyCount: lobbyCounts[court.id] ?? 0,
         isReported: reportedCourtIds.includes(court.id),
         sport: getSportKey(court.sport ?? ""),
+        access: court.access ?? null,
       },
     })),
   }), [courts, lobbyCounts, reportedCourtIds]);
@@ -427,9 +429,28 @@ export function CourtMap({ courts = [], onCourtSelect, onCourtClick, reportedCou
       const lng = (features[0].geometry as GeoJSON.Point).coordinates[0];
       const lat = (features[0].geometry as GeoJSON.Point).coordinates[1];
 
+      const getAccessBadgeHtml = (access: string | null) => {
+    if (!access) {
+      return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:rgba(234,179,8,0.2);color:#ca8a04;border:1px solid rgba(234,179,8,0.3);">🔎 Accesso da verificare</span>`;
+    }
+    const configs: Record<string, string> = {
+      public: `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:rgba(34,197,94,0.2);color:#15803d;border:1px solid rgba(34,197,94,0.3);">🔓 Pubblico</span>`,
+      yes: `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:rgba(34,197,94,0.2);color:#15803d;border:1px solid rgba(34,197,94,0.3);">🔓 Accessibile</span>`,
+      permissive: `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:rgba(99,102,241,0.2);color:#4338ca;border:1px solid rgba(99,102,241,0.3);">🔓 Consentito</span>`,
+      private: `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:rgba(239,68,68,0.2);color:#b91c1c;border:1px solid rgba(239,68,68,0.3);">🔒 Privato</span>`,
+      restricted: `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:rgba(234,179,8,0.2);color:#ca8a04;border:1px solid rgba(234,179,8,0.3);">🔒 Riservato</span>`,
+      no: `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:rgba(239,68,68,0.2);color:#b91c1c;border:1px solid rgba(239,68,68,0.3);">🚫 Vietato</span>`,
+      permit: `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:rgba(234,179,8,0.2);color:#ca8a04;border:1px solid rgba(234,179,8,0.3);">❓ Su permesso</span>`,
+    };
+    return configs[access] ?? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:rgba(234,179,8,0.2);color:#ca8a04;border:1px solid rgba(234,179,8,0.3);">⚠️ Sconosciuto</span>`;
+  };
+
       const html = `
         <div style="font-family: inherit; padding: 2px 0;">
-          <strong style="font-size: 13px;">${props.name}</strong>
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <strong style="font-size: 13px;">${props.name}</strong>
+            ${getAccessBadgeHtml(props.access)}
+          </div>
           ${props.lobbyCount > 0 ? `<div style="font-size: 11px; color: #22c55e; margin-top: 2px;">● ${props.lobbyCount} lobby attiv${props.lobbyCount === 1 ? "a" : "e"}</div>` : ""}
         </div>
       `;

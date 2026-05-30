@@ -30,6 +30,7 @@ interface Court {
   address?: string | null;
   sport?: string | null;
   zone?: string | null;
+  access?: string | null;
 }
 
 interface Lobby {

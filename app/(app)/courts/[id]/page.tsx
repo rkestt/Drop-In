@@ -6,9 +6,10 @@ import { ReportButton } from "@/components/report/report-button";
 import { LoginPrompt } from "@/components/auth/login-prompt";
 import { BanBannerWrapper } from "@/components/karma/ban-banner-wrapper";
 import { FavoriteButtonWrapper } from "@/components/favorites/favorite-button-wrapper";
+import { Badge } from "@/components/ui/badge";
 import {
   MapPin, AlertTriangle, Users, Navigation, Layers, Zap,
-  ExternalLink, ArrowLeft, SunDim
+  ExternalLink, ArrowLeft, SunDim, Lock, Unlock, HelpCircle
 } from "lucide-react";
 import { CourtMiniMap } from "@/components/map/court-mini-map";
 import { LobbyJoinCard } from "@/components/lobby/lobby-join-card";
@@ -52,7 +53,7 @@ export default async function CourtPage({
     .gte("start_time", now)
     .order("start_time", { ascending: true });
 
-  let countsMap: Record<string, number> = {};
+  const countsMap: Record<string, number> = {};
   if (lobbies && lobbies.length > 0) {
     const { data: countsData } = await supabase.rpc(
       "get_lobby_counts",
@@ -127,6 +128,16 @@ export default async function CourtPage({
     tennis: "Tennis",
     football: "Calcetto",
     general: "Sport",
+  };
+
+  const accessConfig: Record<string, { label: string; variant: "success" | "accent" | "warning" | "danger"; icon: React.ReactNode }> = {
+    public: { label: "Pubblico", variant: "success", icon: <Unlock className="w-3 h-3" /> },
+    yes: { label: "Accessibile", variant: "success", icon: <Unlock className="w-3 h-3" /> },
+    permissive: { label: "Consentito", variant: "accent", icon: <Unlock className="w-3 h-3" /> },
+    private: { label: "Privato", variant: "danger", icon: <Lock className="w-3 h-3" /> },
+    restricted: { label: "Riservato", variant: "warning", icon: <Lock className="w-3 h-3" /> },
+    no: { label: "Vietato", variant: "danger", icon: <Lock className="w-3 h-3" /> },
+    permit: { label: "Su permesso", variant: "warning", icon: <HelpCircle className="w-3 h-3" /> },
   };
 
   const courtAny = court as Record<string, unknown>;
@@ -225,7 +236,30 @@ export default async function CourtPage({
                   <span>{courtZone}</span>
                 </div>
               )}
+              {court.access ? (
+                <Badge variant={accessConfig[court.access]?.variant ?? "warning"}>
+                  <span className="flex items-center gap-1">
+                    {accessConfig[court.access]?.icon}
+                    {accessConfig[court.access]?.label ?? "Sconosciuto"}
+                  </span>
+                </Badge>
+              ) : null}
             </div>
+
+            {/* Access unknown warning */}
+            {!court.access && (
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-[var(--warning)]/10 border border-[var(--warning)]/20">
+                <HelpCircle className="w-4 h-4 mt-0.5 text-[var(--warning)] flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[var(--warning-dark)]">
+                    Non sappiamo se questo campo è pubblico
+                  </p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                    Potrebbe essere privato — verifica prima di andare.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Mini map */}
             <CourtMiniMap
