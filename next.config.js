@@ -8,7 +8,9 @@ if (typeof withSerwist !== 'function') {
 
 const baseConfig = {
   compiler: {
-    removeConsole: isDev ? false : true,
+    removeConsole: isDev
+      ? false
+      : { exclude: ["error", "warn"] },
   },
 };
 

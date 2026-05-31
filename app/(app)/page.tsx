@@ -127,8 +127,8 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch active lobbies (status=open AND start_time >= now)
-        const now = new Date().toISOString();
+        // Fetch active lobbies (status=open AND start_time >= now-5min)
+        const now = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         const { data: lobbiesData } = await supabase
           .from("lobbies")
           .select("*")

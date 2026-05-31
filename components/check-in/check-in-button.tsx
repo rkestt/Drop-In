@@ -20,7 +20,10 @@ export function CheckInButton({
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
+      <Button onClick={() => {
+        console.error("[check-in] Button clicked, opening sheet");
+        setOpen(true);
+      }}>
         <MapPin className="w-4 h-4 mr-1.5" />
         Check-in
       </Button>

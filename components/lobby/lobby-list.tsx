@@ -36,7 +36,7 @@ export function LobbyList() {
         const { data: authData } = await supabase.auth.getUser();
         const currentUserId = authData.user?.id || null;
 
-        const now = new Date().toISOString();
+        const now = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         const { data: lobbiesData } = await supabase
           .from("lobbies")
           .select("*, courts(name)")
