@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { CheckInButton } from "@/components/check-in/check-in-button";
+import { CheckoutButton } from "@/components/check-in/checkout-button";
 import { CreateLobbyButton } from "@/components/lobby/create-lobby-button";
 import { ReportButton } from "@/components/report/report-button";
 import { LoginPrompt } from "@/components/auth/login-prompt";
@@ -44,7 +45,7 @@ export default async function CourtPage({
     .eq("court_id", id)
     .gte("checked_in_at", twoHoursAgo);
 
-  const now = new Date().toISOString();
+  const now = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   const { data: lobbies } = await supabase
     .from("lobbies")
     .select("*")
@@ -75,6 +76,19 @@ export default async function CourtPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // Check if current user has an active check-in at this court
+  let userCheckInId: string | null = null;
+  if (user) {
+    const { data: userCheckIn } = await supabase
+      .from("check_ins")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("court_id", id)
+      .eq("status", "active")
+      .maybeSingle();
+    userCheckInId = userCheckIn?.id ?? null;
+  }
 
   const reportCategories: Record<string, string> = {
     broken_hoop: "Canestro rotto",
@@ -296,12 +310,16 @@ export default async function CourtPage({
             {/* Action buttons */}
             {user ? (
               <div className="flex flex-wrap gap-2">
-                <CheckInButton
-                  courtId={court.id}
-                  courtName={court.name}
-                  courtLat={court.lat}
-                  courtLng={court.lng}
-                />
+                {userCheckInId ? (
+                  <CheckoutButton checkInId={userCheckInId} />
+                ) : (
+                  <CheckInButton
+                    courtId={court.id}
+                    courtName={court.name}
+                    courtLat={court.lat}
+                    courtLng={court.lng}
+                  />
+                )}
                 <FavoriteButtonWrapper courtId={court.id} />
                 <ReportButton
                   courtId={court.id}

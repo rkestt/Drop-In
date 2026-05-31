@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface CheckoutButtonProps {
   checkInId: string;
@@ -12,6 +13,7 @@ interface CheckoutButtonProps {
 export function CheckoutButton({ checkInId }: CheckoutButtonProps) {
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
+  const router = useRouter();
 
   const handleCheckout = async () => {
     setLoading(true);
@@ -19,10 +21,11 @@ export function CheckoutButton({ checkInId }: CheckoutButtonProps) {
       const { error } = await supabase
         .from("check_ins")
         .update({ status: "checked_out", checked_out_at: new Date().toISOString() })
-        .eq("id", checkInId);
+        .eq("id", checkInId)
+        .eq("status", "active");
 
       if (error) throw error;
-      window.location.reload();
+      router.refresh();
     } catch (err) {
       console.error("Checkout error:", err);
     } finally {

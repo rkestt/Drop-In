@@ -25,6 +25,7 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [alreadyJoined, setAlreadyJoined] = useState(false);
+  const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [loadingJoined, setLoadingJoined] = useState(!userId);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -44,6 +45,17 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
       .maybeSingle()
       .then(({ data }) => {
         setAlreadyJoined(!!data);
+      });
+
+    supabase
+      .from("check_ins")
+      .select("id")
+      .eq("lobby_id", lobby.id)
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle()
+      .then(({ data }) => {
+        setIsCheckedIn(!!data);
         setLoadingJoined(false);
       });
   }, [lobby.id, userId, supabase]);
@@ -143,8 +155,13 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {alreadyJoined ? (
+          {isCheckedIn ? (
             <Badge variant="success">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              Presente
+            </Badge>
+          ) : alreadyJoined ? (
+            <Badge variant="accent">
               <CheckCircle2 className="w-3 h-3 mr-1" />
               Dentro
             </Badge>
@@ -185,8 +202,14 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
         <p className="text-xs text-[var(--danger)]">{error}</p>
       )}
 
-      {alreadyJoined && !loadingJoined && (
+      {isCheckedIn && !loadingJoined && (
         <p className="text-xs text-[var(--success)] flex items-center gap-1">
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          Sei presente al campo
+        </p>
+      )}
+      {alreadyJoined && !isCheckedIn && !loadingJoined && (
+        <p className="text-xs text-[var(--accent)] flex items-center gap-1">
           <CheckCircle2 className="w-3.5 h-3.5" />
           Sei iscritto a questa partita
         </p>

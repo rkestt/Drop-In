@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { MapPin, Navigation, AlertTriangle } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface CheckInSheetProps {
   open: boolean;
@@ -16,72 +17,130 @@ interface CheckInSheetProps {
 }
 
 const CHECK_IN_RADIUS = 50; // meters
-const MAX_ACCURACY = 20; // meters
+const SKIP_GPS = process.env.NEXT_PUBLIC_SKIP_GPS_CHECK === "true";
+
+function haversineDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371e3;
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 export function CheckInSheet({
   open,
   onClose,
   courtId,
   courtName,
-  /* eslint-disable @typescript-eslint/no-unused-vars */
   courtLat,
   courtLng,
-  /* eslint-enable @typescript-eslint/no-unused-vars */
 }: CheckInSheetProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const supabase = createClient();
+  const router = useRouter();
 
   useEffect(() => {
     if (!open) {
-      // Defer state reset outside synchronous effect body to avoid cascading renders
-      queueMicrotask(() => {
-        setError(null);
-        setSuccess(false);
-        setGpsAccuracy(null);
-      });
+      setError(null);
+      setSuccess(false);
+      setGpsAccuracy(null);
     }
   }, [open]);
 
   const handleCheckIn = async () => {
+    console.error("[check-in] handleCheckIn called, SKIP_GPS=", SKIP_GPS, "courtId=", courtId);
     setLoading(true);
     setError(null);
     setSuccess(false);
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+
+      if (authError) {
+        console.error("[check-in] Auth error:", authError);
+        throw new Error("Errore di autenticazione. Riprova.");
+      }
+
+      const user = authData?.user;
 
       if (!user) {
         throw new Error("Devi effettuare l'accesso per fare check-in.");
       }
 
-      // Get current position
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        });
-      });
+      let latitude: number;
+      let longitude: number;
+      let accuracy: number;
 
-      const { latitude, longitude, accuracy } = position.coords;
+      if (SKIP_GPS) {
+        // Dev mode: use court coordinates (distance = 0, trigger always passes)
+        latitude = courtLat;
+        longitude = courtLng;
+        accuracy = 0;
+      } else {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0,
+          });
+        });
+        latitude = position.coords.latitude;
+        longitude = position.coords.longitude;
+        accuracy = position.coords.accuracy;
+      }
       setGpsAccuracy(accuracy);
 
-      if (accuracy > MAX_ACCURACY) {
+      const distance = haversineDistance(latitude, longitude, courtLat, courtLng);
+
+      if (distance > CHECK_IN_RADIUS) {
         throw new Error(
-          `Precisione GPS scarsa (${Math.round(accuracy)}m). Avvicinati al centro del campo.`
+          `Sei troppo lontano dal campo (${Math.round(distance)}m). Avvicinati per fare check-in.`
         );
       }
 
-      // Server-side distance validation via RPC or insert with trigger
-      // For MVP, we validate client-side and trust the server to enforce via trigger
+      // Find active lobby the user participates in at this court
+      let lobbyId: string | null = null;
+      const { data: participantLobbies } = await supabase
+        .from("lobby_participants")
+        .select("lobby_id")
+        .eq("user_id", user.id);
+
+      const lobbyIds = participantLobbies?.map((p) => p.lobby_id) ?? [];
+      if (lobbyIds.length > 0) {
+        const { data: activeLobby } = await supabase
+          .from("lobbies")
+          .select("id")
+          .in("id", lobbyIds)
+          .eq("court_id", courtId)
+          .in("status", ["open", "in_progress"])
+          .order("start_time", { ascending: true })
+          .limit(1)
+          .single();
+
+        if (activeLobby) {
+          lobbyId = activeLobby.id;
+        }
+      }
+
       const { error: insertError } = await supabase.from("check_ins").insert({
         user_id: user.id,
         court_id: courtId,
+        lobby_id: lobbyId,
         lat: latitude,
         lng: longitude,
         accuracy,
@@ -89,17 +148,25 @@ export function CheckInSheet({
       });
 
       if (insertError) {
-        if (insertError.message.includes("distance")) {
+        console.error("[check-in] Insert error:", insertError);
+        const msg = insertError.message.toLowerCase();
+        // Italian trigger messages
+        if (msg.includes("lontano") || msg.includes("distanza")) {
           throw new Error("Sei troppo lontano dal campo. Avvicinati per fare check-in.");
         }
-        throw insertError;
+        if (msg.includes("5 minuti") || msg.includes("attendere")) {
+          throw new Error("Devi attendere 5 minuti prima di fare di nuovo check-in su questo campo.");
+        }
+        throw new Error(insertError.message || "Errore durante il check-in.");
       }
 
       setSuccess(true);
+      router.refresh();
       setTimeout(() => {
         onClose();
       }, 1500);
     } catch (err) {
+      console.error("[check-in] Unexpected error:", err);
       const geoErr = err as GeolocationPositionError & { message?: string };
       if (geoErr.code === 1) {
         setError("Permesso di geolocalizzazione negato. Abilita GPS per fare check-in.");
@@ -123,22 +190,17 @@ export function CheckInSheet({
           <div>
             <p className="font-medium text-[var(--text-primary)]">{courtName}</p>
             <p className="text-sm text-[var(--text-secondary)]">
-              Devi essere entro {CHECK_IN_RADIUS}m dal campo
+              {SKIP_GPS
+                ? "GPS bypassato (dev mode) — check-in sempre consentito"
+                : `Devi essere entro ${CHECK_IN_RADIUS}m dal campo`}
             </p>
           </div>
         </div>
 
-        {gpsAccuracy !== null && gpsAccuracy <= MAX_ACCURACY && (
-          <div className="flex items-center gap-2 text-sm text-[var(--success)]">
+        {!SKIP_GPS && gpsAccuracy !== null && (
+          <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
             <Navigation className="w-4 h-4" />
             Precisione GPS: {Math.round(gpsAccuracy)}m
-          </div>
-        )}
-
-        {gpsAccuracy !== null && gpsAccuracy > MAX_ACCURACY && (
-          <div className="flex items-center gap-2 text-sm text-[var(--warning)]">
-            <AlertTriangle className="w-4 h-4" />
-            Precisione GPS scarsa: {Math.round(gpsAccuracy)}m
           </div>
         )}
 

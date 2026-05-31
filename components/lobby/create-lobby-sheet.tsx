@@ -59,6 +59,11 @@ export function CreateLobbySheet({
         );
       }
 
+      const startDate = new Date(startTime);
+      if (startDate.getTime() < Date.now() + 5 * 60 * 1000) {
+        throw new Error("L'orario di inizio deve essere almeno tra 5 minuti.");
+      }
+
       // DB trigger auto_join_creator_as_participant handles auto-join
       const { error } = await supabase.from("lobbies").insert({
         court_id: courtId,

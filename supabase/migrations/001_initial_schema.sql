@@ -149,14 +149,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Auto-checkout after 2 hours
+-- Auto-checkout after 4 hours
 CREATE OR REPLACE FUNCTION auto_checkout()
 RETURNS VOID AS $$
 BEGIN
   UPDATE check_ins
   SET status = 'checked_out', checked_out_at = NOW()
   WHERE status = 'active'
-    AND checked_in_at < NOW() - INTERVAL '2 hours';
+    AND checked_in_at < NOW() - INTERVAL '4 hours';
 END;
 $$ LANGUAGE plpgsql;
 
@@ -309,7 +309,6 @@ BEGIN
           SELECT 1 FROM check_ins ci
           WHERE ci.user_id = lp.user_id
             AND ci.lobby_id = NEW.id
-            AND ci.status = 'active'
         )
     );
   END IF;

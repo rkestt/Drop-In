@@ -73,7 +73,8 @@ async function getRecentActivity(
       id,
       checked_in_at,
       lobby_id,
-      lobbies:courts!inner(
+      court_id,
+      courts!inner(
         name,
         address
       )
@@ -86,10 +87,11 @@ async function getRecentActivity(
   return (data ?? []).map((d: any) => ({
     id: d.id,
     checked_in_at: d.checked_in_at,
-    court_name: d.lobbies?.name ?? "Campo",
-    court_address: d.lobbies?.address ?? "",
+    court_name: d.courts?.name ?? "Campo",
+    court_address: d.courts?.address ?? "",
     lobby_type: "partita",
     lobby_id: d.lobby_id,
+    court_id: d.court_id,
   }));
 }
 
@@ -409,7 +411,7 @@ export default async function ProfilePage() {
               {recentActivity.map((item) => (
                 <a
                   key={item.id}
-                  href={`/courts/${item.lobby_id}`}
+                  href={`/courts/${item.court_id}`}
                   className="group flex items-start gap-3 p-4 bg-[var(--bg-elevated)] rounded-xl hover:bg-[var(--accent-subtle)]/50 transition-colors"
                 >
                   <div className="w-10 h-10 rounded-full bg-[var(--accent-subtle)] flex items-center justify-center flex-shrink-0">
