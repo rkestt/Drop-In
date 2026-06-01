@@ -171,7 +171,11 @@ export function CheckInSheet({
       if (geoErr.code === 1) {
         setError("Permesso di geolocalizzazione negato. Abilita GPS per fare check-in.");
       } else if (geoErr.code === 2) {
-        setError("Posizione non disponibile. Verifica che il GPS sia attivo.");
+        setError(
+          SKIP_GPS
+            ? "Posizione non disponibile."
+            : "GPS non disponibile su questo dispositivo/server. Contatta l'amministratore per abilitare SKIP_GPS."
+        );
       } else if (geoErr.code === 3) {
         setError("Timeout GPS. Riprova.");
       } else {

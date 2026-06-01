@@ -129,20 +129,31 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
     }
   };
 
-  const startDate = new Date(lobby.start_time);
-  const isToday = startDate.toDateString() === new Date().toDateString();
-  // eslint-disable-next-line react-hooks/purity
-  const isTomorrow = startDate.toDateString() === new Date(Date.now() + 86400000).toDateString();
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
-  let timeLabel = startDate.toLocaleDateString("it-IT", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  if (isToday) timeLabel = "Oggi " + startDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-  if (isTomorrow) timeLabel = "Domani " + startDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  let timeLabel: string = lobby.start_time;
+  if (isClient) {
+    const startDate = new Date(lobby.start_time);
+    const todayStr = startDate.toDateString() === new Date().toDateString();
+    const tomorrowStr = startDate.toDateString() === new Date(Date.now() + 86400000).toDateString();
+
+    if (todayStr) {
+      timeLabel = "Oggi " + startDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    } else if (tomorrowStr) {
+      timeLabel = "Domani " + startDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    } else {
+      timeLabel = startDate.toLocaleDateString("it-IT", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+  }
 
   return (
     <div className="bg-[var(--bg-surface)] rounded-2xl p-4 space-y-3">
@@ -150,7 +161,7 @@ export function LobbyJoinCard({ lobby, userId }: LobbyJoinCardProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-[var(--accent)]" />
-          <span className="text-sm font-semibold text-[var(--text-primary)]">
+          <span className="text-sm font-semibold text-[var(--text-primary)]" suppressHydrationWarning>
             {timeLabel}
           </span>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AlertTriangle, X } from "lucide-react";
 
@@ -18,8 +18,10 @@ export function NotificationToast() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
   useEffect(() => {
-    let cleanup: (() => void) | undefined;
+    if (channelRef.current) return;
 
     const init = async () => {
       const {
@@ -78,15 +80,16 @@ export function NotificationToast() {
         )
         .subscribe();
 
-      cleanup = () => {
-        supabase.removeChannel(channel);
-      };
+      channelRef.current = channel;
     };
 
     init();
 
     return () => {
-      cleanup?.();
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [supabase, removeToast]);
 
