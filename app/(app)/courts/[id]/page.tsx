@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { CheckInButton } from "@/components/check-in/check-in-button";
 import type { Metadata } from "next";
 import { CourtLobbyList } from "./lobby-list";
 
@@ -120,6 +121,14 @@ export default async function CourtPage({
               <span>{court.address}</span>
             </div>
           )}
+
+          {/* Check-in button */}
+          <CheckInButton
+            courtId={court.id}
+            courtName={court.name}
+            courtLat={court.lat}
+            courtLng={court.lng}
+          />
 
           {/* Details grid */}
           <div className="grid grid-cols-2 gap-3 pt-2">
