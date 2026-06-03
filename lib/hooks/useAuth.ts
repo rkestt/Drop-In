@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getCachedAuth, setCachedAuth, clearAuthCache } from "@/lib/cache/auth";
 import type { User } from "@supabase/supabase-js";
@@ -7,14 +7,16 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isStale, setIsStale] = useState(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const fetchAuth = useCallback(async () => {
     try {
       const { data, error } = await supabase.auth.getUser();
 
       if (error) {
-        console.warn("[Auth] Fetch error:", error.message);
+        if (!error.message.toLowerCase().includes("auth session missing")) {
+          console.warn("[Auth] Fetch error:", error.message);
+        }
         const cached = getCachedAuth();
         if (cached?.user) {
           setUser(cached.user);
