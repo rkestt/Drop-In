@@ -26,11 +26,15 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      return response;
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      console.error("[Auth Callback] Exchange failed:", error.message, error.code);
+      return NextResponse.redirect(`${origin}/?error=auth_callback_failed&msg=${encodeURIComponent(error.message)}`);
     }
+    console.log("[Auth Callback] Session created for user:", data.user?.email);
+    return response;
   }
 
-  return NextResponse.redirect(`${origin}/?error=auth_callback_failed`);
+  console.error("[Auth Callback] No code in URL");
+  return NextResponse.redirect(`${origin}/?error=auth_callback_failed&msg=no_code`);
 }
