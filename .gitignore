@@ -48,3 +48,6 @@ next-env.d.ts
 #rkestt
 localTODO.md
 AGENTS.md
+
+# Supabase temp files
+supabase/.temp/
