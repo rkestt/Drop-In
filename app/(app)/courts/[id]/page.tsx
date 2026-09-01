@@ -8,6 +8,8 @@ import { LoginPrompt } from "@/components/auth/login-prompt";
 import { BanBannerWrapper } from "@/components/karma/ban-banner-wrapper";
 import { MapPin, AlertTriangle, Clock, Users } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function CourtPage({
   params,
 }: {

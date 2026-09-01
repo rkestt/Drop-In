@@ -18,5 +18,3 @@ const serwistConfig = {
 module.exports = process.env.NODE_ENV === 'development'
   ? nextConfig
   : withSerwist(serwistConfig)(nextConfig);
-
-module.exports = serwistConfig;

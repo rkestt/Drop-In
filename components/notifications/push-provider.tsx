@@ -1,5 +1,7 @@
 "use client";
 
+// Push deferred: delivery requires Edge Function + VAPID keys. See .wayfinder/tickets/t5-push-scope.md
+
 import { useEffect } from "react";
 
 export function PushNotificationProvider() {

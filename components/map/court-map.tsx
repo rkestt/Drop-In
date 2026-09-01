@@ -14,15 +14,22 @@ interface CourtMapProps {
   }>;
   onCourtSelect?: (courtId: string) => void;
   reportedCourtIds?: string[];
+  onBoundsChange?: (bounds: maplibregl.LngLatBounds, zoom: number) => void;
 }
 
 const ROME_CENTER: [number, number] = [12.5113, 41.8919];
 
-export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: CourtMapProps) {
+export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], onBoundsChange }: CourtMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
+  const markers = useRef<maplibregl.Marker[]>([]);
   const [, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const onBoundsChangeRef = useRef(onBoundsChange);
+
+  useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange;
+  }, [onBoundsChange]);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -57,6 +64,13 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
       "bottom-right"
     );
 
+    map.current.on("load", () => {
+      onBoundsChangeRef.current?.(map.current!.getBounds(), map.current!.getZoom());
+    });
+    map.current.on("moveend", () => {
+      onBoundsChangeRef.current?.(map.current!.getBounds(), map.current!.getZoom());
+    });
+
     // Try to get user location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -89,6 +103,10 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
   // Add court markers
   useEffect(() => {
     if (!map.current || courts.length === 0) return;
+
+    // Remove markers from the previous viewport fetch before adding the current set
+    markers.current.forEach((m) => m.remove());
+    markers.current = [];
 
     const reportedSet = new Set(reportedCourtIds || []);
 
@@ -125,10 +143,10 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
         }
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([court.lng, court.lat])
         .addTo(map.current);
+      markers.current.push(marker);
     });
   }, [courts, onCourtSelect, reportedCourtIds]);
 

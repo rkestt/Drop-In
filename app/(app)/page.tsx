@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { CourtMap } from "@/components/map/court-map";
 import { LoginModal } from "@/components/auth/login-modal";
@@ -10,6 +10,7 @@ import { ReportedCourtsIndicator } from "@/components/report/reported-courts-ind
 import { MapPin, Users } from "lucide-react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
+import { bboxInside, type BBox } from "@/lib/geo";
 
 interface Court {
   id: string;
@@ -39,13 +40,53 @@ export default function HomePage() {
   const [showLogin, setShowLogin] = useState(false);
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
   const supabase = useMemo(() => createClient(), []);
+  const coveredBBox = useRef<BBox | null>(null);
+  const fetchingCourts = useRef(false);
+
+  const fetchCourtsForBBox = useCallback(
+    async (bbox: BBox) => {
+      if (fetchingCourts.current) return;
+      fetchingCourts.current = true;
+      try {
+        const { data } = await (
+          supabase.rpc as unknown as (
+            fn: string,
+            args: { min_lng: number; min_lat: number; max_lng: number; max_lat: number }
+          ) => Promise<{ data: Court[] | null }>
+        )("courts_in_viewport", {
+          min_lng: bbox.w,
+          min_lat: bbox.s,
+          max_lng: bbox.e,
+          max_lat: bbox.n,
+        });
+        setCourts(data ?? []);
+      } catch (err) {
+        console.error("Error fetching courts in viewport:", err);
+      } finally {
+        fetchingCourts.current = false;
+      }
+    },
+    [supabase]
+  );
+
+  const handleBoundsChange = useCallback(
+    (bounds: BBox, zoom: number) => {
+      // Don't fetch a huge area at low zoom (viewport cap is 2000).
+      if (zoom < 10) return;
+      const prev = coveredBBox.current;
+      // Skip refetch when the new bbox is already inside the area we fetched (pan within it / zoom-in).
+      if (prev && bboxInside(bounds, prev)) return;
+      coveredBBox.current = bounds;
+      fetchCourtsForBBox(bounds);
+    },
+    [fetchCourtsForBBox]
+  );
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch courts
-        const { data: courtsData } = await supabase.from("courts").select("*").limit(100);
-        setCourts(courtsData || []);
+        // Initial viewport around Rome (default map center + zoom)
+        fetchCourtsForBBox({ n: 41.95, s: 41.83, e: 12.62, w: 12.4 });
 
         // Fetch active lobbies with participant counts
         const { data: lobbiesData } = await supabase
@@ -125,6 +166,17 @@ export default function HomePage() {
           onCourtSelect={(id) => {
             window.location.href = `/courts/${id}`;
           }}
+          onBoundsChange={(bounds, zoom) =>
+            handleBoundsChange(
+              {
+                n: bounds.getNorth(),
+                s: bounds.getSouth(),
+                e: bounds.getEast(),
+                w: bounds.getWest(),
+              },
+              zoom
+            )
+          }
         />
         <ReportedCourtsIndicator onCourtsUpdate={setReportedCourtIds} />
       </div>

@@ -1,5 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { LobbyTabs } from "@/components/lobby/lobby-tabs";
+
+export const dynamic = "force-dynamic";
+
+type Lobby = {
+  id: string;
+  start_time: string;
+  status: string;
+  courts?: { name: string } | null;
+};
 
 export default async function LobbiesPage() {
   const supabase = await createClient();
@@ -11,50 +21,37 @@ export default async function LobbiesPage() {
     redirect("/?login=required");
   }
 
-  const { data: lobbies } = await supabase
+  // Le tue lobby: dove l'utente è creatore o partecipante
+  const { data: myParticipants } = await supabase
+    .from("lobby_participants")
+    .select("lobby_id")
+    .eq("user_id", user.id);
+  const joinedIds = (myParticipants ?? []).map((p) => p.lobby_id);
+
+  let mineQuery = supabase
+    .from("lobbies")
+    .select("*, courts(name)");
+  mineQuery =
+    joinedIds.length > 0
+      ? mineQuery.or(`creator_id.eq.${user.id},id.in.(${joinedIds.join(",")})`)
+      : mineQuery.eq("creator_id", user.id);
+  mineQuery = mineQuery.order("start_time", { ascending: true });
+
+  const { data: mine } = await mineQuery;
+
+  // Aperte vicine: posizione utente non disponibile -> ordina per created_at desc
+  const { data: nearby } = await supabase
     .from("lobbies")
     .select("*, courts(name)")
     .eq("status", "open")
-    .order("start_time", { ascending: true });
-
-  const lobbiesList = (lobbies as unknown as Array<{
-    id: string;
-    start_time: string;
-    status: string;
-    courts?: { name: string } | null;
-  }> | null) ?? [];
+    .order("created_at", { ascending: false });
 
   return (
     <main className="flex-1 p-6">
-      <h1 className="text-3xl font-bold font-[family-name:var(--font-syne)] mb-6">
-        Le tue lobby
-      </h1>
-      {lobbiesList.length > 0 ? (
-        <ul className="space-y-3">
-          {lobbiesList.map((lobby) => (
-            <li
-              key={lobby.id}
-              className="bg-[var(--bg-surface)] rounded-xl p-4 flex items-center justify-between"
-            >
-              <div>
-                <p className="font-semibold text-[var(--text-primary)]">
-                    {lobby.courts?.name}
-                </p>
-                <p className="text-sm text-[var(--text-secondary)]">
-                  {new Date(lobby.start_time).toLocaleString("it-IT")}
-                </p>
-              </div>
-              <span className="text-xs uppercase tracking-wider px-2.5 py-1 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] font-medium">
-                {lobby.status}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-[var(--text-muted)]">
-          Non sei ancora iscritto a nessuna lobby.
-        </p>
-      )}
+      <LobbyTabs
+        mine={(mine as unknown as Lobby[] | null) ?? []}
+        nearby={(nearby as unknown as Lobby[] | null) ?? []}
+      />
     </main>
   );
 }
