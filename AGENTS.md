@@ -14,14 +14,16 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Commands
 
 ```bash
-npm run dev          # Next.js dev server
+npm run dev          # Next.js dev server (http://localhost:3000)
 npm run build        # Production build (output: standalone)
 npm run lint         # ESLint (next/core-web-vitals + typescript config)
-npx supabase start   # Local Supabase (ports: API 54321, DB 54322, Studio 54323)
-npx supabase db reset # Apply migrations + seed
+npx tsc --noEmit     # Typecheck (no emit)
+npm run test:unit    # Vitest unit (tests/unit/)
+npm run test:e2e     # Playwright E2E (tests/e2e/, baseURL http://localhost:3100)
+npm run test:all     # lint + tsc + unit + e2e (gate finale)
+npx supabase start   # Local Supabase (ports: API 54321, DB 54322, Studio 54333)
+npx supabase db reset # Apply migrations + seed (200 courts Roma dev, 10k prod)
 ```
-
-No test framework configured. No typecheck script — use `tsc --noEmit` manually if needed.
 
 ## Setup
 
@@ -49,6 +51,15 @@ No test framework configured. No typecheck script — use `tsc --noEmit` manuall
 - **Browse-first**: unauthenticated users can view map/courts; auth required for lobbies
 - **Route groups**: `(app)` and `(dashboard)` are folder conventions, not segments
 
+## Harness — Tracker & Process (surgical, ponytail)
+
+- **Taskman** (`taskman` CLI + `.taskman/plans/`): canonical per piani/initiative God. Unico writer per file, dipendenze via `depends_on`. Wayfinder/openspec non usati per esecuzione.
+- **Wayfinder** (`.wayfinder/`): FROZEN — map `drop-in-bella-funzionante` chiusa 2026-08-23 (build verde, 10130 courts, viewport RPC). Solo lettura/archivio.
+- **OpenSpec** (`openspec/`): ARCHIVIATO — `changes/archive/2026-05-01-drop-in-mvp/` (7 spec). Nessun change attivo. Riattivare solo per feature grandi con `openspec` CLI.
+- **Wiki** (`.llm-wiki/`): memoria durable (concept/entity/synthesis). `wiki_observe` per note, `wiki_retro` per insight atomici.
+- **Quality gate unico**: `npm run test:all` = `npm run lint && tsc --noEmit && vitest run && playwright test` — deve essere verde prima di ogni commit harness-relevant.
+- **Canary**: per sessioni lunghe, prima riga `Andrea · tN · ctx ok` (vedi `context-canary` skill).
+
 ## OpenSpec
 
-OpenSpec docs in `openspec/`. Use `openspec` CLI for change management. Config: `openspec/config.yaml` (schema: spec-driven).
+OpenSpec docs in `openspec/`. ARCHIVIATO — vedi Harness sopra. Config: `openspec/config.yaml` (schema: spec-driven).

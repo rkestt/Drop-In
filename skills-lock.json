@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "ponytail": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/ponytail/SKILL.md",
+      "computedHash": "1316a2f3f95741d2300b116fe0c2d81ce4a9568656ed0a62643f54aaf09957f2"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "computedHash": "3afb2a5e8cb327d83f75d585494dcdb6aaaf7506cf0410cddd072b30f960efea"
+    }
+  }
+}
