@@ -17,7 +17,9 @@ function loadEnvLocal(): Record<string, string> {
   return env;
 }
 
+// envLocal kept for future Supabase URL injection if needed (currently env injected via .env.local auto-load by Next)
 const envLocal = loadEnvLocal();
+void envLocal;
 
 export default defineConfig({
   testDir: "./tests/e2e",

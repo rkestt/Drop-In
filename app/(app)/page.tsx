@@ -142,7 +142,7 @@ export default function HomePage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, [supabase, fetchCourtsForBBox]);
 
   if (loading) {
     return (

@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test";
 import { trackConsoleErrors } from "./helpers/console";
-import { SEEDED_COURT } from "./fixtures";
 
 test("homepage shows map, nearby section and seeded courts on the map", async ({
   page,
