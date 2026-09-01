@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run test:unit
+      - run: npm run build
+      # E2E richiede Supabase + Playwright browsers - step separato opzionale
+      # - run: npx playwright install --with-deps chromium
+      # - run: npm run test:e2e
+
+  # e2e opzionale su richiesta (supabase locale via docker)
+  # see: npx supabase start in CI requires docker setup - defer to manual
