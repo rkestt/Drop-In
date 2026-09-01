@@ -42,3 +42,12 @@ public/sw.js
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# harness — local artifacts (non committare)
+/test-results/
+/playwright-report/
+supabase/.temp/
+.llm-wiki/.discoveries/
+.llm-wiki/outputs/
+.llm-wiki/raw/
+.taskman/.tmp/
