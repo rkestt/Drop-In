@@ -1,0 +1,4 @@
+#!/bin/sh
+# harness pre-commit: lint-staged (staged files only) + typecheck
+npx lint-staged --quiet || exit 1
+npx tsc --noEmit --skipLibCheck || exit 1
