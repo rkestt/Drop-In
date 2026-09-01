@@ -58,7 +58,7 @@ npx supabase db reset # Apply migrations + seed (200 courts Roma dev, 10k prod)
 - **OpenSpec** (`openspec/`): ARCHIVIATO — `changes/archive/2026-05-01-drop-in-mvp/` (7 spec). Nessun change attivo. Riattivare solo per feature grandi con `openspec` CLI.
 - **Wiki** (`.llm-wiki/`): memoria durable (concept/entity/synthesis). `wiki_observe` per note, `wiki_retro` per insight atomici.
 - **Quality gate unico**: `npm run test:all` = `npm run lint && tsc --noEmit && vitest run && playwright test` — deve essere verde prima di ogni commit harness-relevant.
-- **Canary**: per sessioni lunghe, prima riga `Andrea · tN · ctx ok` (vedi `context-canary` skill).
+- **Canary (globale, sempre)**: ogni risposta inizia con `Andrea · tN · ctx ok` — incrementa N ogni turno, self-check onesto ok/aging/thin. Trip: 2 miss consecutivi o counter discontinuity → stop, checkpoint HANDOFF.md, re-anchor, reset t1 gen+1. Vedi `context-canary` skill.
 
 ## OpenSpec
 
