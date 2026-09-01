@@ -1,71 +1,35 @@
 {
   "version": "1.0",
-  "last_updated": "2026-08-23T14:31:18.921Z",
+  "last_updated": "2026-09-01T16:20:53.636478Z",
   "pages": {
-    "sources/obs-2026-08-23-fix-grant-mancanti-su-courts-smoke-test-rivela-42501": {
-      "type": "source",
-      "title": "Observation: Fix GRANT mancanti su courts — smoke test rivela 42501",
-      "tags": [
-        "supabase",
-        "rls",
-        "grant",
-        "anon",
-        "courts",
-        "smoke-test"
-      ],
-      "status": "observation",
-      "slug": "obs-2026-08-23-fix-grant-mancanti-su-courts-smoke-test-rivela-42501",
-      "relevance": "high",
-      "observed_at": "2026-08-23T14:31:18.915Z",
-      "source_context": "Smoke test browser post-wayfinder",
-      "created": "2026-08-23",
-      "updated": "2026-08-23"
-    },
     "sources/obs-2026-08-23-tooling-setup-ponytail-impeccable-installate-wiki-project-lo": {
       "type": "source",
-      "title": "Observation: Tooling setup: ponytail+impeccable installate, wiki project-local creata",
-      "tags": [
-        "skills",
-        "ponytail",
-        "impeccable",
-        "wiki",
-        "config"
-      ],
-      "status": "observation",
-      "slug": "obs-2026-08-23-tooling-setup-ponytail-impeccable-installate-wiki-project-lo",
+      "title": "Tooling setup: ponytail+impeccable installate, wiki project-local creata",
       "relevance": "high",
-      "observed_at": "2026-08-23T11:22:53.506Z",
-      "source_context": "Configurazione tooling per sviluppo app Drop-In",
-      "created": "2026-08-23",
-      "updated": "2026-08-23"
-    },
-    "sources/obs-2026-08-23-wayfinder-map-drop-in-eseguita-build-verde-runtime-seeded-ma": {
-      "type": "source",
-      "title": "Observation: Wayfinder map Drop-In eseguita: build verde, runtime seeded, mappa viewport",
-      "tags": [
-        "drop-in",
-        "wayfinder",
-        "orchestration",
-        "map-viewport",
-        "lobbies",
-        "push"
-      ],
-      "status": "observation",
-      "slug": "obs-2026-08-23-wayfinder-map-drop-in-eseguita-build-verde-runtime-seeded-ma",
-      "relevance": "medium",
-      "observed_at": "2026-08-23T13:34:56.181Z",
-      "source_context": "Executing wayfinder map drop-in-bella-funzionante",
-      "created": "2026-08-23",
-      "updated": "2026-08-23"
+      "observed_at": "2026-08-23T11:22:53.510Z"
     },
     "sources/wayfinder-subsession-orchestration": {
       "type": "source",
       "title": "Wayfinder map execution via parallel subsessions",
-      "category": "devops",
-      "status": "insight",
-      "slug": "wayfinder-subsession-orchestration",
-      "created": "2026-08-23",
-      "updated": "2026-08-23"
+      "category": "devops"
+    },
+    "sources/obs-2026-08-23-wayfinder-map-drop-in-eseguita-build-verde-runtime-seeded-ma": {
+      "type": "source",
+      "title": "Wayfinder map Drop-In eseguita: build verde, runtime seeded, mappa viewport",
+      "relevance": "medium",
+      "observed_at": "2026-08-23T13:34:56.182Z"
+    },
+    "sources/obs-2026-08-23-fix-grant-mancanti-su-courts-smoke-test-rivela-42501": {
+      "type": "source",
+      "title": "Fix GRANT mancanti su courts \u2014 smoke test rivela 42501",
+      "relevance": "high",
+      "observed_at": "2026-08-23T14:31:18.918Z"
+    },
+    "sources/obs-2026-09-01-harness-hardening-tracker-git-husky-ci-lint-zero": {
+      "type": "source",
+      "title": "Harness hardening: tracker unificato, git pulito, husky+lint-staged, lint zero, CI verde",
+      "relevance": "high",
+      "observed_at": "2026-09-01T16:20:53.636478Z"
     }
   }
 }

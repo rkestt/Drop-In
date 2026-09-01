@@ -3,17 +3,32 @@
 > Auto-generated from meta/events.jsonl. Do not edit manually.
 
 ## [2026-08-23T11:22:37.012Z] bootstrap
-- topic: "Drop-In", mode: "personal"
+- topic: "Drop-In"
+- mode: "personal"
 
 ## [2026-08-23T11:22:53.510Z] observe
-- slug: "obs-2026-08-23-tooling-setup-ponytail-impeccable-installate-wiki-project-lo", title: "Tooling setup: ponytail+impeccable installate, wiki project-local creata", relevance: "high"
+- slug: "obs-2026-08-23-tooling-setup-ponytail-impeccable-installate-wiki-project-lo"
+- title: "Tooling setup: ponytail+impeccable installate, wiki project-local creata"
+- relevance: "high"
 
 ## [2026-08-23T13:34:37.390Z] retro
-- slug: "wayfinder-subsession-orchestration", title: "Wayfinder map execution via parallel subsessions", category: "devops"
+- slug: "wayfinder-subsession-orchestration"
+- title: "Wayfinder map execution via parallel subsessions"
+- category: "devops"
 
 ## [2026-08-23T13:34:56.182Z] observe
-- slug: "obs-2026-08-23-wayfinder-map-drop-in-eseguita-build-verde-runtime-seeded-ma", title: "Wayfinder map Drop-In eseguita: build verde, runtime seeded, mappa viewport", relevance: "medium"
+- slug: "obs-2026-08-23-wayfinder-map-drop-in-eseguita-build-verde-runtime-seeded-ma"
+- title: "Wayfinder map Drop-In eseguita: build verde, runtime seeded, mappa viewport"
+- relevance: "medium"
 
 ## [2026-08-23T14:31:18.918Z] observe
-- slug: "obs-2026-08-23-fix-grant-mancanti-su-courts-smoke-test-rivela-42501", title: "Fix GRANT mancanti su courts — smoke test rivela 42501", relevance: "high"
+- slug: "obs-2026-08-23-fix-grant-mancanti-su-courts-smoke-test-rivela-42501"
+- title: "Fix GRANT mancanti su courts — smoke test rivela 42501"
+- relevance: "high"
+
+## [2026-09-01T16:20:53.636478Z] observe
+- slug: "obs-2026-09-01-harness-hardening-tracker-git-husky-ci-lint-zero"
+- title: "Harness hardening: tracker unificato, git pulito, husky+lint-staged, lint zero, CI verde"
+- relevance: "high"
+- details: {'before': 'git dirty 11M+12U, AGENTS.md drift (no test framework), tracker triplo (taskman/wayfinder/openspec), lint 3 warnings, no CI, hound 13.0, no husky, canary non globale', 'after': 'git 5 commit puliti (tracker, map feat, test infra, gitignore, canary) + husky/lint-staged + lint 0 warnings + tsc pulito + vitest 13/13 + build verde + CI yaml + hound 13.2 + ponytail lock + wayfinder FROZEN + canary globale', 'metrics': {'commits': 5, 'lint_warnings_before': 3, 'lint_warnings_after': 0, 'tsc_before': 'clean ma non verificato', 'tsc_after': 'clean', 'vitest': '13/13', 'build': 'verde standalone + serwist sw 43K', 'hound': '13.2', 'husky': 'pre-commit lint-staged+tsc'}}
 
