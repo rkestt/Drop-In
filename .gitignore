@@ -51,3 +51,4 @@ supabase/.temp/
 .llm-wiki/outputs/
 .llm-wiki/raw/
 .taskman/.tmp/
+.taskman/archive/
