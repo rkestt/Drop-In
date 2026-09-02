@@ -34,9 +34,10 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protect dashboard routes
+  // Protect dashboard routes (route group (dashboard) maps to /lobbies, /profile at root)
+  const protectedPrefixes = ["/dashboard", "/lobbies", "/profile"];
   if (
-    request.nextUrl.pathname.startsWith("/dashboard") &&
+    protectedPrefixes.some((p) => request.nextUrl.pathname.startsWith(p)) &&
     !user
   ) {
     const url = request.nextUrl.clone();

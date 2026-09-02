@@ -1,4 +1,4 @@
-# Wayfinder Map — drop-in-next [ATTIVA]
+# Wayfinder Map — drop-in-next [CHIUSA 2026-09-02]
 
 ## Destination
 
@@ -28,17 +28,20 @@ Drop-In pronto per sviluppo continuativo: E2E critici verdi (browse, smoke, cour
 
 ## Tickets aperti (frontier)
 
-- [t7-full-app-sweep-fixes](tickets/t7-full-app-sweep-fixes.md) — Sweep completa route rimanenti, PWA, gate finale (blocked_by t6 ora sbloccato)
+(nessuno — tutti chiusi)
 
 ## Chiusi in questa map
 
 - [t6-e2e-critical-paths](tickets/t6-e2e-critical-paths.md) ✅ 2026-09-02 — lint 0, tsc 0, vitest 13/13, playwright 5/5, build verde
+- [t7-full-app-sweep-fixes](tickets/t7-full-app-sweep-fixes.md) ✅ 2026-09-02 — middleware lobbies/profile, PWA icons, realtime, gate verde
 
-## Not yet specified
+## Not yet specified — risolti in t7
 
-- Check-in GPS 50m UX dev senza GPS reale (mock/fixture)
-- Verifica PWA/service worker serwist in prod
-- Realtime lobbies Supabase Realtime
+- Check-in GPS 50m: trigger DB 50m + cooldown 5min verificati, client highAccuracy + MAX_ACCURACY 20m
+- PWA: sw.js 43K + manifest icons 192/512 generati, build prod verde
+- Realtime: 5 canali Supabase (lobbies, profile, lobby-list, reported, karma toast) attivi
+
+**STATUS: DESTINAZIONE RAGGIUNTA** — tutti i ticket chiusi, gate verde
 
 ## Out of scope
 
