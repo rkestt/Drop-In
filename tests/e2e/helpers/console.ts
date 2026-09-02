@@ -3,6 +3,9 @@ import type { Page } from "@playwright/test";
 const IGNORED_PATTERNS = [
   // MapLibre tiles may fail offline / rate-limited; not an app error
   /Failed to load resource.*(tiles|mapbox|openstreetmap)/i,
+  // Next.js notFound() triggers a 404 console error which is expected for unknown IDs
+  /Failed to load resource.*404/i,
+  /404.*Not Found/i,
   /net::ERR_/,
   /\[Fast Refresh\]/,
   /Download the React DevTools/i,
