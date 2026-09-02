@@ -53,13 +53,8 @@ npx supabase db reset # Apply migrations + seed (200 courts Roma dev, 10k prod)
 
 ## Harness — Tracker & Process (surgical, ponytail)
 
-- **Taskman** (`taskman` CLI + `.taskman/plans/`): canonical per piani/initiative God. Unico writer per file, dipendenze via `depends_on`. Wayfinder/openspec non usati per esecuzione.
-- **Wayfinder** (`.wayfinder/`): FROZEN — map `drop-in-bella-funzionante` chiusa 2026-08-23 (build verde, 10130 courts, viewport RPC). Solo lettura/archivio.
-- **OpenSpec** (`openspec/`): ARCHIVIATO — `changes/archive/2026-05-01-drop-in-mvp/` (7 spec). Nessun change attivo. Riattivare solo per feature grandi con `openspec` CLI.
+- **Wayfinder** (`.wayfinder/`): **CANONICAL** — map `drop-in-next` attiva (ex `drop-in-bella-funzionante` chiusa 2026-08-23). Decision ticket + frontier, blocking via `blocked_by`, claim via `claimed`. Unico tracker per God.
+- **Taskman** (`.taskman/plans/`): FROZEN — 4 piani 2026-08-23 (2 done, 2 in-progress migrati in Wayfinder t6/t7). Solo lettura/archivio, non usare per nuovi lavori.
 - **Wiki** (`.llm-wiki/`): memoria durable (concept/entity/synthesis). `wiki_observe` per note, `wiki_retro` per insight atomici.
 - **Quality gate unico**: `npm run test:all` = `npm run lint && tsc --noEmit && vitest run && playwright test` — deve essere verde prima di ogni commit harness-relevant.
 - **Canary (globale, sempre)**: ogni risposta inizia con `Andrea · tN · ctx ok` — incrementa N ogni turno, self-check onesto ok/aging/thin. Trip: 2 miss consecutivi o counter discontinuity → stop, checkpoint HANDOFF.md, re-anchor, reset t1 gen+1. Vedi `context-canary` skill.
-
-## OpenSpec
-
-OpenSpec docs in `openspec/`. ARCHIVIATO — vedi Harness sopra. Config: `openspec/config.yaml` (schema: spec-driven).
