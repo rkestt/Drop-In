@@ -2,8 +2,10 @@
 id: t6
 type: task
 hitl: false
-claimed: false
+claimed: true
 blocked_by: []
+status: closed
+closed_at: 2026-09-02
 ---
 ## Question
 
@@ -18,4 +20,12 @@ Stato 2026-09-02: 5/5 verdi dopo fix `console.ts` 404 ignore, supabase 200 court
 
 ## Resolution
 
-(TBD — chiudere quando `npm run test:all` = lint 0 + tsc 0 + vitest 13/13 + playwright 5/5 verde su supabase up)
+**Chiuso 2026-09-02 — gate verde verificato:**
+- `npm run lint` 0 warnings
+- `npx tsc --noEmit` 0
+- `vitest` 13/13 (180ms)
+- `playwright` 5/5 (20.2s) — fix `helpers/console.ts` ignora 404 notFound, supabase 200 courts up
+- `build` verde `env -u NODE_ENV` (460kB, serwist ok)
+- push `4d2df3c` + `0c1d16d` già su origin/master
+
+Ticket completato, sblocca t7.

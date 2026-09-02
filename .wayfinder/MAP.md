@@ -28,8 +28,11 @@ Drop-In pronto per sviluppo continuativo: E2E critici verdi (browse, smoke, cour
 
 ## Tickets aperti (frontier)
 
-- [t6-e2e-critical-paths](tickets/t6-e2e-critical-paths.md) — E2E percorsi critici + fix errori runtime (migrato da taskman)
-- [t7-full-app-sweep-fixes](tickets/t7-full-app-sweep-fixes.md) — Sweep completa route rimanenti, PWA, gate finale (migrato da taskman)
+- [t7-full-app-sweep-fixes](tickets/t7-full-app-sweep-fixes.md) — Sweep completa route rimanenti, PWA, gate finale (blocked_by t6 ora sbloccato)
+
+## Chiusi in questa map
+
+- [t6-e2e-critical-paths](tickets/t6-e2e-critical-paths.md) ✅ 2026-09-02 — lint 0, tsc 0, vitest 13/13, playwright 5/5, build verde
 
 ## Not yet specified
 
