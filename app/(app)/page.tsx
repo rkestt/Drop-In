@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import dynamic from "next/dynamic";
 import { MapSkeleton } from "@/components/map/map-skeleton";
@@ -45,44 +45,42 @@ export default function HomePage() {
   const [showLogin, setShowLogin] = useState(false);
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
   const supabase = useMemo(() => createClient(), []);
+  const handleCourtSelect = useCallback((id: string) => {
+    window.location.href = `/courts/${id}`;
+  }, []);
+
+  const fetchLobbies = useCallback(async () => {
+    const { data: lobbiesData } = await supabase
+      .from("lobbies")
+      .select("*, lobby_participants(count)")
+      .eq("status", "open")
+      .order("start_time", { ascending: true })
+      .limit(20);
+    const formattedLobbies: Lobby[] =
+      (lobbiesData as unknown as Array<{
+        id: string;
+        court_id: string;
+        start_time: string;
+        max_players: number;
+        status: string;
+        lobby_participants?: { count: number }[];
+      }> | null ?? []).map((l) => ({
+        id: l.id,
+        court_id: l.court_id,
+        start_time: l.start_time,
+        max_players: l.max_players,
+        status: l.status,
+        participants_count: l.lobby_participants?.[0]?.count ?? 0,
+      }));
+    setLobbies(formattedLobbies);
+  }, [supabase]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch courts
         const { data: courtsData } = await supabase.from("courts").select("*").limit(100);
         setCourts(courtsData || []);
-
-        // Fetch active lobbies with participant counts
-        const { data: lobbiesData } = await supabase
-          .from("lobbies")
-          .select("*, lobby_participants(count)")
-          .eq("status", "open")
-          .order("start_time", { ascending: true })
-          .limit(20);
-
-        const formattedLobbies: Lobby[] =
-          (lobbiesData as unknown as Array<{
-            id: string;
-            court_id: string;
-            start_time: string;
-            max_players: number;
-            status: string;
-            lobby_participants?: { count: number }[];
-          }> | null ?? []).map((l) => ({
-            id: l.id,
-            court_id: l.court_id,
-            start_time: l.start_time,
-            max_players: l.max_players,
-            status: l.status,
-            participants_count: l.lobby_participants?.[0]?.count ?? 0,
-          }));
-
-        setLobbies(formattedLobbies);
-
-        // Check auth
-        const { data: authData } = await supabase.auth.getUser();
-        setUser(authData.user);
+        await fetchLobbies();
       } catch (err) {
         console.error("Error fetching data:", err);
       } finally {
@@ -92,26 +90,24 @@ export default function HomePage() {
 
     fetchData();
 
-    // Subscribe to lobby changes
+    // auth fire-and-forget
+    supabase.auth.getUser().then(({ data }) => setUser(data.user)).catch(() => {});
+
     const channel = supabase
       .channel("lobbies")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "lobbies" },
-        () => {
-          fetchData();
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "lobbies" }, () => {
+        fetchLobbies().catch(() => {});
+      })
       .subscribe((status) => {
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          fetchData();
+          fetchLobbies().catch(() => {});
         }
       });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, [supabase, fetchLobbies]);
 
   if (loading) {
     return (
@@ -132,9 +128,7 @@ export default function HomePage() {
         <CourtMap
           courts={courts}
           reportedCourtIds={reportedCourtIds}
-          onCourtSelect={(id) => {
-            window.location.href = `/courts/${id}`;
-          }}
+          onCourtSelect={handleCourtSelect}
         />
         <ReportedCourtsIndicator onCourtsUpdate={setReportedCourtIds} />
       </div>
