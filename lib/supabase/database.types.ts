@@ -19,6 +19,8 @@ export type Database = {
           lng: number;
           surface_type: string | null;
           hoop_count: number | null;
+          venue_type: string | null;
+          sport: string | null;
           created_at: string;
           updated_at: string;
           status: string | null;
@@ -33,6 +35,8 @@ export type Database = {
           lng: number;
           surface_type?: string | null;
           hoop_count?: number | null;
+          venue_type?: string | null;
+          sport?: string | null;
           created_at?: string;
           updated_at?: string;
           status?: string | null;
@@ -47,6 +51,8 @@ export type Database = {
           lng?: number;
           surface_type?: string | null;
           hoop_count?: number | null;
+          venue_type?: string | null;
+          sport?: string | null;
           created_at?: string;
           updated_at?: string;
           status?: string | null;

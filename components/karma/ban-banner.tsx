@@ -44,7 +44,11 @@ export function BanBanner({ userId }: BanBannerProps) {
           setKarmaScore(payload.new.karma_score);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          fetchProfile();
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

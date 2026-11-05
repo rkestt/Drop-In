@@ -34,11 +34,11 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protect dashboard routes
-  if (
-    request.nextUrl.pathname.startsWith("/dashboard") &&
-    !user
-  ) {
+  // Protect authenticated routes (route group (dashboard) is not in the URL)
+  const isProtected =
+    request.nextUrl.pathname.startsWith("/lobbies") ||
+    request.nextUrl.pathname.startsWith("/profile");
+  if (isProtected && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     url.searchParams.set("login", "required");

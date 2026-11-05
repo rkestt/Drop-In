@@ -110,7 +110,11 @@ export function LobbyList() {
         { event: "*", schema: "public", table: "lobby_participants" },
         () => fetchLobbies()
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          fetchLobbies();
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

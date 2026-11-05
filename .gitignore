@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -42,3 +43,12 @@ public/sw.js
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# opencode/harness generated
+*.bak
+*.backup
+.pi-subagents/
+supabase/.temp/
+
+# opencode runtime state
+.opencode/goals/

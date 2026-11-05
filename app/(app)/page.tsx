@@ -96,7 +96,11 @@ export default function HomePage() {
           fetchData();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          fetchData();
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

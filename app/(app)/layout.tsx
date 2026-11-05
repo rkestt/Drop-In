@@ -20,7 +20,7 @@ export default function AppLayout({
             <span className="text-[10px] font-medium mt-0.5">Mappa</span>
           </Link>
           <Link
-            href="/dashboard/profile"
+            href="/profile"
             className="flex flex-col items-center justify-center w-16 h-14 min-h-[48px] text-[var(--text-muted)]"
             aria-label="Profilo utente"
           >

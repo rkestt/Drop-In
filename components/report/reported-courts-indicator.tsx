@@ -35,7 +35,11 @@ export function ReportedCourtsIndicator({
         { event: "*", schema: "public", table: "court_reports" },
         () => fetchReportedCourts()
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          fetchReportedCourts();
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

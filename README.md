@@ -68,7 +68,7 @@ npx supabase db execute --file scripts/seed_courts.sql
 
 | Livello | Tecnologia |
 |---|---|
-| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4 |
+| Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS v4 |
 | Backend | Supabase (PostgreSQL + PostGIS, Auth, Realtime) |
 | Mappa | MapLibre GL JS |
 | PWA | Serwist (Service Worker, offline cache) |
@@ -104,7 +104,7 @@ vercel --prod
 
 1. Crea progetto su [supabase.com](https://supabase.com)
 2. Abilita PostGIS in Database → Extensions
-3. Esegui `001_initial_schema.sql` dall'SQL Editor
+3. Esegui in ordine `001_initial_schema.sql` … `004_fix_linter_errors.sql` dall'SQL Editor
 4. Configura Google OAuth in Authentication → Providers
 
 ---
