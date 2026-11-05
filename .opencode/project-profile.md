@@ -19,7 +19,7 @@
 ## Existing .opencode
 - skills/: 22 (api-design-principles, architecture-decision-records, auth, database-migration, diagnosing-bugs, error-handling, git-advanced-workflows, hallmark, handoff, impeccable, nextjs, nodejs, openspec-*, react-components, react-state-management, tdd, testing-patterns, typescript-advanced-types, worktrees)
 - commands/: opsx-apply/archive/explore/propose
-- OpenSpec changes in openspec/ (archived MVP + config)
+- No OpenSpec; changes tracked via GitHub issues + commits
 
 ## Harness (global)
 - verify-gate, wiki-context, /pi apply at global scope; project AGENTS.md carries Wiki LLM pre-flight

@@ -68,9 +68,6 @@ No test framework configured. No typecheck script — use `tsc --noEmit` manuall
 - **Browse-first**: unauthenticated users can view map/courts; auth required for lobbies
 - **Route groups**: `(app)` and `(dashboard)` are folder conventions, not segments
 
-## OpenSpec
-
-OpenSpec docs in `openspec/`. Use `openspec` CLI for change management. Config: `openspec/config.yaml` (schema: spec-driven).
 
 ## Agent skills
 
