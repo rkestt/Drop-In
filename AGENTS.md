@@ -15,8 +15,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - UI: Tailwind utility-first, atomic components (copy/paste over heavy npm packaging).
 
 # Execution Guardrails
+- Orchestrator delegates, does not implement: @fixer implements, @oracle reviews, @tester verifies live (read-only, never touches code), @designer owns UI/UX.
 - Before modifying a shared table or shared state endpoint, check for architectural impacts via @oracle.
 - If a UI change impacts layout consistency, call @designer. Mobile-first priority.
+- UI changes: build/lint/typecheck/test green is not DONE. Always dispatch @tester on dev server (light/dark, reload, toggle, console/hydration errors, screenshots) before reporting done.
 
 # Wiki LLM (progetto)
 - Pre-flight obbligatorio: wiki_recall su vault progetto (`llm-wiki_*`) poi su globale (`llm-wiki-global_*`), progetto vince a parità; se <2 hit utili → wiki_search sui termini chiave. `wiki_status` va letto su entrambe le vault (quella risolta + globale), mai usato per concludere "wiki vuota".
