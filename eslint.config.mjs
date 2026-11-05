@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     ".opencode/**",
     ".pi-subagents/**",
+    "public/sw.js",
+    "public/sw*.js",
   ]),
 ]);
 

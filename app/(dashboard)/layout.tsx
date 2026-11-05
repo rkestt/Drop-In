@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export default function DashboardLayout({
   children,
@@ -17,6 +18,9 @@ export default function DashboardLayout({
             <ArrowLeft className="w-5 h-5 mr-1" />
             <span className="text-sm font-medium">Indietro</span>
           </Link>
+          <div className="ml-auto">
+            <ThemeToggle />
+          </div>
         </div>
       </header>
       {children}

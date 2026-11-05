@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { CourtMap } from "@/components/map/court-map";
+import dynamic from "next/dynamic";
+import { MapSkeleton } from "@/components/map/map-skeleton";
 import { LoginModal } from "@/components/auth/login-modal";
 import { BanBanner } from "@/components/karma/ban-banner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,11 @@ import { ReportedCourtsIndicator } from "@/components/report/reported-courts-ind
 import { MapPin, Users } from "lucide-react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
+
+const CourtMap = dynamic(() => import("@/components/map/court-map").then((m) => ({ default: m.CourtMap })), {
+  ssr: false,
+  loading: () => <MapSkeleton />,
+});
 
 interface Court {
   id: string;
