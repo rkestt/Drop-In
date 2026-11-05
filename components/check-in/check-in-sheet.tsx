@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("check-in");
 import { Button } from "@/components/ui/button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { MapPin, Navigation, AlertTriangle } from "lucide-react";
@@ -95,6 +98,7 @@ export function CheckInSheet({
         throw insertError;
       }
 
+      log.info("check-in ok", { courtId, userId: user.id });
       setSuccess(true);
       setTimeout(() => {
         onClose();

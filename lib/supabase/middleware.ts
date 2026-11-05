@@ -1,5 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("middleware");
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -33,6 +36,7 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  log.debug("path", request.nextUrl.pathname, "user", user?.id ?? null);
 
   // Protect authenticated routes (route group (dashboard) is not in the URL)
   const isProtected =
