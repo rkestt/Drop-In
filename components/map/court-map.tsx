@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { MAP_PROVIDER, MAP_STYLE_URL, MAP_ATTRIBUTION } from "@/lib/map/provider";
+import { getTheme } from "@/lib/theme";
 
 interface CourtMapProps {
   courts?: Array<{ id: string; name: string; lat: number; lng: number; address?: string | null }>;
@@ -35,22 +37,30 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], us
     if (map.current) return;
     setMapError(null);
 
+    const initialTheme = getTheme();
+    const style =
+      MAP_PROVIDER === "openfreemap"
+        ? MAP_STYLE_URL[initialTheme]
+        : {
+            version: 8 as const,
+            sources: {
+              osm: {
+                type: "raster",
+                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                tileSize: 256,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+              },
+            },
+            layers: [{ id: "osm", type: "raster", source: "osm" }],
+          };
+
     const instance = new maplibregl.Map({
       container: mapContainer.current,
-      style: {
-        version: 8,
-        sources: {
-          osm: {
-            type: "raster",
-            tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-            tileSize: 256,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-          },
-        },
-        layers: [{ id: "osm", type: "raster", source: "osm" }],
-      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      style: style as any,
       center: ROME_CENTER,
       zoom: 14,
+      attributionControl: { compact: false, customAttribution: MAP_ATTRIBUTION as unknown as string },
     });
 
     instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
@@ -76,6 +86,15 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], us
       requestAnimationFrame(() => instance.resize());
     });
 
+    // Segue il tema: cambia stile senza ricreare la mappa.
+    const themeObserver = new MutationObserver(() => {
+      if (MAP_PROVIDER !== "openfreemap") return;
+      const t = getTheme();
+      loadedRef.current = true;
+      instance.setStyle(MAP_STYLE_URL[t]);
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
     const resizeHandler = () => instance.resize();
     window.addEventListener("resize", resizeHandler);
 
@@ -94,6 +113,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], us
     instance.on("remove", () => {
       window.removeEventListener("resize", resizeHandler);
       resizeObserver.disconnect();
+      themeObserver.disconnect();
       canvas.removeEventListener("webglcontextlost", onContextLost);
       canvas.removeEventListener("webglcontextrestored", onContextRestored);
     });

@@ -146,6 +146,9 @@ della vecchia `map-tiles` su `activate`. Nessun prefetch.
 
 ## 7. Aperto / da decidere
 
+- **Stato dello spike**: `lib/map/provider.ts`, `court-map.tsx` e `sw.ts` sono implementati e
+  committati come WIP. `typecheck` e `lint` verdi, ma **nessuna verifica a schermo**: prima di
+  dichiarare OpenFreeMap adottato vanno controllati light/dark, marker, retry e console.
 - **Qualità visiva dello stile Dark di OpenFreeMap**: verificare a schermo prima di dichiararlo
   definitivo (README lo dice incompleto).
 - **Verifica in produzione**: Serwist è attivo solo con un build di produzione, quindi la cache e la
