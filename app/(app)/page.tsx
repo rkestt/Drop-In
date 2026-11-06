@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { CourtMap } from "@/components/map/court-map";
+import dynamic from "next/dynamic";
+import { MapSkeleton } from "@/components/map/map-skeleton";
+
+const CourtMap = dynamic(() => import("@/components/map/court-map").then((m) => ({ default: m.CourtMap })), {
+  ssr: false,
+  loading: () => <MapSkeleton />,
+});
 import { LoginModal } from "@/components/auth/login-modal";
 import { BanBanner } from "@/components/karma/ban-banner";
 import { Button } from "@/components/ui/button";
@@ -32,6 +38,8 @@ interface Lobby {
   participants_count: number;
 }
 
+const ROME_CENTER = { lat: 41.8919, lng: 12.5113 };
+
 export default function HomePage() {
   const [courts, setCourts] = useState<Court[]>([]);
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
@@ -39,7 +47,24 @@ export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocalizzazione non supportata");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserLocation([pos.coords.longitude, pos.coords.latitude]),
+      () => {
+        setLocationError("Posizione non disponibile");
+        setUserLocation([ROME_CENTER.lng, ROME_CENTER.lat]);
+      },
+      { timeout: 4000 }
+    );
+  }, []);
   const coveredBBox = useRef<BBox | null>(null);
   const fetchingCourts = useRef(false);
 
@@ -159,13 +184,15 @@ export default function HomePage() {
   return (
     <main className="flex-1 flex flex-col relative">
       {user && <BanBanner userId={user.id} />}
-      <div className="flex-1 relative min-h-[50vh]">
+      <div className="flex-1 relative min-h-[50dvh]">
         <CourtMap
           courts={courts}
           reportedCourtIds={reportedCourtIds}
           onCourtSelect={(id) => {
             window.location.href = `/courts/${id}`;
           }}
+          userLocation={userLocation}
+          locationError={locationError}
           onBoundsChange={(bounds, zoom) =>
             handleBoundsChange(
               {

@@ -93,23 +93,4 @@ Default mattpocock labels (needs-triage, needs-info, ready-for-agent, ready-for-
 
 Single-context. See `docs/agents/domain.md`.
 
-## Harness — Tracker & Process (surgical, ponytail)
 
-- **Wayfinder** (`.wayfinder/`): **CANONICAL** — map `drop-in-next` attiva (ex `drop-in-bella-funzionante` chiusa 2026-08-23). Decision ticket + frontier, blocking via `blocked_by`, claim via `claimed`. Unico tracker per God.
-- **Taskman** (`.taskman/plans/`): FROZEN — 4 piani 2026-08-23 (2 done, 2 in-progress migrati in Wayfinder t6/t7). Solo lettura/archivio, non usare per nuovi lavori.
-- **Wiki** (`.llm-wiki/`): memoria durable (concept/entity/synthesis). `wiki_observe` per note, `wiki_retro` per insight atomici.
-- **Quality gate unico**: `npm run test:all` = `npm run lint && tsc --noEmit && vitest run && playwright test` — deve essere verde prima di ogni commit harness-relevant.
-
-## Agent skills
-
-### Issue tracker
-
-GitHub issues in rkestt/Drop-In. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Default mattpocock labels (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context. See `docs/agents/domain.md`.
