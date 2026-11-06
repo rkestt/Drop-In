@@ -56,3 +56,8 @@ supabase/.temp/
 
 # opencode/harness generated
 *.bak
+
+scripts/generated/
+
+__pycache__/
+*.pyc
