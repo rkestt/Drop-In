@@ -1,4 +1,3 @@
-
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type Database = {
@@ -91,14 +90,14 @@ isOneToOne: false
                   ]
                 },"courts": {
                   Row: {
-                    "address": string | null,"created_at": string | null,"duplicate_of": string | null,"hoop_count": number | null,"id": string,"lat": number,"lng": number,"location": unknown,"moderation_status": string,"name": string,"osm_id": string | null,"photo_url": string | null,"source": string,"sport": string | null,"status": string | null,"submitted_by": string | null,"surface_type": string | null,"updated_at": string | null,"venue_type": string | null
+                    "address": string | null,"created_at": string | null,"duplicate_of": string | null,"hoop_count": number | null,"id": string,"lat": number,"lng": number,"location": unknown,"moderation_status": string,"name": string,"osm_id": string | null,"photo_path": string | null,"source": string,"sport": string | null,"status": string | null,"submitted_by": string | null,"surface_type": string | null,"updated_at": string | null,"venue_type": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "address"?: string | null,"created_at"?: string | null,"duplicate_of"?: string | null,"hoop_count"?: number | null,"id"?: string,"lat": number,"lng": number,"location"?: unknown,"moderation_status"?: string,"name": string,"osm_id"?: string | null,"photo_url"?: string | null,"source"?: string,"sport"?: string | null,"status"?: string | null,"submitted_by"?: string | null,"surface_type"?: string | null,"updated_at"?: string | null,"venue_type"?: string | null
+                    "address"?: string | null,"created_at"?: string | null,"duplicate_of"?: string | null,"hoop_count"?: number | null,"id"?: string,"lat": number,"lng": number,"location"?: unknown,"moderation_status"?: string,"name": string,"osm_id"?: string | null,"photo_path"?: string | null,"source"?: string,"sport"?: string | null,"status"?: string | null,"submitted_by"?: string | null,"surface_type"?: string | null,"updated_at"?: string | null,"venue_type"?: string | null
                   }
                   Update: {
-                    "address"?: string | null,"created_at"?: string | null,"duplicate_of"?: string | null,"hoop_count"?: number | null,"id"?: string,"lat"?: number,"lng"?: number,"location"?: unknown,"moderation_status"?: string,"name"?: string,"osm_id"?: string | null,"photo_url"?: string | null,"source"?: string,"sport"?: string | null,"status"?: string | null,"submitted_by"?: string | null,"surface_type"?: string | null,"updated_at"?: string | null,"venue_type"?: string | null
+                    "address"?: string | null,"created_at"?: string | null,"duplicate_of"?: string | null,"hoop_count"?: number | null,"id"?: string,"lat"?: number,"lng"?: number,"location"?: unknown,"moderation_status"?: string,"name"?: string,"osm_id"?: string | null,"photo_path"?: string | null,"source"?: string,"sport"?: string | null,"status"?: string | null,"submitted_by"?: string | null,"surface_type"?: string | null,"updated_at"?: string | null,"venue_type"?: string | null
                   }
                   Relationships: [
                     {
@@ -344,7 +343,7 @@ isOneToOne: false
 "moderation_status": string,
 "name": string,
 "osm_id": string | null,
-"photo_url": string | null,
+"photo_path": string | null,
 "source": string,
 "sport": string | null,
 "status": string | null,

@@ -11,9 +11,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run",
-    "test:rls": "docker exec -i $(docker ps --format '{{.Names}}' | grep supabase_db) psql -U postgres -d postgres -v ON_ERROR_STOP=1 < tests/rls/assertions.sql",    "test:e2e": "playwright test",
+    "test:rls": "docker exec -i $(docker ps --format '{{.Names}}' | grep supabase_db) psql -U postgres -d postgres -v ON_ERROR_STOP=1 < tests/rls/assertions.sql",
+    "test:e2e": "playwright test",
     "test:all": "npm run lint && tsc --noEmit && vitest run && playwright test",
-    "types": "supabase gen types typescript --local > lib/supabase/database.types.ts",
+    "types": "supabase gen types typescript --local | awk '/^export /{p=1} p' > lib/supabase/database.types.ts",
     "prepare": "husky"
   },
   "dependencies": {
