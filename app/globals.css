@@ -39,6 +39,25 @@
   --font-source-sans: var(--font-source-sans), system-ui, sans-serif;
 }
 
+[data-theme="dark"] {
+  --bg-base: #0d1117;
+  --bg-surface: #161b22;
+  --bg-elevated: #21262d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --accent: #58a6ff;
+  --accent-hover: #79c0ff;
+  --accent-subtle: rgba(88, 166, 255, 0.15);
+  --success: #3fb950;
+  --success-dark: #2ea043;
+  --danger: #f85149;
+  --danger-dark: #da3633;
+  --warning: #d29922;
+  --warning-dark: #9e6a03;
+  --cool-muted: #6e7681;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

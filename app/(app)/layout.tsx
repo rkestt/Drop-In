@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MapPin, User } from "lucide-react";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export default function AppLayout({
   children,
@@ -20,13 +21,16 @@ export default function AppLayout({
             <span className="text-[10px] font-medium mt-0.5">Mappa</span>
           </Link>
           <Link
-            href="/dashboard/profile"
+            href="/profile"
             className="flex flex-col items-center justify-center w-16 h-14 min-h-[48px] text-[var(--text-muted)]"
             aria-label="Profilo utente"
           >
             <User className="w-6 h-6" aria-hidden="true" />
             <span className="text-[10px] font-medium mt-0.5">Profilo</span>
           </Link>
+          <div className="flex flex-col items-center justify-center w-16 h-14 min-h-[48px]">
+            <ThemeToggle />
+          </div>
         </div>
       </nav>
     </div>

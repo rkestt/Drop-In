@@ -95,7 +95,9 @@ export default async function CourtPage({
                   {reportCategories[report.category] || report.category}
                 </span>
                 <span className="text-[var(--text-muted)] text-xs">
-                  {new Date(report.created_at).toLocaleDateString("it-IT")}
+                  {report.created_at
+                    ? new Date(report.created_at).toLocaleDateString("it-IT")
+                    : "—"}
                 </span>
               </li>
             ))}

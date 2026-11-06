@@ -1,0 +1,7 @@
+new_tab FE
+cd /mnt/HDDL/Projects/Drop-In
+launch bash -c "npm run dev; exec bash"
+
+new_tab Supabase
+cd /mnt/HDDL/Projects/Drop-In
+launch bash -c "npx supabase start; exec bash"

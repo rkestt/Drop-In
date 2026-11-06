@@ -169,10 +169,10 @@ export default function HomePage() {
           onBoundsChange={(bounds, zoom) =>
             handleBoundsChange(
               {
-                n: bounds.getNorth(),
-                s: bounds.getSouth(),
-                e: bounds.getEast(),
-                w: bounds.getWest(),
+                n: bounds.n,
+                s: bounds.s,
+                e: bounds.e,
+                w: bounds.w,
               },
               zoom
             )
