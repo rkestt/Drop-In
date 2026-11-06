@@ -52,3 +52,6 @@ supabase/.temp/
 
 # opencode runtime state
 .opencode/goals/
+
+# LLM Wiki project vault (local knowledge, generated meta)
+.llm-wiki/
