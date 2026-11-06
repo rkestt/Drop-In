@@ -20,19 +20,6 @@ UA = "Drop-In/1.0 (+https://github.com/rkestt/Drop-In)"
 DEFAULT_NAME = "Spazio aperto"
 
 
-def slugify_area(args):
-    if not args.bbox and not args.country and not args.city:
-        p.error("provide --bbox or --city (optionally with --country)")
-    if args.bbox:
-        s, w, n, e = args.bbox
-        return f"bbox-{s}_{w}_{n}_{e}".replace(".", "_")
-    if args.country and args.city:
-        return f"country-{args.country.lower()}-city-{args.city.lower().replace(' ', '-')}"
-    if args.country:
-        return f"country-{args.country.lower()}"
-    return "area"
-
-
 def resolve_bbox_country_city(country, city):
     params = {"format": "jsonv2", "limit": 1}
     if city and country:
@@ -184,31 +171,18 @@ def generate_sql(venues, upsert=False):
             "'osm'",
             "'approved'",
         ]
-        # name default handling: COALESCE on upsert
-        if upsert:
-            vals[1] = f"COALESCE(NULLIF({sql_val(v['name'])}, 'Spazio aperto'), courts.name)"  # not valid in VALUES; revert below
-        rows.append("    (" + ", ".join(vals) + ")")
-    body = ",\n".join(rows) + ";"
-    if not upsert:
-        return f"{header}\n{body}"
-    # redo name properly: use EXCLUDED semantics in ON CONFLICT, name value stays plain in VALUES
-    rows = []
-    for v in venues:
-        vals = [
-            sql_val(v["osm_id"]), sql_val(v["name"]), sql_val(v["address"]),
-            str(v["lat"]), str(v["lng"]), sql_val(v["surface_type"]),
-            sql_val(v["venue_type"]), sql_val(v["sport"]), "'osm'", "'approved'",
-        ]
         rows.append("    (" + ", ".join(vals) + ")")
     body = ",\n".join(rows)
+    if not upsert:
+        return f"{header}\n{body};"
     sql = (
         f"{header}\n{body}\n"
         "ON CONFLICT (osm_id) DO UPDATE SET\n"
         "    name = COALESCE(NULLIF(EXCLUDED.name, 'Spazio aperto'), courts.name),\n"
-        "    address = EXCLUDED.address,\n"
+        "    address = COALESCE(EXCLUDED.address, courts.address),\n"
         "    lat = EXCLUDED.lat,\n"
         "    lng = EXCLUDED.lng,\n"
-        "    surface_type = EXCLUDED.surface_type,\n"
+        "    surface_type = COALESCE(EXCLUDED.surface_type, courts.surface_type),\n"
         "    venue_type = EXCLUDED.venue_type,\n"
         "    sport = COALESCE(EXCLUDED.sport, courts.sport);"
     )
@@ -226,13 +200,13 @@ def main():
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    grp = p.add_mutually_exclusive_group(required=False)
-    grp.add_argument("--bbox", help="S,W,N,E floats")
-    grp.add_argument("--country", help="ISO2 country code")
-    grp.add_argument("--city", help="city name (standalone or with --country)")
+    p.add_argument("--bbox", help="S,W,N,E floats (exclusive with --country/--city)")
+    p.add_argument("--country", help="ISO2 country code (may combine with --city)")
+    p.add_argument("--city", help="city name (standalone or with --country)")
     p.add_argument("--sport", help="filter by sport (keeps multi and untagged)")
     p.add_argument("--output", default="scripts/generated/")
     p.add_argument("--out-name", dest="out_name", default=None)
+    p.add_argument("--force", action="store_true", help="overwrite existing output files")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--upsert-sql", action="store_true")
     p.add_argument("--endpoint", default=DEFAULT_OVERPASS)
@@ -241,6 +215,8 @@ def main():
 
     if not args.bbox and not args.country and not args.city:
         p.error("provide --bbox or --city (optionally with --country)")
+    if args.bbox and (args.country or args.city):
+        p.error("argument --bbox: not allowed with --country/--city")
     if args.bbox:
         parts = [x.strip() for x in args.bbox.split(",")]
         if len(parts) != 4:
@@ -266,7 +242,12 @@ def main():
             area_slug = f"country-{args.country.lower()}"
 
     if args.out_name:
-        out_name = args.out_name
+        raw = args.out_name
+        if os.path.isabs(raw) or ".." in re.split(r"[\\/]", raw):
+            p.error("--out-name must be a plain basename (no absolute paths, no '..')")
+        out_name = os.path.basename(raw)
+        if not out_name or out_name in (".", ".."):
+            p.error("--out-name must be a plain basename (no absolute paths, no '..')")
     else:
         out_name = area_slug
 
@@ -274,11 +255,15 @@ def main():
     data = fetch_osm_data(bbox, args.endpoint)
     venues = parse_courts(data)
 
-    # parks/playgrounds/open spaces with no sport tag -> multi already handled in parse.
-    # sport filter
+    # sport filter: token match like the SQL (sport.split(';')), keeps multi + untagged
     if args.sport:
         sfilter = args.sport
-        venues = [v for v in venues if v["sport"] == sfilter or v["sport"] == "multi" or v["sport"] is None]
+        def _keep(v):
+            s = v["sport"]
+            if s is None or s == "multi":
+                return True
+            return sfilter in [t.strip() for t in s.split(";")]
+        venues = [v for v in venues if _keep(v)]
 
     # counts
     from collections import Counter
@@ -287,6 +272,10 @@ def main():
     print(f"Found {len(venues)} venues")
     print("By venue_type:", dict(vt))
     print("By sport:", dict(sp))
+
+    if not venues:
+        print("No venues found, nothing written.", file=sys.stderr)
+        raise SystemExit(2)
 
     sql = generate_sql(venues, upsert=args.upsert_sql)
 
@@ -301,6 +290,8 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     json_path = os.path.join(out_dir, f"{out_name}.json")
     sql_path = os.path.join(out_dir, f"{out_name}.sql")
+    if not args.force and (os.path.exists(json_path) or os.path.exists(sql_path)):
+        p.error(f"refusing to overwrite existing {json_path} or {sql_path} (use --force)")
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(venues, f, indent=2, ensure_ascii=False)
     with open(sql_path, "w", encoding="utf-8") as f:
