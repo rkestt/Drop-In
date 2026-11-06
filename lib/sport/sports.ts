@@ -1,0 +1,41 @@
+export type Sport = "basketball" | "soccer" | "tennis" | "padel" | "futsal" | "volleyball" | "multi";
+export type SportFilter = Sport | null; // null = "Tutti"
+
+export const SPORTS: { value: Sport; label: string }[] = [
+  { value: "basketball", label: "Basket" },
+  { value: "soccer", label: "Calcio" },
+  { value: "tennis", label: "Tennis" },
+  { value: "padel", label: "Padel" },
+  { value: "futsal", label: "Calcio a 5" },
+  { value: "volleyball", label: "Pallavolo" },
+  { value: "multi", label: "Polivalente" },
+];
+
+export const SPORT_STORAGE_KEY = "sport";
+
+export function sportMatches(courtSport: string | null, active: SportFilter): boolean {
+  if (active === null) return true;
+  if (courtSport === null) return false;
+  if (courtSport === "multi") return true;
+  return courtSport
+    .split(";")
+    .map((s) => s.trim())
+    .includes(active);
+}
+
+export function toRpcSport(active: SportFilter): string | null {
+  return active;
+}
+
+export function fromStorage(raw: string | null): SportFilter {
+  if (raw === null) return "basketball";
+  if (raw === "all" || raw === "null" || raw === "") return null;
+  if (SPORTS.some((o) => o.value === raw)) return raw as Sport;
+  return "basketball";
+}
+
+export function sportLabel(active: SportFilter): string {
+  if (active === null) return "Tutti";
+  const opt = SPORTS.find((o) => o.value === active);
+  return opt ? opt.label : active;
+}

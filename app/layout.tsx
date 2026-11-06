@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Syne, Source_Sans_3 } from "next/font/google";
 import { ToastProvider } from "@/components/notifications/toast-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { SportProvider } from "@/lib/sport/sport-context";
 import "./globals.css";
 
 const syne = Syne({
@@ -57,8 +58,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-[var(--bg-base)] text-[var(--text-primary)] font-[family-name:var(--font-source-sans)]">
         <ThemeProvider>
-          {children}
-          <ToastProvider />
+          <SportProvider>
+            {children}
+            <ToastProvider />
+          </SportProvider>
         </ThemeProvider>
       </body>
     </html>

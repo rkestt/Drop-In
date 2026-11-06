@@ -4,19 +4,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import dynamic from "next/dynamic";
 import { MapSkeleton } from "@/components/map/map-skeleton";
+import { LoginModal } from "@/components/auth/login-modal";
+import { BanBanner } from "@/components/karma/ban-banner";
+import { Button } from "@/components/ui/button";
+import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
+import { SportSelector } from "@/components/court/sport-selector";
+import { CourtSearch } from "@/components/court/court-search";
+import { MapPin, Users } from "lucide-react";
+import Link from "next/link";
+import type { User } from "@supabase/supabase-js";
+import { bboxInside, type BBox } from "@/lib/geo";
+import { useSport } from "@/lib/sport/sport-context";
+import { sportMatches, sportLabel } from "@/lib/sport/sports";
 
 const CourtMap = dynamic(() => import("@/components/map/court-map").then((m) => ({ default: m.CourtMap })), {
   ssr: false,
   loading: () => <MapSkeleton />,
 });
-import { LoginModal } from "@/components/auth/login-modal";
-import { BanBanner } from "@/components/karma/ban-banner";
-import { Button } from "@/components/ui/button";
-import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
-import { MapPin, Users } from "lucide-react";
-import Link from "next/link";
-import type { User } from "@supabase/supabase-js";
-import { bboxInside, type BBox } from "@/lib/geo";
 
 interface Court {
   id: string;
@@ -41,9 +45,19 @@ interface Lobby {
   max_players: number;
   status: string;
   participants_count: number;
+  court_name?: string | null;
+  court_sport?: string | null;
 }
 
 const ROME_CENTER = { lat: 41.8919, lng: 12.5113 };
+
+function normalize(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
 
 export default function HomePage() {
   const [courts, setCourts] = useState<Court[]>([]);
@@ -54,7 +68,15 @@ export default function HomePage() {
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const supabase = useMemo(() => createClient(), []);
+  const { sport, pSport } = useSport();
+
+  // Keep latest sport in a ref for the realtime callback.
+  const sportRef = useRef(sport);
+  useEffect(() => {
+    sportRef.current = sport;
+  }, [sport]);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -70,41 +92,76 @@ export default function HomePage() {
       { timeout: 4000 }
     );
   }, []);
+
   const coveredBBox = useRef<BBox | null>(null);
-  const fetchingCourts = useRef(false);
+  const lastBounds = useRef<BBox | null>(null);
+  const reqId = useRef(0);
 
   const fetchCourtsForBBox = useCallback(
     async (bbox: BBox) => {
-      if (fetchingCourts.current) return;
-      fetchingCourts.current = true;
+      const thisReq = ++reqId.current;
       try {
-        const { data } = await (
-          supabase.rpc as unknown as (
-            fn: string,
-            args: { min_lng: number; min_lat: number; max_lng: number; max_lat: number }
-          ) => Promise<{ data: Court[] | null }>
-        )("courts_in_viewport", {
+        const { data } = await supabase.rpc("courts_in_viewport", {
           min_lng: bbox.w,
           min_lat: bbox.s,
           max_lng: bbox.e,
           max_lat: bbox.n,
+          p_sport: pSport ?? undefined,
         });
-        setCourts(data ?? []);
+        if (thisReq !== reqId.current) return; // stale response dropped
+        setCourts((data as Court[] | null) ?? []);
       } catch (err) {
+        if (thisReq !== reqId.current) return;
         console.error("Error fetching courts in viewport:", err);
-      } finally {
-        fetchingCourts.current = false;
       }
     },
-    [supabase]
+    [supabase, pSport]
   );
+
+  const fetchLobbies = useCallback(async () => {
+    try {
+      const { data: lobbiesData } = await supabase
+        .from("lobbies")
+        .select("*, lobby_participants(count), courts!inner(name, sport)")
+        .eq("status", "open")
+        .order("start_time", { ascending: true })
+        .limit(20);
+
+      const active = sportRef.current;
+      const formatted: Lobby[] = (
+        (lobbiesData as unknown as Array<{
+          id: string;
+          court_id: string;
+          start_time: string;
+          max_players: number;
+          status: string;
+          lobby_participants?: { count: number }[];
+          courts?: { name: string | null; sport: string | null } | null;
+        }> | null) ?? []
+      )
+        .map((l) => ({
+          id: l.id,
+          court_id: l.court_id,
+          start_time: l.start_time,
+          max_players: l.max_players,
+          status: l.status,
+          participants_count: l.lobby_participants?.[0]?.count ?? 0,
+          court_name: l.courts?.name ?? null,
+          court_sport: l.courts?.sport ?? null,
+        }))
+        .filter((l) => sportMatches(l.court_sport, active));
+
+      setLobbies(formatted);
+    } catch (err) {
+      console.error("Error fetching lobbies:", err);
+    }
+  }, [supabase]);
 
   const handleBoundsChange = useCallback(
     (bounds: BBox, zoom: number) => {
-      // Don't fetch a huge area at low zoom (viewport cap is 2000).
       if (zoom < 10) return;
+      lastBounds.current = bounds;
       const prev = coveredBBox.current;
-      // Skip refetch when the new bbox is already inside the area we fetched (pan within it / zoom-in).
       if (prev && bboxInside(bounds, prev)) return;
       coveredBBox.current = bounds;
       fetchCourtsForBBox(bounds);
@@ -121,59 +178,15 @@ export default function HomePage() {
     [handleBoundsChange]
   );
 
+  // Realtime channel: created once, reads current sport via ref.
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Initial viewport around Rome (default map center + zoom)
-        fetchCourtsForBBox({ n: 41.95, s: 41.83, e: 12.62, w: 12.4 });
-
-        // Fetch active lobbies with participant counts
-        const { data: lobbiesData } = await supabase
-          .from("lobbies")
-          .select("*, lobby_participants(count)")
-          .eq("status", "open")
-          .order("start_time", { ascending: true })
-          .limit(20);
-
-        const formattedLobbies: Lobby[] =
-          (lobbiesData as unknown as Array<{
-            id: string;
-            court_id: string;
-            start_time: string;
-            max_players: number;
-            status: string;
-            lobby_participants?: { count: number }[];
-          }> | null ?? []).map((l) => ({
-            id: l.id,
-            court_id: l.court_id,
-            start_time: l.start_time,
-            max_players: l.max_players,
-            status: l.status,
-            participants_count: l.lobby_participants?.[0]?.count ?? 0,
-          }));
-
-        setLobbies(formattedLobbies);
-
-        // Check auth
-        const { data: authData } = await supabase.auth.getUser();
-        setUser(authData.user);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-
-    // Subscribe to lobby changes
     const channel = supabase
       .channel("lobbies")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "lobbies" },
         () => {
-          fetchData();
+          fetchLobbies();
         }
       )
       .subscribe();
@@ -181,7 +194,39 @@ export default function HomePage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, fetchCourtsForBBox]);
+  }, [supabase, fetchLobbies]);
+
+  const hasMounted = useRef(false);
+
+  // Fetch courts + lobbies when sport changes (skip the very first mount).
+  useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+    coveredBBox.current = null;
+    const b = lastBounds.current ?? { n: 41.95, s: 41.83, e: 12.62, w: 12.4 };
+    fetchCourtsForBBox(b);
+    fetchLobbies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sport]);
+
+  // Initial load once.
+  useEffect(() => {
+    fetchCourtsForBBox({ n: 41.95, s: 41.83, e: 12.62, w: 12.4 });
+    fetchLobbies();
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filteredCourts = useMemo(() => {
+    const q = normalize(query);
+    if (!q) return courts;
+    return courts.filter((c) => normalize(c.name).includes(q));
+  }, [courts, query]);
 
   if (loading) {
     return (
@@ -195,12 +240,14 @@ export default function HomePage() {
     );
   }
 
+  const noCourtsForSport = courts.length === 0 && query.trim() === "";
+
   return (
     <main className="flex-1 flex flex-col relative">
       {user && <BanBanner userId={user.id} />}
       <div className="flex-1 relative min-h-[50dvh]">
         <CourtMap
-          courts={courts}
+          courts={filteredCourts}
           reportedCourtIds={reportedCourtIds}
           onCourtSelect={(id) => {
             window.location.href = `/courts/${id}`;
@@ -209,13 +256,25 @@ export default function HomePage() {
           locationError={locationError}
           onBoundsChange={handleBoundsChangeWrapped}
         />
+        <div className="absolute top-3 left-3 z-20">
+          <SportSelector className="" />
+        </div>
+        {noCourtsForSport && (
+          <div
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-[var(--bg-elevated)] rounded-xl px-4 py-2 shadow-lg text-sm text-[var(--text-secondary)]"
+            role="status"
+            aria-live="polite"
+          >
+            {sport === null ? "Nessun campo in quest'area" : `Nessun campo da ${sportLabel(sport).toLowerCase()} in quest'area`}
+          </div>
+        )}
         <ReportedCourtsIndicator onCourtsUpdate={setReportedCourtIds} />
       </div>
 
       <div className="bg-[var(--bg-base)] border-t border-[var(--cool-muted)]/20 p-4 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold font-[family-name:var(--font-syne)] sr-only">
-            Drop-In — Campi da basket
+            Drop-In — Campi
           </h1>
           <h2 className="text-xl font-bold font-[family-name:var(--font-syne)]">
             Partite vicine
@@ -227,7 +286,13 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Live region for realtime lobby updates */}
+        <CourtSearch
+          value={query}
+          onChange={setQuery}
+          resultCount={filteredCourts.length}
+          totalCount={courts.length}
+        />
+
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {lobbies.length} lobby attive disponibili
         </div>
@@ -253,7 +318,7 @@ export default function HomePage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-semibold text-[var(--text-primary)]">
-                      {courts.find((c) => c.id === lobby.court_id)?.name || "Campo"}
+                      {lobby.court_name || courts.find((c) => c.id === lobby.court_id)?.name || "Campo"}
                     </p>
                     <div className="flex items-center gap-2 mt-1 text-sm text-[var(--text-secondary)]">
                       <Users className="w-3.5 h-3.5" aria-hidden="true" />
