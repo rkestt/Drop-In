@@ -13,6 +13,7 @@ import {
   SPORT_STORAGE_KEY,
   fromStorage,
   sportLabel,
+  toRpcSport,
   type SportFilter,
 } from "@/lib/sport/sports";
 
@@ -50,7 +51,7 @@ export function SportProvider({ children }: { children: ReactNode }) {
     () => ({
       sport,
       setSport,
-      pSport: sport,
+      pSport: toRpcSport(sport),
       label: sportLabel(sport),
     }),
     [sport, setSport]

@@ -10,12 +10,12 @@ import { Button } from "@/components/ui/button";
 import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
 import { SportSelector } from "@/components/court/sport-selector";
 import { CourtSearch } from "@/components/court/court-search";
-import { MapPin, Users } from "lucide-react";
+import { MapPin, Users, Plus } from "lucide-react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { bboxInside, type BBox } from "@/lib/geo";
 import { useSport } from "@/lib/sport/sport-context";
-import { sportMatches, sportLabel } from "@/lib/sport/sports";
+import { sportLabel } from "@/lib/sport/sports";
 
 const CourtMap = dynamic(() => import("@/components/map/court-map").then((m) => ({ default: m.CourtMap })), {
   ssr: false,
@@ -69,14 +69,18 @@ export default function HomePage() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [fieldsAnnouncement, setFieldsAnnouncement] = useState("");
+  const announceRef = useRef(true);
   const supabase = useMemo(() => createClient(), []);
   const { sport, pSport } = useSport();
 
   // Keep latest sport in a ref for the realtime callback.
   const sportRef = useRef(sport);
+  const pSportRef = useRef(pSport);
   useEffect(() => {
     sportRef.current = sport;
-  }, [sport]);
+    pSportRef.current = pSport;
+  }, [sport, pSport]);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -109,9 +113,16 @@ export default function HomePage() {
           p_sport: pSport ?? undefined,
         });
         if (thisReq !== reqId.current) return; // stale response dropped
-        setCourts((data as Court[] | null) ?? []);
+        coveredBBox.current = bbox;
+        const list = (data as Court[] | null) ?? [];
+        setCourts(list);
+        if (announceRef.current) {
+          announceRef.current = false;
+          setFieldsAnnouncement(`${list.length} campi visibili per ${sportLabel(sportRef.current)}`);
+        }
       } catch (err) {
         if (thisReq !== reqId.current) return;
+        coveredBBox.current = null;
         console.error("Error fetching courts in viewport:", err);
       }
     },
@@ -120,14 +131,10 @@ export default function HomePage() {
 
   const fetchLobbies = useCallback(async () => {
     try {
-      const { data: lobbiesData } = await supabase
-        .from("lobbies")
-        .select("*, lobby_participants(count), courts!inner(name, sport)")
-        .eq("status", "open")
-        .order("start_time", { ascending: true })
-        .limit(20);
-
-      const active = sportRef.current;
+      const { data: lobbiesData } = await supabase.rpc("open_lobbies", {
+        p_sport: pSportRef.current ?? undefined,
+        p_limit: 20,
+      });
       const formatted: Lobby[] = (
         (lobbiesData as unknown as Array<{
           id: string;
@@ -135,22 +142,20 @@ export default function HomePage() {
           start_time: string;
           max_players: number;
           status: string;
-          lobby_participants?: { count: number }[];
-          courts?: { name: string | null; sport: string | null } | null;
+          court_name: string | null;
+          court_sport: string | null;
+          participants_count: number;
         }> | null) ?? []
-      )
-        .map((l) => ({
-          id: l.id,
-          court_id: l.court_id,
-          start_time: l.start_time,
-          max_players: l.max_players,
-          status: l.status,
-          participants_count: l.lobby_participants?.[0]?.count ?? 0,
-          court_name: l.courts?.name ?? null,
-          court_sport: l.courts?.sport ?? null,
-        }))
-        .filter((l) => sportMatches(l.court_sport, active));
-
+      ).map((l) => ({
+        id: l.id,
+        court_id: l.court_id,
+        start_time: l.start_time,
+        max_players: l.max_players,
+        status: l.status,
+        participants_count: l.participants_count ?? 0,
+        court_name: l.court_name ?? null,
+        court_sport: l.court_sport ?? null,
+      }));
       setLobbies(formatted);
     } catch (err) {
       console.error("Error fetching lobbies:", err);
@@ -163,7 +168,6 @@ export default function HomePage() {
       lastBounds.current = bounds;
       const prev = coveredBBox.current;
       if (prev && bboxInside(bounds, prev)) return;
-      coveredBBox.current = bounds;
       fetchCourtsForBBox(bounds);
     },
     [fetchCourtsForBBox]
@@ -204,6 +208,7 @@ export default function HomePage() {
       hasMounted.current = true;
       return;
     }
+    announceRef.current = true;
     coveredBBox.current = null;
     const b = lastBounds.current ?? { n: 41.95, s: 41.83, e: 12.62, w: 12.4 };
     fetchCourtsForBBox(b);
@@ -247,6 +252,7 @@ export default function HomePage() {
       {user && <BanBanner userId={user.id} />}
       <div className="flex-1 relative min-h-[50dvh]">
         <CourtMap
+          ariaLabel={`Mappa dei campi da ${sportLabel(sport)}`}
           courts={filteredCourts}
           reportedCourtIds={reportedCourtIds}
           onCourtSelect={(id) => {
@@ -269,6 +275,14 @@ export default function HomePage() {
           </div>
         )}
         <ReportedCourtsIndicator onCourtsUpdate={setReportedCourtIds} />
+
+        <Link
+          href="/submit-court"
+          className="absolute bottom-4 right-4 z-30 inline-flex items-center justify-center w-14 h-14 rounded-full bg-[var(--accent)] text-white shadow-lg hover:bg-[var(--accent-hover)] active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+          aria-label="Aggiungi un campo"
+        >
+          <Plus className="w-7 h-7" aria-hidden="true" />
+        </Link>
       </div>
 
       <div className="bg-[var(--bg-base)] border-t border-[var(--cool-muted)]/20 p-4 space-y-4">
@@ -295,6 +309,9 @@ export default function HomePage() {
 
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {lobbies.length} lobby attive disponibili
+        </div>
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {fieldsAnnouncement}
         </div>
 
         {lobbies.length === 0 ? (

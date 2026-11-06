@@ -23,7 +23,7 @@ export function sportMatches(courtSport: string | null, active: SportFilter): bo
     .includes(active);
 }
 
-export function toRpcSport(active: SportFilter): string | null {
+export function toRpcSport(active: SportFilter): SportFilter {
   return active;
 }
 

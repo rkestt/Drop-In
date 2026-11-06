@@ -14,6 +14,12 @@ describe("sportMatches", () => {
     expect(sportMatches(null, null)).toBe(true);
     expect(sportMatches(null, "basketball")).toBe(false);
   });
+  it("identity", () => {
+    expect(sportMatches("basketball", "basketball")).toBe(true);
+  });
+  it("composite with spaces", () => {
+    expect(sportMatches("basketball; volleyball", "volleyball")).toBe(true);
+  });
   it("different sport -> false", () => {
     expect(sportMatches("soccer", "basketball")).toBe(false);
   });
@@ -35,6 +41,12 @@ describe("fromStorage", () => {
   });
   it("null/absence -> basketball", () => {
     expect(fromStorage(null)).toBe("basketball");
+  });
+  it("empty string -> null", () => {
+    expect(fromStorage("")).toBeNull();
+  });
+  it("'null' string -> null", () => {
+    expect(fromStorage("null")).toBeNull();
   });
 });
 

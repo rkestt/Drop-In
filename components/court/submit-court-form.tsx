@@ -1,0 +1,606 @@
+"use client";
+
+import { useEffect, useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { useSport } from "@/lib/sport/sport-context";
+import { SPORTS, type Sport } from "@/lib/sport/sports";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { uploadCourtPhoto, deleteCourtPhoto } from "@/lib/storage/court-photos";
+import {
+  MapPin,
+  Camera,
+  X,
+  AlertTriangle,
+  Navigation,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
+import Link from "next/link";
+
+interface DedupCandidate {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  distance_m: number;
+  moderation_status: string;
+  source: string;
+}
+
+interface SubmitCourtFormProps {
+  onLoginRequired: () => void;
+}
+
+const SURFACE_OPTIONS = [
+  { value: "", label: "Non specificata" },
+  { value: "asphalt", label: "Asfalto" },
+  { value: "concrete", label: "Cemento" },
+  { value: "wood", label: "Legno" },
+  { value: "grass", label: "Erba" },
+  { value: "rubber", label: "Gomma" },
+  { value: "tartan", label: "Tartan" },
+];
+
+const LOCATION_ACCURACY_THRESHOLD = 100; // meters
+
+export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
+  const router = useRouter();
+  const supabase = createClient();
+  const { sport } = useSport();
+
+  const [user, setUser] = useState<{ id: string } | null>(null);
+
+  const [name, setName] = useState("");
+  const [selectedSport, setSelectedSport] = useState<Sport>(sport ?? "basketball");
+  const [surface, setSurface] = useState("");
+
+  const [location, setLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(
+    null
+  );
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [dedupCandidates, setDedupCandidates] = useState<DedupCandidate[] | null>(null);
+  const [dedupLoading, setDedupLoading] = useState(false);
+  const [dedupConfirmed, setDedupConfirmed] = useState(false);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [submittedName, setSubmittedName] = useState<string | null>(null);
+
+  const successHeadingRef = useRef<HTMLHeadingElement>(null);
+  const errorAlertRef = useRef<HTMLDivElement>(null);
+  const nameId = useId();
+  const sportId = useId();
+  const surfaceId = useId();
+  const photoId = useId();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setUser({ id: data.user.id });
+      }
+    });
+  }, [supabase]);
+
+  useEffect(() => {
+    if (sport) {
+      setSelectedSport(sport);
+    }
+  }, [sport]);
+
+  useEffect(() => {
+    return () => {
+      if (photoPreview) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
+
+  useEffect(() => {
+    if (!location) {
+      setDedupCandidates(null);
+      setDedupConfirmed(false);
+      return;
+    }
+
+    let cancelled = false;
+    setDedupLoading(true);
+    setDedupConfirmed(false);
+
+    (async () => {
+      try {
+        const { data, error: rpcError } = await supabase.rpc("dedup_candidates", {
+          p_lat: location.lat,
+          p_lng: location.lng,
+          p_radius_m: 100,
+        });
+        if (cancelled) return;
+        if (rpcError) {
+          // Non blocchiamo il flusso se la dedup fallisce.
+          setDedupCandidates([]);
+          return;
+        }
+        setDedupCandidates((data as DedupCandidate[] | null) ?? []);
+      } finally {
+        if (!cancelled) setDedupLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location, supabase]);
+
+  useEffect(() => {
+    if (success && successHeadingRef.current) {
+      successHeadingRef.current.focus();
+    }
+  }, [success]);
+
+  useEffect(() => {
+    if (error && errorAlertRef.current) {
+      errorAlertRef.current.focus();
+    }
+  }, [error]);
+
+  const requestLocation = () => {
+    setLocationLoading(true);
+    setLocationError(null);
+    setLocation(null);
+
+    if (!navigator.geolocation) {
+      setLocationError("Geolocalizzazione non supportata dal tuo dispositivo.");
+      setLocationLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocation({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        });
+        setLocationLoading(false);
+      },
+      (geoErr) => {
+        let message = "Impossibile ottenere la posizione.";
+        if (geoErr.code === 1) {
+          message = "Permesso negato. Abilita la geolocalizzazione e riprova.";
+        } else if (geoErr.code === 2) {
+          message = "Posizione non disponibile. Verifica che il GPS sia attivo.";
+        } else if (geoErr.code === 3) {
+          message = "Timeout della richiesta GPS. Riprova.";
+        }
+        setLocationError(message);
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) return;
+
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+    }
+
+    setPhotoLoading(true);
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setPhotoLoading(false);
+  };
+
+  const removePhoto = () => {
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+    }
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!user) {
+      onLoginRequired();
+      return;
+    }
+
+    if (!location) {
+      setError("La posizione è obbligatoria. Usa il pulsante per ottenerla.");
+      return;
+    }
+
+    const trimmedName = name.trim();
+    if (!trimmedName && !photoFile) {
+      setError("Inserisci un nome o carica una foto per identificare il campo.");
+      return;
+    }
+
+    if (dedupCandidates && dedupCandidates.length > 0 && !dedupConfirmed) {
+      setError("Conferma che non si tratta di un duplicato prima di inviare.");
+      return;
+    }
+
+    setSubmitting(true);
+    let uploadedPath: string | null = null;
+
+    try {
+      if (photoFile) {
+        const upload = await uploadCourtPhoto(supabase, photoFile);
+        uploadedPath = upload.path;
+      }
+
+      const { error: rpcError } = await supabase.rpc("submit_court", {
+        p_name: trimmedName,
+        p_lat: location.lat,
+        p_lng: location.lng,
+        p_sport: selectedSport,
+        p_surface: surface || undefined,
+        p_photo_path: uploadedPath ?? undefined,
+        p_gps_accuracy: location.accuracy,
+      });
+
+      if (rpcError) {
+        if (uploadedPath) {
+          await deleteCourtPhoto(supabase, uploadedPath);
+          uploadedPath = null;
+        }
+
+        if (rpcError.code === "P0001") {
+          setError(formatRpcError(rpcError.message));
+        } else {
+          setError(rpcError.message || "Errore durante l'invio. Riprova più tardi.");
+        }
+        return;
+      }
+
+      setSubmittedName(trimmedName || "Campo senza nome");
+      setSuccess(true);
+    } catch (err) {
+      if (uploadedPath) {
+        await deleteCourtPhoto(supabase, uploadedPath);
+      }
+      setError(err instanceof Error ? err.message : "Errore durante l'invio. Riprova più tardi.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const hasBlockedSubmit =
+    !location || (!name.trim() && !photoFile) || (dedupCandidates && dedupCandidates.length > 0 && !dedupConfirmed);
+
+  if (success) {
+    return (
+      <div className="space-y-6 page-enter">
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[var(--success)]/10 text-[var(--success)] animate-success-pop">
+            <CheckCircle2 className="w-8 h-8" aria-hidden="true" />
+          </div>
+          <h2
+            ref={successHeadingRef}
+            tabIndex={-1}
+            className="text-2xl font-bold font-[family-name:var(--font-syne)] text-[var(--text-primary)] focus:outline-none"
+          >
+            Campo inviato, in revisione
+          </h2>
+          <p className="text-[var(--text-secondary)]">
+            <span className="font-medium text-[var(--text-primary)]">{submittedName}</span> verrà
+            verificato prima di apparire sulla mappa.
+          </p>
+        </div>
+
+        <Link
+          href="/"
+          className="inline-flex items-center justify-center w-full px-6 py-3.5 rounded-[10px] font-semibold bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
+        >
+          Torna alla mappa
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {error && (
+        <div
+          ref={errorAlertRef}
+          tabIndex={-1}
+          className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm animate-scale-in"
+          role="alert"
+          aria-live="assertive"
+        >
+          {error}
+        </div>
+      )}
+
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Posizione</h3>
+
+        {!location ? (
+          <Button
+            type="button"
+            onClick={requestLocation}
+            disabled={locationLoading}
+            className="w-full"
+            variant="secondary"
+          >
+            {locationLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+                Ricerca posizione...
+              </>
+            ) : (
+              <>
+                <MapPin className="w-4 h-4 mr-2" aria-hidden="true" />
+                Usa la mia posizione
+              </>
+            )}
+          </Button>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm text-[var(--success)]">
+              <Navigation className="w-4 h-4" aria-hidden="true" />
+              Posizione acquisita
+            </div>
+            <p className="text-sm text-[var(--text-secondary)]">
+              Precisione GPS: {Math.round(location.accuracy)} m
+            </p>
+            {location.accuracy > LOCATION_ACCURACY_THRESHOLD && (
+              <div className="flex items-start gap-2 text-sm text-[var(--warning)]">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                <span>
+                  Precisione scarsa: la posizione potrebbe essere imprecisa. Puoi riprovare in un
+                  punto aperto.
+                </span>
+              </div>
+            )}
+            <Button
+              type="button"
+              onClick={requestLocation}
+              disabled={locationLoading}
+              variant="ghost"
+              size="sm"
+              className="w-full"
+            >
+              Riprova
+            </Button>
+          </div>
+        )}
+
+        {locationError && !error && (
+          <div
+            className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm"
+            role="alert"
+            aria-live="assertive"
+          >
+            {locationError}
+          </div>
+        )}
+      </section>
+
+      {dedupLoading && (
+        <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]" aria-live="polite">
+          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+          Controllo duplicati nelle vicinanze...
+        </div>
+      )}
+
+      {dedupCandidates && dedupCandidates.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+            Campi simili nelle vicinanze
+          </h3>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Se il campo che vuoi aggiungere è già presente, selezionalo per evitare duplicati.
+          </p>
+          <ul className="space-y-2">
+            {dedupCandidates.map((candidate) => (
+              <li
+                key={candidate.id}
+                className="bg-[var(--bg-surface)] rounded-xl p-3 flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium text-[var(--text-primary)] truncate">
+                    {candidate.name}
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    a {Math.round(candidate.distance_m)} m
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => router.push(`/courts/${candidate.id}`)}
+                >
+                  È lo stesso
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {!dedupConfirmed ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              onClick={() => setDedupConfirmed(true)}
+            >
+              Non è un duplicato, invia
+            </Button>
+          ) : (
+            <div className="text-center text-sm text-[var(--success)]">
+              Confermato: non è un duplicato
+            </div>
+          )}
+        </section>
+      )}
+
+      <section className="space-y-3">
+        <div>
+          <label htmlFor={nameId} className="text-sm font-semibold text-[var(--text-primary)] block mb-1.5">
+            Nome del campo
+          </label>
+          <Input
+            id={nameId}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Es. Campetto Via Napoli"
+            aria-label="Nome del campo"
+            aria-describedby={`${nameId}-hint`}
+          />
+          <p id={`${nameId}-hint`} className="mt-1.5 text-xs text-[var(--text-muted)]">
+            Opzionale se carichi una foto, altrimenti obbligatorio.
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor={sportId} className="text-sm font-semibold text-[var(--text-primary)] block mb-1.5">
+            Sport
+          </label>
+          <select
+            id={sportId}
+            value={selectedSport}
+            onChange={(e) => setSelectedSport(e.target.value as Sport)}
+            className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-[10px] px-4 py-3.5 text-base border border-transparent transition-colors focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
+          >
+            {SPORTS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor={surfaceId} className="text-sm font-semibold text-[var(--text-primary)] block mb-1.5">
+            Superficie
+          </label>
+          <select
+            id={surfaceId}
+            value={surface}
+            onChange={(e) => setSurface(e.target.value)}
+            className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-[10px] px-4 py-3.5 text-base border border-transparent transition-colors focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
+          >
+            {SURFACE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <label htmlFor={photoId} className="text-sm font-semibold text-[var(--text-primary)] block">
+          Foto
+        </label>
+
+        {!photoPreview ? (
+          <div>
+            <input
+              id={photoId}
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handlePhotoChange}
+              className="sr-only"
+              aria-label="Seleziona una foto del campo"
+              aria-describedby={`${photoId}-hint`}
+            />
+            <label
+              htmlFor={photoId}
+              className="flex flex-col items-center justify-center gap-2 w-full rounded-[10px] border-2 border-dashed border-[var(--cool-muted)]/30 bg-[var(--bg-surface)] px-4 py-6 text-[var(--text-secondary)] transition-colors active:bg-[var(--bg-elevated)] min-h-[120px]"
+            >
+              <Camera className="w-6 h-6" aria-hidden="true" />
+              <span className="text-sm font-medium">Tocca per scattare o selezionare</span>
+              <span id={`${photoId}-hint`} className="text-xs text-[var(--text-muted)]">
+                JPEG/PNG/WebP, max 5 MB. Verrà ridimensionata per rimuovere i metadati.
+              </span>
+            </label>
+          </div>
+        ) : (
+          <div className="relative rounded-[10px] overflow-hidden bg-[var(--bg-surface)] aspect-video">
+            {photoLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-[var(--text-muted)]" aria-hidden="true" />
+              </div>
+            ) : (
+              <>
+                {/* eslint-disable @next/next/no-img-element */}
+                <img
+                  src={photoPreview}
+                  alt="Anteprima della foto del campo"
+                  className="w-full h-full object-cover"
+                />
+                {/* eslint-enable @next/next/no-img-element */}
+              </>
+            )}
+            <button
+              type="button"
+              onClick={removePhoto}
+              className="absolute top-2 right-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--bg-elevated)]/90 text-[var(--text-primary)] shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              aria-label="Rimuovi foto"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+      </section>
+
+      {!name.trim() && !photoFile && (
+        <p className="text-sm text-[var(--warning)]">
+          Aggiungi un nome o una foto per inviare il campo.
+        </p>
+      )}
+
+      <Button type="submit" className="w-full" disabled={hasBlockedSubmit || submitting}>
+        {submitting ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+            Invio in corso...
+          </>
+        ) : (
+          "Invia campo"
+        )}
+      </Button>
+
+      {!user && (
+        <p className="text-center text-sm text-[var(--text-muted)]">
+          Dopo aver compilato il form, ti chiederemo di accedere per inviare il campo.
+        </p>
+      )}
+
+      <div aria-live="polite" className="sr-only">
+        {submitting ? "Invio del campo in corso." : ""}
+      </div>
+    </form>
+  );
+}
+
+function formatRpcError(message: string): string {
+  // I messaggi RPC sono già in italiano e leggibili.
+  // Evidenziamo solo il rate limit con un'indicazione temporale più chiara.
+  if (/rate limit|troppo presto|1 ora|un'ora|un ora/i.test(message)) {
+    return `${message} Potrai riprovare tra circa un'ora.`;
+  }
+  return message;
+}
