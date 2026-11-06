@@ -124,7 +124,7 @@ export default function HomePage() {
   return (
     <main className="flex-1 flex flex-col relative">
       {user && <BanBanner userId={user.id} />}
-      <div className="flex-1 relative min-h-[50vh]">
+      <div className="flex-1 relative min-h-[50dvh] h-[50dvh]">
         <CourtMap
           courts={courts}
           reportedCourtIds={reportedCourtIds}

@@ -18,6 +18,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
   const courtMarkers = useRef<maplibregl.Marker[]>([]);
   const userMarker = useRef<maplibregl.Marker | null>(null);
   const loadedRef = useRef(false);
+  const lastSizeRef = useRef<{ w: number; h: number } | null>(null);
   const [, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -30,6 +31,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
 
   const createMap = useCallback(() => {
     if (!mapContainer.current) return;
+    if (mapContainer.current.clientWidth === 0 || mapContainer.current.clientHeight === 0) return;
     if (map.current) return;
     setMapError(null);
 
@@ -77,8 +79,21 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
     const resizeHandler = () => instance.resize();
     window.addEventListener("resize", resizeHandler);
 
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      if (width <= 0 || height <= 0) return;
+      const last = lastSizeRef.current;
+      if (last && last.w === width && last.h === height) return;
+      lastSizeRef.current = { w: width, h: height };
+      instance.resize();
+    });
+    if (mapContainer.current) resizeObserver.observe(mapContainer.current);
+
     instance.on("remove", () => {
       window.removeEventListener("resize", resizeHandler);
+      resizeObserver.disconnect();
       canvas.removeEventListener("webglcontextlost", onContextLost);
       canvas.removeEventListener("webglcontextrestored", onContextRestored);
     });
@@ -106,8 +121,27 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
   }, []);
 
   useEffect(() => {
+    if (mapContainer.current && (mapContainer.current.clientWidth === 0 || mapContainer.current.clientHeight === 0)) {
+      const obs = new ResizeObserver(() => {
+        if (mapContainer.current && mapContainer.current.clientWidth > 0 && mapContainer.current.clientHeight > 0) {
+          createMap();
+          if (map.current) obs.disconnect();
+        }
+      });
+      obs.observe(mapContainer.current);
+      return () => {
+        obs.disconnect();
+        loadedRef.current = false;
+        lastSizeRef.current = null;
+        removeCourtMarkers();
+        if (userMarker.current) { userMarker.current.remove(); userMarker.current = null; }
+        if (map.current) { map.current.remove(); map.current = null; }
+      };
+    }
     createMap();
     return () => {
+      loadedRef.current = false;
+      lastSizeRef.current = null;
       removeCourtMarkers();
       if (userMarker.current) { userMarker.current.remove(); userMarker.current = null; }
       if (map.current) {
@@ -156,9 +190,11 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
         .addTo(map.current);
       courtMarkers.current.push(marker);
     });
-  }, [courts, onCourtSelect, reportedCourtIds, removeCourtMarkers]);
+  }, [courts, onCourtSelect, reportedCourtIds, removeCourtMarkers, retryKey]);
 
   const handleRetry = useCallback(() => {
+    loadedRef.current = false;
+    lastSizeRef.current = null;
     removeCourtMarkers();
     if (userMarker.current) { userMarker.current.remove(); userMarker.current = null; }
     if (map.current) {
@@ -169,7 +205,7 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
   }, [removeCourtMarkers]);
 
   return (
-    <div className="relative w-full h-full" role="region" aria-label="Mappa dei campi da basket">
+    <div className="absolute inset-0" role="region" aria-label="Mappa dei campi da basket">
       <div ref={mapContainer} className="w-full h-full" />
       {locationError && (
         <div className="absolute top-4 left-4 right-4 bg-[var(--bg-elevated)] rounded-xl p-3 shadow-lg z-10" role="alert" aria-live="polite">
