@@ -18,7 +18,7 @@ export function SportSelector({ className }: SportSelectorProps) {
   };
 
   return (
-    <div className={cn("inline-flex items-center gap-2 bg-[var(--bg-elevated)] border border-[var(--cool-muted)]/40 rounded-full px-3 py-2 shadow-md min-h-[40px]", className)}>
+    <div className={cn("inline-flex items-center gap-2 bg-[var(--bg-elevated)] border border-[var(--cool-muted)]/40 rounded-full px-3 py-2 shadow-md min-h-[44px]", className)}>
       <Dumbbell className="w-4 h-4 text-[var(--accent)] shrink-0" aria-hidden="true" />
       <label htmlFor="sport-selector" className="sr-only">
         Sport attivo
@@ -28,7 +28,7 @@ export function SportSelector({ className }: SportSelectorProps) {
         aria-label="Sport attivo"
         value={sport === null ? "all" : sport}
         onChange={handleChange}
-        className="bg-transparent text-[var(--text-primary)] text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded-full"
+        className="min-h-[44px] bg-transparent text-[var(--text-primary)] text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded-full"
       >
         {SPORTS.map((opt) => (
           <option key={opt.value} value={opt.value}>
