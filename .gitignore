@@ -61,3 +61,4 @@ scripts/generated/
 
 __pycache__/
 *.pyc
+.types.tmp

@@ -319,7 +319,7 @@ isOneToOne: false
 { Args: { "column_name": string,"new_dim": number,"new_srid": number,"new_type": string,"table_name": string,"use_typmod"?: boolean }; Returns: string
                            },
 "approve_court":
-{ Args: { "p_court_id": string }; Returns: undefined
+{ Args: { "p_court_id": string,"p_note"?: string }; Returns: undefined
                            },
 "archive_old_reports":
 { Args: Record<PropertyKey, never>; Returns: undefined
@@ -486,6 +486,11 @@ isOneToOne: false
                            },
 "notify_user":
 { Args: { "p_body": string,"p_data"?: Json,"p_title": string,"p_user_id": string }; Returns: undefined
+                           },
+"open_lobbies":
+{ Args: { "p_limit"?: number,"p_sport"?: string }; Returns: {
+              "court_id": string,"court_name": string,"court_sport": string,"id": string,"max_players": number,"participants_count": number,"start_time": string,"status": string
+            }[]
                            },
 "populate_geometry_columns":
 { Args: { "tbl_oid": unknown,"use_typmod"?: boolean }; Returns: number
