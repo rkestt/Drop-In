@@ -141,8 +141,11 @@ Config centralizzata in `lib/map/provider.ts`:
 seguito con `MutationObserver` → `setStyle()` (non ricrea la mappa; i marker sono `maplibre.Marker`
 DOM e sopravvivono).
 
-`app/sw.ts`: matcher sul host del provider, cache versionata `map-tiles-<provider>-v1`, pulizia
-della vecchia `map-tiles` su `activate`. Nessun prefetch.
+`app/sw.ts`: due cache separate perché sullo stesso host convivono cose diverse — `map-style-<provider>-v1`
+(`NetworkFirst`, 10 voci, timeout 4s) per gli stili JSON, `map-tiles-<provider>-v1` (`CacheFirst`)
+per tile, glyphs e sprite. Un solo `CacheFirst` per host terrebbe gli stili vecchi 7 giorni, e il
+toggle tema servirebbe uno stile stantio. All'`activate` vengono cancellate sia le cache legacy
+`map-tiles` sia le versioni non correnti di entrambe. Nessun prefetch.
 
 ## 7. Aperto / da decidere
 

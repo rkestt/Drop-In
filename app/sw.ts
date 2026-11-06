@@ -4,6 +4,7 @@ import {
   CacheFirst,
   CacheableResponsePlugin,
   ExpirationPlugin,
+  NetworkFirst,
   NetworkOnly,
   Serwist,
 } from "serwist";
@@ -28,6 +29,14 @@ const tileMatchers: Record<string, { host: string; entries: number }> = {
 
 const { host, entries } = tileMatchers[provider];
 
+const TILE_CACHE = `map-tiles-${provider}-v1`;
+const STYLE_CACHE = `map-style-${provider}-v1`;
+
+// Gli stili stanno sullo stesso host delle tile: vanno separati, altrimenti un
+// CacheFirst di 7 giorni serve stili vecchi al cambio tema e nasconde gli update.
+const isStyleRequest = ({ url }: { url: URL }) =>
+  url.hostname.endsWith(host) && url.pathname.startsWith("/styles/");
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
@@ -44,9 +53,20 @@ const serwist = new Serwist({
       handler: new NetworkOnly(),
     },
     {
-      matcher: ({ url }) => url.hostname.endsWith(host),
+      matcher: isStyleRequest,
+      handler: new NetworkFirst({
+        cacheName: STYLE_CACHE,
+        networkTimeoutSeconds: 4,
+        plugins: [
+          new CacheableResponsePlugin({ statuses: [0, 200] }),
+          new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 7 * 24 * 60 * 60 }),
+        ],
+      }),
+    },
+    {
+      matcher: ({ url }) => url.hostname.endsWith(host) && !isStyleRequest({ url }),
       handler: new CacheFirst({
-        cacheName: `map-tiles-${provider}-v1`,
+        cacheName: TILE_CACHE,
         plugins: [
           new CacheableResponsePlugin({ statuses: [0, 200] }),
           new ExpirationPlugin({
@@ -62,14 +82,19 @@ const serwist = new Serwist({
   ],
 });
 
-// Pulizia cache legacy "map-tiles" all'activate
+// Pulizia cache legacy e versioni vecchie all'activate
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (self as any).addEventListener("activate", (event: any) => {
+  const current = [TILE_CACHE, STYLE_CACHE];
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k === "map-tiles" || k.startsWith("map-tiles-") && k !== `map-tiles-${provider}-v1`)
+          .filter(
+            (k) =>
+              (k === "map-tiles" || k.startsWith("map-tiles-") || k.startsWith("map-style-")) &&
+              !current.includes(k),
+          )
           .map((k) => caches.delete(k)),
       ),
     ),
