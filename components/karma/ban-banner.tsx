@@ -23,7 +23,7 @@ export function BanBanner({ userId }: BanBannerProps) {
 
       if (data) {
         setBannedUntil(data.banned_until);
-        setKarmaScore(data.karma_score);
+        setKarmaScore(data.karma_score ?? 90);
       }
     };
 
@@ -41,7 +41,7 @@ export function BanBanner({ userId }: BanBannerProps) {
         },
         (payload) => {
           setBannedUntil(payload.new.banned_until);
-          setKarmaScore(payload.new.karma_score);
+          setKarmaScore(payload.new.karma_score ?? 90);
         }
       )
       .subscribe((status) => {
