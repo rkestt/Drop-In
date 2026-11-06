@@ -69,19 +69,45 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"courts": {
+                },"court_submissions": {
                   Row: {
-                    "address": string | null,"created_at": string | null,"hoop_count": number | null,"id": string,"lat": number,"lng": number,"location": unknown,"name": string,"osm_id": string | null,"sport": string | null,"status": string | null,"surface_type": string | null,"updated_at": string | null,"venue_type": string | null
+                    "court_id": string | null,"created_at": string | null,"gps_accuracy": number | null,"id": string,"lat": number,"lng": number,"moderation_note": string | null,"photo_path": string | null,"raw_name": string | null,"status": string,"submitter_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "address"?: string | null,"created_at"?: string | null,"hoop_count"?: number | null,"id"?: string,"lat": number,"lng": number,"location"?: unknown,"name": string,"osm_id"?: string | null,"sport"?: string | null,"status"?: string | null,"surface_type"?: string | null,"updated_at"?: string | null,"venue_type"?: string | null
+                    "court_id"?: string | null,"created_at"?: string | null,"gps_accuracy"?: number | null,"id"?: string,"lat": number,"lng": number,"moderation_note"?: string | null,"photo_path"?: string | null,"raw_name"?: string | null,"status"?: string,"submitter_id": string
                   }
                   Update: {
-                    "address"?: string | null,"created_at"?: string | null,"hoop_count"?: number | null,"id"?: string,"lat"?: number,"lng"?: number,"location"?: unknown,"name"?: string,"osm_id"?: string | null,"sport"?: string | null,"status"?: string | null,"surface_type"?: string | null,"updated_at"?: string | null,"venue_type"?: string | null
+                    "court_id"?: string | null,"created_at"?: string | null,"gps_accuracy"?: number | null,"id"?: string,"lat"?: number,"lng"?: number,"moderation_note"?: string | null,"photo_path"?: string | null,"raw_name"?: string | null,"status"?: string,"submitter_id"?: string
                   }
                   Relationships: [
-                    
+                    {
+      foreignKeyName: "court_submissions_court_id_fkey"
+      columns: ["court_id"]
+isOneToOne: false
+      referencedRelation: "courts"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"courts": {
+                  Row: {
+                    "address": string | null,"created_at": string | null,"duplicate_of": string | null,"hoop_count": number | null,"id": string,"lat": number,"lng": number,"location": unknown,"moderation_status": string,"name": string,"osm_id": string | null,"photo_url": string | null,"source": string,"sport": string | null,"status": string | null,"submitted_by": string | null,"surface_type": string | null,"updated_at": string | null,"venue_type": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "address"?: string | null,"created_at"?: string | null,"duplicate_of"?: string | null,"hoop_count"?: number | null,"id"?: string,"lat": number,"lng": number,"location"?: unknown,"moderation_status"?: string,"name": string,"osm_id"?: string | null,"photo_url"?: string | null,"source"?: string,"sport"?: string | null,"status"?: string | null,"submitted_by"?: string | null,"surface_type"?: string | null,"updated_at"?: string | null,"venue_type"?: string | null
+                  }
+                  Update: {
+                    "address"?: string | null,"created_at"?: string | null,"duplicate_of"?: string | null,"hoop_count"?: number | null,"id"?: string,"lat"?: number,"lng"?: number,"location"?: unknown,"moderation_status"?: string,"name"?: string,"osm_id"?: string | null,"photo_url"?: string | null,"source"?: string,"sport"?: string | null,"status"?: string | null,"submitted_by"?: string | null,"surface_type"?: string | null,"updated_at"?: string | null,"venue_type"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "courts_duplicate_of_fkey"
+      columns: ["duplicate_of"]
+isOneToOne: false
+      referencedRelation: "courts"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"lobbies": {
                   Row: {
@@ -125,14 +151,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "avatar_url": string | null,"banned_until": string | null,"created_at": string | null,"id": string,"karma_score": number | null,"nickname": string | null,"updated_at": string | null,"user_id": string
+                    "avatar_url": string | null,"banned_until": string | null,"created_at": string | null,"id": string,"is_moderator": boolean,"karma_score": number | null,"nickname": string | null,"updated_at": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "avatar_url"?: string | null,"banned_until"?: string | null,"created_at"?: string | null,"id"?: string,"karma_score"?: number | null,"nickname"?: string | null,"updated_at"?: string | null,"user_id": string
+                    "avatar_url"?: string | null,"banned_until"?: string | null,"created_at"?: string | null,"id"?: string,"is_moderator"?: boolean,"karma_score"?: number | null,"nickname"?: string | null,"updated_at"?: string | null,"user_id": string
                   }
                   Update: {
-                    "avatar_url"?: string | null,"banned_until"?: string | null,"created_at"?: string | null,"id"?: string,"karma_score"?: number | null,"nickname"?: string | null,"updated_at"?: string | null,"user_id"?: string
+                    "avatar_url"?: string | null,"banned_until"?: string | null,"created_at"?: string | null,"id"?: string,"is_moderator"?: boolean,"karma_score"?: number | null,"nickname"?: string | null,"updated_at"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     
@@ -293,6 +319,9 @@ isOneToOne: false
                            } |
 { Args: { "column_name": string,"new_dim": number,"new_srid": number,"new_type": string,"table_name": string,"use_typmod"?: boolean }; Returns: string
                            },
+"approve_court":
+{ Args: { "p_court_id": string }; Returns: undefined
+                           },
 "archive_old_reports":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
@@ -301,6 +330,39 @@ isOneToOne: false
                            },
 "auto_close_lobbies":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"courts_in_viewport":
+{ Args: { "max_lat": number,"max_lng": number,"max_results"?: number,"min_lat": number,"min_lng": number,"p_sport"?: string }; Returns: {
+              "address": string | null,
+"created_at": string | null,
+"duplicate_of": string | null,
+"hoop_count": number | null,
+"id": string,
+"lat": number,
+"lng": number,
+"location": unknown,
+"moderation_status": string,
+"name": string,
+"osm_id": string | null,
+"photo_url": string | null,
+"source": string,
+"sport": string | null,
+"status": string | null,
+"submitted_by": string | null,
+"surface_type": string | null,
+"updated_at": string | null,
+"venue_type": string | null
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "courts"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
+"dedup_candidates":
+{ Args: { "p_lat": number,"p_lng": number,"p_radius_m"?: number }; Returns: {
+              "distance_m": number,"id": string,"lat": number,"lng": number,"moderation_status": string,"name": string,"source": string
+            }[]
                            },
 "disablelongtransactions":
 { Args: Record<PropertyKey, never>; Returns: string
@@ -406,11 +468,17 @@ isOneToOne: false
 "gettransactionid":
 { Args: Record<PropertyKey, never>; Returns: unknown
                            },
+"is_moderator":
+{ Args: { "p_uid"?: string }; Returns: boolean
+                           },
 "longtransactionsenabled":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"mark_duplicate":
+{ Args: { "p_court_id": string,"p_duplicate_of": string }; Returns: undefined
+                           },
 "nearby_courts":
-{ Args: { "p_lat": number,"p_limit"?: number,"p_lng": number,"p_radius_m"?: number }; Returns: {
+{ Args: { "p_lat": number,"p_limit"?: number,"p_lng": number,"p_query"?: string,"p_radius_m"?: number,"p_sport"?: string }; Returns: {
               "address": string,"distance_m": number,"hoop_count": number,"id": string,"lat": number,"lng": number,"name": string,"sport": string,"status": string,"surface_type": string,"venue_type": string
             }[]
                            },
@@ -487,6 +555,9 @@ isOneToOne: false
                            },
 "postgis_wagyu_version":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"reject_court":
+{ Args: { "p_court_id": string,"p_note"?: string }; Returns: undefined
                            },
 "remove_expired_bans":
 { Args: Record<PropertyKey, never>; Returns: undefined
@@ -966,6 +1037,9 @@ isOneToOne: false
                            },
 "st_wrapx":
 { Args: { "geom": unknown,"move": number,"wrap": number }; Returns: unknown
+                           },
+"submit_court":
+{ Args: { "p_gps_accuracy"?: number,"p_lat": number,"p_lng": number,"p_name": string,"p_photo_path"?: string,"p_sport"?: string,"p_surface"?: string }; Returns: string
                            },
 "unlockrows":
 { Args: { "": string }; Returns: number

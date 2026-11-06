@@ -128,7 +128,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     });
 
     map.current = instance;
-  }, []);
+  }, [onBoundsChange]);
 
   useEffect(() => {
     if (mapContainer.current && (mapContainer.current.clientWidth === 0 || mapContainer.current.clientHeight === 0)) {

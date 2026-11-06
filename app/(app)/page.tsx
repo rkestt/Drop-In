@@ -27,6 +27,11 @@ interface Court {
   surface_type: string | null;
   hoop_count: number | null;
   status: string | null;
+  sport: string | null;
+  venue_type: string | null;
+  source: string;
+  photo_url: string | null;
+  moderation_status: string;
 }
 
 interface Lobby {
@@ -105,6 +110,15 @@ export default function HomePage() {
       fetchCourtsForBBox(bounds);
     },
     [fetchCourtsForBBox]
+  );
+
+  const handleBoundsChangeWrapped = useCallback(
+    (bounds: { n: number; s: number; e: number; w: number }, zoom: number) =>
+      handleBoundsChange(
+        { n: bounds.n, s: bounds.s, e: bounds.e, w: bounds.w },
+        zoom
+      ),
+    [handleBoundsChange]
   );
 
   useEffect(() => {
@@ -193,17 +207,7 @@ export default function HomePage() {
           }}
           userLocation={userLocation}
           locationError={locationError}
-          onBoundsChange={(bounds, zoom) =>
-            handleBoundsChange(
-              {
-                n: bounds.n,
-                s: bounds.s,
-                e: bounds.e,
-                w: bounds.w,
-              },
-              zoom
-            )
-          }
+          onBoundsChange={handleBoundsChangeWrapped}
         />
         <ReportedCourtsIndicator onCourtsUpdate={setReportedCourtIds} />
       </div>
