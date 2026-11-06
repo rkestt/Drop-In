@@ -14,7 +14,7 @@ export const MAP_PROVIDER: MapProvider =
 const OPENFREEMAP_STYLE_LIGHT = "https://tiles.openfreemap.org/styles/liberty";
 const OPENFREEMAP_STYLE_DARK = "https://tiles.openfreemap.org/styles/dark";
 const OPENFREEMAP_ATTRIBUTION =
-  'OpenFreeMap &copy; OpenMapTiles, Data from OpenStreetMap';
+  'OpenFreeMap &copy; OpenMapTiles Data from OpenStreetMap';
 
 export const MAP_STYLE_URL: Record<"light" | "dark", string> = {
   light: OPENFREEMAP_STYLE_LIGHT,
