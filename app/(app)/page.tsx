@@ -17,6 +17,8 @@ const CourtMap = dynamic(() => import("@/components/map/court-map").then((m) => 
   loading: () => <MapSkeleton />,
 });
 
+const ROME_CENTER = { lat: 41.8919, lng: 12.5113 };
+
 interface Court {
   id: string;
   name: string;
@@ -26,6 +28,7 @@ interface Court {
   surface_type: string | null;
   hoop_count: number | null;
   status: string | null;
+  distance_m?: number;
 }
 
 interface Lobby {
@@ -44,6 +47,10 @@ export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
+  const [originFromDevice, setOriginFromDevice] = useState(false);
   const supabase = useMemo(() => createClient(), []);
   const handleCourtSelect = useCallback((id: string) => {
     window.location.href = `/courts/${id}`;
@@ -78,13 +85,9 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data: courtsData } = await supabase.from("courts").select("*").limit(100);
-        setCourts(courtsData || []);
         await fetchLobbies();
       } catch (err) {
         console.error("Error fetching data:", err);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -109,6 +112,77 @@ export default function HomePage() {
     };
   }, [supabase, fetchLobbies]);
 
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      void Promise.resolve().then(() => {
+        setOrigin(ROME_CENTER);
+        setOriginFromDevice(false);
+        setUserLocation(null);
+        setLocationError("Posizione non disponibile. Centro su Roma.");
+      });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setOrigin({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setOriginFromDevice(true);
+        setUserLocation([pos.coords.longitude, pos.coords.latitude]);
+        setLocationError(null);
+      },
+      () => {
+        setOrigin(ROME_CENTER);
+        setOriginFromDevice(false);
+        setUserLocation(null);
+        setLocationError("Posizione non disponibile. Centro su Roma.");
+      },
+      { timeout: 4000, maximumAge: 300000 }
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!origin) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.rpc("nearby_courts", {
+        p_lat: origin.lat,
+        p_lng: origin.lng,
+        p_radius_m: 15000,
+        p_limit: 200,
+      });
+      if (cancelled) return;
+      if (error) {
+        console.error("nearby_courts error:", error);
+        setCourts([]);
+        setLoading(false);
+        return;
+      }
+      const rows = (data || []) as Array<Court>;
+      if (rows.length === 0 && originFromDevice) {
+        const { data: fallback, error: fbErr } = await supabase.rpc("nearby_courts", {
+          p_lat: ROME_CENTER.lat,
+          p_lng: ROME_CENTER.lng,
+          p_radius_m: 15000,
+          p_limit: 200,
+        });
+        if (cancelled) return;
+        if (fbErr) {
+          console.error("nearby_courts fallback error:", fbErr);
+          setCourts([]);
+          setLoading(false);
+          return;
+        }
+        setCourts((fallback || []) as Array<Court>);
+        setLocationError("Nessun campo entro 15 km. Centro su Roma.");
+        setUserLocation(null);
+        setLoading(false);
+        return;
+      }
+      setCourts(rows);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [origin, originFromDevice, supabase]);
+
   if (loading) {
     return (
       <main className="flex-1 flex items-center justify-center" role="status" aria-label="Caricamento dati in corso">
@@ -129,6 +203,8 @@ export default function HomePage() {
           courts={courts}
           reportedCourtIds={reportedCourtIds}
           onCourtSelect={handleCourtSelect}
+          userLocation={userLocation}
+          locationError={locationError}
         />
         <ReportedCourtsIndicator onCourtsUpdate={setReportedCourtIds} />
       </div>

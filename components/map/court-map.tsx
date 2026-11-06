@@ -8,19 +8,19 @@ interface CourtMapProps {
   courts?: Array<{ id: string; name: string; lat: number; lng: number; address?: string | null }>;
   onCourtSelect?: (courtId: string) => void;
   reportedCourtIds?: string[];
+  userLocation?: [number, number] | null;
+  locationError?: string | null;
 }
 
 const ROME_CENTER: [number, number] = [12.5113, 41.8919];
 
-export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: CourtMapProps) {
+export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [], userLocation = null, locationError = null }: CourtMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const courtMarkers = useRef<maplibregl.Marker[]>([]);
   const userMarker = useRef<maplibregl.Marker | null>(null);
   const loadedRef = useRef(false);
   const lastSizeRef = useRef<{ w: number; h: number } | null>(null);
-  const [, setUserLocation] = useState<[number, number] | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
 
@@ -99,25 +99,6 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
     });
 
     map.current = instance;
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation([longitude, latitude]);
-          if (map.current) {
-            map.current.flyTo({ center: [longitude, latitude], zoom: 15, duration: 1000 });
-            if (userMarker.current) userMarker.current.remove();
-            userMarker.current = new maplibregl.Marker({ color: "#3b82f6" })
-              .setLngLat([longitude, latitude])
-              .addTo(map.current);
-          }
-        },
-        () => {
-          setLocationError("Posizione non disponibile. Centro su Roma.");
-        }
-      );
-    }
   }, []);
 
   useEffect(() => {
@@ -150,6 +131,15 @@ export function CourtMap({ courts = [], onCourtSelect, reportedCourtIds = [] }: 
       }
     };
   }, [createMap, retryKey, removeCourtMarkers]);
+
+  useEffect(() => {
+    if (!map.current || !userLocation) return;
+    map.current.flyTo({ center: userLocation, zoom: 15, duration: 1000 });
+    if (userMarker.current) userMarker.current.remove();
+    userMarker.current = new maplibregl.Marker({ color: "#3b82f6" })
+      .setLngLat(userLocation)
+      .addTo(map.current);
+  }, [userLocation, retryKey]);
 
   useEffect(() => {
     if (!map.current || courts.length === 0) return;

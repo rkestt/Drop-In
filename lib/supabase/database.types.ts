@@ -218,7 +218,29 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      nearby_courts: {
+        Args: {
+          p_lat: number;
+          p_lng: number;
+          p_radius_m?: number;
+          p_limit?: number;
+        };
+        Returns: {
+          id: string;
+          name: string;
+          lat: number;
+          lng: number;
+          address: string | null;
+          surface_type: string | null;
+          hoop_count: number | null;
+          venue_type: string | null;
+          sport: string | null;
+          status: string | null;
+          distance_m: number;
+        }[];
+      };
+    };
     Enums: Record<string, never>;
   };
 };
