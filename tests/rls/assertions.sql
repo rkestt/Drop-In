@@ -402,4 +402,95 @@ DO $$ BEGIN
 END $$;
 RESET ROLE;
 
+-- ================= 26. foto freeze: approved immutabile, resto scrivibile =================
+-- RLS che filtra le righe NON solleva 42501 su UPDATE/DELETE: le righe invisibili
+-- danno semplicemente 0 righe interessate. Si asserisce l'effetto, non l'errore.
+-- Seed come postgres (bypassa RLS); prove come authenticated con sub=uidA.
+INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status, photo_path)
+VALUES
+  ('Photo Approved', 41.95, 12.55, ST_SetSRID(ST_MakePoint(12.55,41.95),4326)::geography, 'community',
+   '11111111-1111-1111-1111-111111111111','approved','active','11111111-1111-1111-1111-111111111111/approved.jpg'),
+  ('Photo Pending', 41.96, 12.56, ST_SetSRID(ST_MakePoint(12.56,41.96),4326)::geography, 'community',
+   '11111111-1111-1111-1111-111111111111','pending','active','11111111-1111-1111-1111-111111111111/pending.jpg');
+INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id)
+VALUES
+  (gen_random_uuid(), 'court-photos', '11111111-1111-1111-1111-111111111111/approved.jpg',
+   '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111'),
+  (gen_random_uuid(), 'court-photos', '11111111-1111-1111-1111-111111111111/pending.jpg',
+   '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111'),
+  (gen_random_uuid(), 'court-photos', '11111111-1111-1111-1111-111111111111/orphan.jpg',
+   '11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111');
+
+-- Il trigger storage.protect_objects_delete blocca QUALUNQUE delete diretto senza
+-- questo GUC (anche a 0 righe: e' uno statement trigger). Va abilitato una volta
+-- per la transazione, altrimenti anche i delete legittimi falliscono.
+SET LOCAL "storage.allow_delete_query" = 'true';
+
+-- 26a. DELETE su foto approved bloccato: la riga deve esistere ancora.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DO $$
+DECLARE v_n INTEGER;
+BEGIN
+  DELETE FROM storage.objects WHERE name = '11111111-1111-1111-1111-111111111111/approved.jpg';
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'delete su foto approved ha rimosso % righe', v_n;
+  END IF;
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM storage.objects WHERE name = '11111111-1111-1111-1111-111111111111/approved.jpg') THEN
+    RAISE EXCEPTION 'foto approved sparita dopo delete bloccato';
+  END IF;
+END $$;
+
+-- 26b. UPDATE su foto approved bloccato: zero righe modificate.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DO $$
+DECLARE v_n INTEGER;
+BEGIN
+  UPDATE storage.objects SET updated_at = now()
+  WHERE name = '11111111-1111-1111-1111-111111111111/approved.jpg';
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'update su foto approved ha modificato % righe', v_n;
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 26c. DELETE su foto pending (corte non approvata): deve riuscire.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DELETE FROM storage.objects WHERE name = '11111111-1111-1111-1111-111111111111/pending.jpg';
+RESET ROLE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM storage.objects WHERE name = '11111111-1111-1111-1111-111111111111/pending.jpg') THEN
+    RAISE EXCEPTION 'delete su foto pending non riuscito';
+  END IF;
+END $$;
+
+-- 26d. DELETE su path orfano (nessuna corte): deve riuscire.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DELETE FROM storage.objects WHERE name = '11111111-1111-1111-1111-111111111111/orphan.jpg';
+RESET ROLE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM storage.objects WHERE name = '11111111-1111-1111-1111-111111111111/orphan.jpg') THEN
+    RAISE EXCEPTION 'delete su foto orfana non riuscito';
+  END IF;
+END $$;
+
+-- 26e. service_role puo' sempre rimuovere una foto approved (intervento moderatore).
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims = '{"role":"service_role"}';
+DELETE FROM storage.objects WHERE name = '11111111-1111-1111-1111-111111111111/approved.jpg';
+RESET ROLE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM storage.objects WHERE name = '11111111-1111-1111-1111-111111111111/approved.jpg') THEN
+    RAISE EXCEPTION 'service_role non ha rimosso la foto approved';
+  END IF;
+END $$;
+
 ROLLBACK;

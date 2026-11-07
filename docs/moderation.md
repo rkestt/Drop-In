@@ -129,6 +129,12 @@ END IF;
 
 Con `IS DISTINCT FROM`, un `auth.role()` NULL **nega** l'accesso invece di lasciarlo passare. Finché la correzione non è applicata, trattare ogni esecuzione da Studio/psql come operazione privilegiata non autenticata.
 
+## Foto immutabile dopo l'approvazione (migration 014)
+
+Dopo che una corte passa ad `approved`, la sua foto su `court-photos` è **immutabile per il proponente**: le policy `court_photos_update` e `court_photos_delete` escludono (`NOT EXISTS` su `courts` con quel `photo_path` e `moderation_status='approved'`) qualunque path referenziato da una corte approvata. L'update ha la condizione sia in `USING` che in `WITH CHECK`, altrimenti un rename sposterebbe un oggetto sopra un path approvato. `select`/`insert` restano invariati: l'upload usa `upsert:false` con UUID casuale, la collisione con un path approvato è già impossibile (409). Solo il `service_role` (bypass RLS) può sostituire o rimuovere una foto approvata.
+
+Per correggere una foto sbagliata su una corte approvata: riportare la corte a `rejected` (o `pending` con un nuovo invio) e ricaricare, oppure intervenire da Studio/psql come `postgres`.
+
 ## Limiti noti
 
 - Nessuna UI di moderazione (Phase 3).
