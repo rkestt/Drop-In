@@ -19,8 +19,8 @@ test.describe("styleguide visual regression", () => {
       await expect(
         page.getByRole("heading", { name: "Styleguide" }),
       ).toBeVisible();
-      // I token si leggono a runtime: lascia assestare font/layout
-      await page.waitForTimeout(300);
+      // I font sono locali: attendere il caricamento prima dello screenshot
+      await page.evaluate(() => document.fonts.ready);
 
       for (const id of SECTIONS) {
         const section = page.locator(`#${id}`);

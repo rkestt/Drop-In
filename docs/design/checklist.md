@@ -42,7 +42,7 @@
 - [ ] `npm run lint` passa.
 - [ ] `npx tsc --noEmit` passa.
 - [ ] `npm run lint:design` passa.
-- [ ] `npm run test:visual` passa in locale (baseline Linux; aggiornare con `npm run test:visual -- --update-snapshots` solo se il cambio visivo è voluto). Non è in CI: richiede font locali per essere deterministico.
+- [ ] `npm run test:visual` passa in locale e in CI (baseline Linux; aggiornare con `npm run test:visual -- --update-snapshots` solo se il cambio visivo è voluto).
 - [ ] `npm run test:a11y` passa (axe, in CI).
 
 ## Post-PR / pre-merge
