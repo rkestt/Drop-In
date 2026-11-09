@@ -66,7 +66,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
-  const [loginNext, setLoginNext] = useState("/");
+  const [loginNext, setLoginNext] = useState<string | undefined>(undefined);
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -224,7 +224,10 @@ export default function HomePage() {
     const login = params.get("login");
     if (login === "required" || login === "1") {
       setShowLogin(true);
-      setLoginNext(safeNext(params.get("next")));
+      // Pass an explicit next only when the login redirect provided one;
+      // otherwise the modal stays on the current page after login.
+      const rawNext = params.get("next");
+      setLoginNext(rawNext === null ? undefined : safeNext(rawNext));
       params.delete("login");
       params.delete("next");
       const next = params.toString();

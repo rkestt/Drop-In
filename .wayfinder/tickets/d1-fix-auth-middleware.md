@@ -87,3 +87,53 @@ npm run lint:design
   `/~offline` → 200, `/profile` e `/lobbies` → redirect login senza 500;
   login da `/profile` atterra su `/profile`; login da
   `/lobbies?tab=nearby` atterra su `/lobbies?tab=nearby`.
+
+## Resolution — review oracle (secondo giro)
+
+1. **Regressione navigazione (fix).** `LoginModal`: prop `next?: string` senza
+   default navigante; nuovo helper `resolveLoginDestination(next)` in
+   `lib/auth/routes.ts` (`undefined`/`null` → `undefined` = resta dove sei,
+   altrimenti `safeNext`). Login password: `router.replace` solo se
+   `destination !== undefined`, poi sempre `router.refresh()`. OAuth: `?next=`
+   appeso al callback solo se richiesto, altrimenti `redirectTo` base come
+   prima. `app/(app)/page.tsx`: `loginNext: string | undefined`, passa `next`
+   esplicito solo se `?login=required&next=...` presente; `submit-court` e
+   `login-prompt` (senza `next`) restano sulla pagina dopo il login —
+   coerente con `docs/design/patterns/onboarding.md:130` (gate che riprende
+   lo step esatto). Niente component test: la toolchain vitest 4.1/rolldown
+   del repo non riesce a caricare alcun `.tsx` (entry o import, statico o
+   dinamico) sotto env jsdom — "Unexpected JSX expression" / "jsx:
+   preserve" da `vite:import-analysis`; anche `esbuild.jsx: automatic` in
+   `vitest.config.ts` è ignorato. Sistemarlo tocca tsconfig/build: fuori
+   scope. Il contratto è fissato dai test di `resolveLoginDestination`
+   (undefined→stay, esplicito→sanitizzato, ostile→`/`), che il modal usa
+   direttamente; il branch `if (destination !== undefined)` è 3 righe
+   revisionate a vista.
+2. **Guardie in-page (fix).** `app/(dashboard)/profile/page.tsx` e
+   `app/(dashboard)/lobbies/page.tsx`: `getUser()` in `try/catch` fail-open
+   (stessa semantica del middleware) + redirect via `loginRedirectUrl`
+   (`/profile`; `/lobbies` con `?tab=` preservato da `searchParams`
+   — in Next 15 è `Promise`, quindi `await`ato).
+3. **Test fail-open middleware (nuovo `tests/unit/supabase-middleware.test.ts`,
+   6 casi verdi, `vi.mock("@supabase/ssr")` riuscito senza DI):** `getUser`
+   che rigetta → `/`, `/courts/<id>`, `/~offline` 200 senza redirect e senza
+   throw; `/profile`, `/lobbies?tab=nearby` → 307 verso
+   `/?login=required&next=...`; lookalike `/profiles`, `/lobbying` non
+   reindirizzati; `getUser` che pende mai + `timeoutMs: 5` (timeout
+   parametrizzato via `opts`, default 3000 invariato) → redirect; utente
+   presente → nessun redirect; sessione vuota senza errore → redirect.
+4. **Minori.** `createServerClient` spostato dentro il `try` (throw sincrono
+   → fail-open); commento scheme-regex in `safeNext` corretto onestamente
+   (belt-and-braces irraggiungibile dopo i check sul `/` iniziale, tenuto
+   contro futuri riordini). Test oracle aggiunti: `%2F%2Fevil.com` → `/`,
+   `/%5cevil` pass-through (no decode in `safeNext`), `\n`/`\r`/`\t` → `/`,
+   `/foo:bar` e `/../x` consentiti (normalizzazione al server), `null`,
+   `/PROFILE` → false, `/dashboard/` → true, `//profile` → false; fragment
+   tagliato in `loginRedirectUrl` by design (il browser non lo invia mai).
+- **Comandi/esiti finali** (worktree, branch `fix/d1-f0`): `npx vitest run`
+  7 file / 68 test verdi; `npm run lint` 0 errori (1 warning pre-esistente
+  invariato); `npx tsc --noEmit` pulito; `npm run lint:design` OK (61 file).
+- **Resta manuale** (non eseguito di proposito): `supabase stop` + dev
+  server; `/`→200, `/courts/<id>`→200, `/~offline`→200, `/profile` e
+  `/lobbies`→redirect login senza 500; atterraggio post-login su `/profile`
+  e `/lobbies?tab=nearby`; assenza di loop su `/`.

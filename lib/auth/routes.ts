@@ -20,10 +20,24 @@ export function safeNext(value: string | null | undefined): string {
   if (v.startsWith("/\\")) return "/";
   if (v.includes("\\")) return "/";
   if (/[\s<>]/.test(v)) return "/";
-  // Absolute URL or scheme (http:, https:, javascript:, data:, ...),
-  // case-insensitive. A same-origin path never contains a scheme.
+  // Belt-and-braces: unreachable after the leading-slash checks above (a
+  // string starting with "/" can never start with a scheme), kept so a
+  // future reorder of the checks cannot turn into an open redirect.
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(v)) return "/";
   return v;
+}
+
+/**
+ * Resolves the post-login destination for `LoginModal`: `undefined`/`null`
+ * (no `next` provided) means "stay on the current page" — the caller must
+ * refresh in place instead of navigating. Any provided value is sanitized
+ * with `safeNext`, so an explicit `next` is always a safe same-origin path.
+ */
+export function resolveLoginDestination(
+  next: string | null | undefined
+): string | undefined {
+  if (next === undefined || next === null) return undefined;
+  return safeNext(next);
 }
 
 /**
@@ -43,11 +57,19 @@ export function isProtectedPath(pathname: string | null | undefined): boolean {
 /**
  * Builds the login redirect for a protected destination, preserving
  * path + query: `/lobbies?tab=mine` -> `/?login=required&next=...`.
- * `search` may include the leading `?` or not.
+ * `search` may include the leading `?` or not. The URL fragment (`#...`)
+ * is dropped by design: browsers never send it to the server, so
+ * `request.nextUrl.search` — the input this is built from — never has one.
  */
 export function loginRedirectUrl(pathname: string, search?: string | null): string {
   const q = search ?? "";
-  const suffix = q.length === 0 ? "" : q.startsWith("?") ? q : `?${q}`;
+  const withoutFragment = q.split("#", 1)[0];
+  const suffix =
+    withoutFragment.length === 0
+      ? ""
+      : withoutFragment.startsWith("?")
+        ? withoutFragment
+        : `?${withoutFragment}`;
   const next = `${pathname}${suffix}`;
   return `/?login=required&next=${encodeURIComponent(next)}`;
 }

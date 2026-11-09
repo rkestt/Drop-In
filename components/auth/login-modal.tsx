@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { safeNext } from "@/lib/auth/routes";
+import { resolveLoginDestination } from "@/lib/auth/routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -12,11 +12,16 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 interface LoginModalProps {
   open: boolean;
   onClose: () => void;
-  /** Post-login destination, sanitized with safeNext. Defaults to "/". */
+  /**
+   * Optional post-login destination. When omitted the modal stays on the
+   * current page after login (`router.refresh()` only) — callers that gate
+   * a flow (e.g. submit-court) rely on this. Pass an explicit `next` only
+   * when the user was bounced here by a login redirect.
+   */
   next?: string;
 }
 
-export function LoginModal({ open, onClose, next = "/" }: LoginModalProps) {
+export function LoginModal({ open, onClose, next }: LoginModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -26,7 +31,8 @@ export function LoginModal({ open, onClose, next = "/" }: LoginModalProps) {
 
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
-  const destination = safeNext(next);
+  // undefined = no destination requested: stay on the current page.
+  const destination = resolveLoginDestination(next);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +55,9 @@ export function LoginModal({ open, onClose, next = "/" }: LoginModalProps) {
         });
         if (error) throw error;
         onClose();
-        router.replace(destination);
+        if (destination !== undefined) {
+          router.replace(destination);
+        }
         router.refresh();
       }
     } catch (err) {
@@ -66,7 +74,12 @@ export function LoginModal({ open, onClose, next = "/" }: LoginModalProps) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(destination)}`,
+        // OAuth always leaves the page, so a default "/" fallback is fine;
+        // ?next= is appended only when a destination was requested.
+        redirectTo:
+          destination === undefined
+            ? `${window.location.origin}/api/auth/callback`
+            : `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(destination)}`,
       },
     });
 

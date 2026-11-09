@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isProtectedPath, loginRedirectUrl, safeNext } from "@/lib/auth/routes";
+import {
+  isProtectedPath,
+  loginRedirectUrl,
+  resolveLoginDestination,
+  safeNext,
+} from "@/lib/auth/routes";
 
 describe("safeNext", () => {
   it("returns / for missing or empty values", () => {
@@ -51,6 +56,33 @@ describe("safeNext", () => {
     expect(safeNext("/lob\tbies")).toBe("/");
   });
 
+  it("rejects encoded leading slashes and backslash tricks", () => {
+    // "%2F%2Fevil.com" starts with "%", not "/", so it is not same-origin.
+    expect(safeNext("%2F%2Fevil.com")).toBe("/");
+    expect(safeNext("%2f%2fevil.com")).toBe("/");
+  });
+
+  it("lets encoded chars inside a same-origin path through untouched", () => {
+    // "/%5cevil" contains no literal backslash; decoding (if any) happens
+    // downstream in the framework/router, safeNext does not decode.
+    expect(safeNext("/%5cevil")).toBe("/%5cevil");
+  });
+
+  it("rejects control characters", () => {
+    expect(safeNext("/foo\nbar")).toBe("/");
+    expect(safeNext("/foo\rbar")).toBe("/");
+    expect(safeNext("/foo\tbar")).toBe("/");
+  });
+
+  it("allows colons and dot-segments inside a same-origin path", () => {
+    // A colon after the leading "/" is a legal path character, not a
+    // scheme (schemes only count at the start, which here is "/").
+    expect(safeNext("/foo:bar")).toBe("/foo:bar");
+    // "/../x" stays same-origin; dot-segment normalization is the
+    // server/framework's job, not the sanitizer's.
+    expect(safeNext("/../x")).toBe("/../x");
+  });
+
   it("trims surrounding whitespace around a valid path", () => {
     expect(safeNext("  /profile  ")).toBe("/profile");
   });
@@ -86,9 +118,17 @@ describe("isProtectedPath", () => {
   it("leaves public routes alone", () => {
     expect(isProtectedPath("/")).toBe(false);
     expect(isProtectedPath("")).toBe(false);
+    expect(isProtectedPath(null)).toBe(false);
     expect(isProtectedPath("/courts/abc-123")).toBe(false);
     expect(isProtectedPath("/~offline")).toBe(false);
     expect(isProtectedPath("/submit-court")).toBe(false);
+  });
+
+  it("is case-sensitive and segment-exact on edge inputs", () => {
+    expect(isProtectedPath("/PROFILE")).toBe(false);
+    expect(isProtectedPath("/dashboard/")).toBe(true);
+    // "//profile" splits to ["", "", "profile"]: first segment is empty.
+    expect(isProtectedPath("//profile")).toBe(false);
   });
 
   it("ignores query string and hash when matching", () => {
@@ -124,5 +164,30 @@ describe("loginRedirectUrl", () => {
     const next = new URL(url, "http://localhost").searchParams.get("next");
     expect(next).toBe("/lobbies?tab=nearby");
     expect(safeNext(next)).toBe("/lobbies?tab=nearby");
+  });
+
+  it("drops the fragment by design", () => {
+    // Browsers never send the fragment to the server, so the middleware
+    // builds this from pathname + search only. If a "#" ever sneaks into
+    // the input, it is cut rather than propagated.
+    expect(loginRedirectUrl("/lobbies", "?tab=mine#list")).toBe(
+      "/?login=required&next=%2Flobbies%3Ftab%3Dmine"
+    );
+  });
+});
+
+describe("resolveLoginDestination", () => {
+  it("returns undefined when no next was provided (stay on page)", () => {
+    expect(resolveLoginDestination(undefined)).toBeUndefined();
+    expect(resolveLoginDestination(null)).toBeUndefined();
+  });
+
+  it("sanitizes an explicit next", () => {
+    expect(resolveLoginDestination("/profile")).toBe("/profile");
+    expect(resolveLoginDestination("/lobbies?tab=nearby")).toBe(
+      "/lobbies?tab=nearby"
+    );
+    expect(resolveLoginDestination("//evil.com")).toBe("/");
+    expect(resolveLoginDestination("https://evil.com")).toBe("/");
   });
 });

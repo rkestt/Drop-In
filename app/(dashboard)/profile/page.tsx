@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { loginRedirectUrl } from "@/lib/auth/routes";
 import { EditProfileSheet } from "@/components/profile/edit-profile-sheet";
 import { KarmaIndicator } from "@/components/karma/karma-indicator";
 import { Button } from "@/components/ui/button";
@@ -9,12 +10,18 @@ export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Fail open like the middleware: a network error means "unknown session",
+  // so bounce to login (with next) instead of 500ing.
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    user = null;
+  }
 
   if (!user) {
-    redirect("/?login=required");
+    redirect(loginRedirectUrl("/profile", ""));
   }
 
   const { data: profile } = await supabase
