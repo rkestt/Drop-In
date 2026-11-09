@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Drawer } from "@/components/ui/drawer";
+import { StepTransition } from "@/components/motion/step-transition";
+import { SuccessPop } from "@/components/motion/success-pop";
 
 interface CreateLobbySheetProps {
   open: boolean;
@@ -23,8 +25,25 @@ export function CreateLobbySheet({
   const [maxPlayers, setMaxPlayers] = useState("10");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState(false);
+  const closeTimer = useRef<number | null>(null);
 
   const supabase = createClient();
+
+  useEffect(() => {
+    if (!open) {
+      queueMicrotask(() => {
+        setError(null);
+        setCreated(false);
+      });
+    }
+    return () => {
+      if (closeTimer.current !== null) {
+        window.clearTimeout(closeTimer.current);
+        closeTimer.current = null;
+      }
+    };
+  }, [open]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,8 +94,14 @@ export function CreateLobbySheet({
         throw error;
       }
 
-      onClose();
-      window.location.reload();
+      // Successo: si mostra l'esito dentro lo sheet (l'uscita vera —
+      // chiusura del drawer — resta quella di Base UI), poi si torna al
+      // contesto con la lobby visibile in "Lobby attive".
+      setCreated(true);
+      closeTimer.current = window.setTimeout(() => {
+        onClose();
+        window.location.reload();
+      }, 1400);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Errore durante la creazione della lobby.";
       setError(msg);
@@ -87,60 +112,72 @@ export function CreateLobbySheet({
 
   return (
     <Drawer open={open} onClose={onClose} title="Crea lobby">
-      <div className="space-y-4">
-        <div>
-          <label className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">
-            Campo
-          </label>
-          <p className="text-[var(--text-primary)] font-medium">{courtName}</p>
-        </div>
+      {/* Entrata/uscita del drawer restano quelle di Base UI: qui dentro si
+          scambia solo il contenuto (form -> esito), senza animazioni custom
+          sul contenitore e senza salti di layout. */}
+      <StepTransition stepKey={created ? "done" : "form"}>
+        {created ? (
+          <SuccessPop
+            title="Lobby creata"
+            description={`${courtName} · fino a ${maxPlayers} giocatori. La trovi in "Lobby attive" con lo stato "Sei dentro".`}
+          />
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">
+                Campo
+              </label>
+              <p className="text-[var(--text-primary)] font-medium">{courtName}</p>
+            </div>
 
-        {error && (
-          <div className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm">
-            {error}
+            {error && (
+              <div className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleCreate} className="space-y-3">
+              <div>
+                <label
+                  htmlFor="lobby-start-time"
+                  className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium block mb-1.5"
+                >
+                  Orario inizio
+                </label>
+                <Input
+                  id="lobby-start-time"
+                  type="datetime-local"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="lobby-max-players"
+                  className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium block mb-1.5"
+                >
+                  Numero massimo giocatori
+                </label>
+                <Input
+                  id="lobby-max-players"
+                  type="number"
+                  min={2}
+                  max={30}
+                  value={maxPlayers}
+                  onChange={(e) => setMaxPlayers(e.target.value)}
+                  required
+                />
+              </div>
+
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Creazione..." : "Crea lobby"}
+              </Button>
+            </form>
           </div>
         )}
-
-        <form onSubmit={handleCreate} className="space-y-3">
-          <div>
-            <label
-              htmlFor="lobby-start-time"
-              className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium block mb-1.5"
-            >
-              Orario inizio
-            </label>
-            <Input
-              id="lobby-start-time"
-              type="datetime-local"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              required
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="lobby-max-players"
-              className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium block mb-1.5"
-            >
-              Numero massimo giocatori
-            </label>
-            <Input
-              id="lobby-max-players"
-              type="number"
-              min={2}
-              max={30}
-              value={maxPlayers}
-              onChange={(e) => setMaxPlayers(e.target.value)}
-              required
-            />
-          </div>
-
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creazione..." : "Crea lobby"}
-          </Button>
-        </form>
-      </div>
+      </StepTransition>
     </Drawer>
   );
 }

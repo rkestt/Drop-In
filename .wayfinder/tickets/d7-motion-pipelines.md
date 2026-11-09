@@ -51,4 +51,20 @@ npm run lint && npx tsc --noEmit && npm run lint:design
 
 ## Resolution
 
-(TBD — chiudere con: primitive create, pipeline coperte, esito reduced motion, screenshot/video del pop.)
+Implementato per intero (branch `fix/d7-f1`).
+
+**Primitive create.**
+- `lib/motion/tokens.ts`: `MOTION` (0.15/0.2/0.25/0.4 s) ed `EASE` (standard/elastic come array) — rispecchiano `:root --motion-*` e `@theme --ease-*` in `app/globals.css`.
+- `lib/motion/use-reduced-motion.ts`: `useStableReducedMotion()` — primo render sempre statico (nessun mismatch di idratazione), poi `matchMedia` reale con listener. Quello di Motion (`useReducedMotion()`) fotografa il valore al primo render (in SSR sempre `false`) e non si aggiorna: verificato dal vivo che con reduced motion lasciava il check del pop congelato a `scale(0)`.
+- `components/motion/step-transition.tsx`: entra 250ms / esce 200ms, `popLayout` (nessun salto di layout), input mai bloccato.
+- `components/motion/success-pop.tsx`: check scala una volta in 400ms, testo fermo da subito, `role="status"`.
+- `components/motion/next-highlight.tsx`: ring accent statico + velo che sfuma in opacità (200ms) al primo tap/click/focus; `data-highlight` on/off.
+
+**Pipeline coperte (solo i 3 punti del ticket).**
+- Check-in sheet: scambio form → `SuccessPop` con testo d'esito "Check-in effettuato / Check-in attivo fino alle HH:MM" (scadenza 2h da auto-checkout). Entrata/uscita del drawer invariate (Base UI).
+- Crea lobby: scambio form → `SuccessPop` ("Lobby creata…"), poi chiusura + reload dopo 1400ms. Drawer invariato.
+- Lobby card: se l'utente è nei partecipanti, al posto di "Unisciti" compare `NextHighlight` con Badge `success` "Sei dentro".
+
+**Reduced motion.** Ramo statico in ogni primitiva (testo/stato/outline restano). Verificato con `page.emulateMedia({ reducedMotion: "reduce" })` su demo deterministica in `/styleguide` (sezione Motion → Pipeline, aggiunta per questo ticket, senza dati reali): nessuno dei nodi ha transform/transizioni/animazioni, tutti i testi restano leggibili. Nessun `setInterval`, nessun `infinite`, nessuna durata scritta a mano (il test unitario lo vieta).
+
+**Esiti.** `motion-tokens.test.ts` 10/10; suite unit 91/91; `motion-pipelines.spec.ts` 4/4; `test:a11y` 3/3; drawer+toast 8/8 (nessuna regressione); `lint` 0 errori (1 warning pre-esistente in `scripts/check-design.mjs`), `tsc` pulito, `lint:design` OK (69 file). Snapshot visuali intatti (coprono solo `#colori`/`#scale`).

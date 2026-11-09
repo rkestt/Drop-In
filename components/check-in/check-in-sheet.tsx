@@ -7,6 +7,8 @@ import { createLogger } from "@/lib/logger";
 const log = createLogger("check-in");
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
+import { StepTransition } from "@/components/motion/step-transition";
+import { SuccessPop } from "@/components/motion/success-pop";
 import { MapPin, Navigation, AlertTriangle } from "lucide-react";
 
 interface CheckInSheetProps {
@@ -34,6 +36,7 @@ export function CheckInSheet({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const supabase = createClient();
 
@@ -43,6 +46,7 @@ export function CheckInSheet({
       queueMicrotask(() => {
         setError(null);
         setSuccess(false);
+        setExpiresAt(null);
         setGpsAccuracy(null);
       });
     }
@@ -99,6 +103,14 @@ export function CheckInSheet({
       }
 
       log.info("check-in ok", { courtId, userId: user.id });
+      // L'auto-checkout scatta dopo 2h: la scadenza è parte dell'esito,
+      // non un dettaglio che appare dopo.
+      setExpiresAt(
+        new Date(Date.now() + 2 * 60 * 60 * 1000).toLocaleTimeString("it-IT", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      );
       setSuccess(true);
       setTimeout(() => {
         onClose();
@@ -121,59 +133,65 @@ export function CheckInSheet({
 
   return (
     <Drawer open={open} onClose={onClose} title="Check-in">
-      <div className="space-y-4">
-        <div className="flex items-start gap-3">
-          <MapPin className="w-5 h-5 text-[var(--accent)] mt-0.5 shrink-0" />
-          <div>
-            <p className="font-medium text-[var(--text-primary)]">{courtName}</p>
-            <p className="text-sm text-[var(--text-secondary)]">
-              Devi essere entro {CHECK_IN_RADIUS}m dal campo
-            </p>
-          </div>
-        </div>
+      {/* Entrata/uscita del drawer restano quelle di Base UI: qui dentro si
+          scambia solo il contenuto (form -> esito), senza animazioni custom
+          sul contenitore. */}
+      <StepTransition stepKey={success ? "done" : "form"}>
+        {success ? (
+          <SuccessPop
+            title="Check-in effettuato"
+            description={
+              expiresAt
+                ? `Check-in attivo fino alle ${expiresAt}.`
+                : "Check-in attivo."
+            }
+          />
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <MapPin className="w-5 h-5 text-[var(--accent)] mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-[var(--text-primary)]">{courtName}</p>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Devi essere entro {CHECK_IN_RADIUS}m dal campo
+                </p>
+              </div>
+            </div>
 
-        {gpsAccuracy !== null && gpsAccuracy <= MAX_ACCURACY && (
-          <div className="flex items-center gap-2 text-sm text-[var(--success)]">
-            <Navigation className="w-4 h-4" />
-            Precisione GPS: {Math.round(gpsAccuracy)}m
+            {gpsAccuracy !== null && gpsAccuracy <= MAX_ACCURACY && (
+              <div className="flex items-center gap-2 text-sm text-[var(--success)]">
+                <Navigation className="w-4 h-4" />
+                Precisione GPS: {Math.round(gpsAccuracy)}m
+              </div>
+            )}
+
+            {gpsAccuracy !== null && gpsAccuracy > MAX_ACCURACY && (
+              <div className="flex items-center gap-2 text-sm text-[var(--warning)]">
+                <AlertTriangle className="w-4 h-4" />
+                Precisione GPS scarsa: {Math.round(gpsAccuracy)}m
+              </div>
+            )}
+
+            {error && (
+              <div
+                className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm animate-scale-in"
+                role="alert"
+                aria-live="assertive"
+              >
+                {error}
+              </div>
+            )}
+
+            <Button
+              onClick={handleCheckIn}
+              disabled={loading || success}
+              className="w-full"
+            >
+              {loading ? "Verifica posizione..." : success ? "Check-in OK" : "Check-in"}
+            </Button>
           </div>
         )}
-
-        {gpsAccuracy !== null && gpsAccuracy > MAX_ACCURACY && (
-          <div className="flex items-center gap-2 text-sm text-[var(--warning)]">
-            <AlertTriangle className="w-4 h-4" />
-            Precisione GPS scarsa: {Math.round(gpsAccuracy)}m
-          </div>
-        )}
-
-        {error && (
-          <div
-            className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm animate-scale-in"
-            role="alert"
-            aria-live="assertive"
-          >
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div
-            className="p-3 rounded-lg bg-[var(--success)]/10 text-[var(--success)] text-sm animate-scale-in"
-            role="status"
-            aria-live="polite"
-          >
-            Check-in effettuato con successo!
-          </div>
-        )}
-
-        <Button
-          onClick={handleCheckIn}
-          disabled={loading || success}
-          className="w-full"
-        >
-          {loading ? "Verifica posizione..." : success ? "Check-in OK" : "Check-in"}
-        </Button>
-      </div>
+      </StepTransition>
     </Drawer>
   );
 }

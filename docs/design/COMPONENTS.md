@@ -62,3 +62,13 @@ Contratti brevi dei componenti esistenti. Dettagli (anatomia, snippet) in `compo
 - **Token:** `--bg-elevated`, `--cool-muted`, `--accent`, `--accent-hover`, `--accent-foreground`, `--text-muted`, `--radius-chip`.
 - **A11y:** `aria-label` sul FAB ("Aggiungi un campo"); label 11px (`text-label`) nella nav sempre affiancata all'icona (mai solo-icona); target link 64x48px, FAB 56px.
 - Dettagli: [components/nav.md](components/nav.md).
+
+## Motion pipeline — `components/motion/*` + `lib/motion/tokens.ts`
+
+- **Scopo (task utente):** orientare nelle pipeline: entrata dello step, esito di successo, highlight del prossimo controllo o dello stato appena conquistato. Mai decorazione, mai unica fonte dell'informazione.
+- **NON usarle per:** animazioni fuori pipeline (resta `--motion-fast` o le classi esistenti); loop, pulse, stagger a ogni step; animazioni di ingresso/uscita del drawer (restano quelle di Base UI).
+- **API pubblica:** `StepTransition({ stepKey, children, className? })`; `SuccessPop({ title, description?, className? })`; `NextHighlight({ children, className? })`; `MOTION = { fast: 0.15, base: 0.2, slow: 0.25, success: 0.4 }`, `EASE = { standard, elastic }` (array cubic-bezier).
+- **Stati:** step entra 250ms / esce 200ms (`popLayout`, niente salti di layout); pop una volta al mount in 400ms; highlight `data-highlight="on"` finché tap/click/focus lo spegne (`"off"`).
+- **Token:** `--motion-*` / `--ease-*` da `app/globals.css` via `lib/motion/tokens.ts` (mai numeri nei componenti); `--success` per l'esito, `--accent` per l'highlight.
+- **A11y:** `SuccessPop` è `role="status"`; con reduced motion (`useReducedMotion`, non solo media query) niente si muove e tutto resta in testo/colore/outline; la transizione non blocca mai l'input.
+- Dettagli: pattern [patterns/onboarding.md](patterns/onboarding.md) (sezione implementazione), token [tokens.md](tokens.md#motion-per-onboarding), ADR [decisions/0003-motion-token.md](decisions/0003-motion-token.md).

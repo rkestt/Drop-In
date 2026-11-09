@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { NextHighlight } from "@/components/motion/next-highlight";
 import { Users, Clock } from "lucide-react";
 
 interface Participant {
@@ -32,6 +33,10 @@ export function LobbyCard({ lobby, userId }: LobbyCardProps) {
   const supabase = createClient();
 
   const isFull = (lobby.participants_count ?? 0) >= lobby.max_players;
+  // Stato di appartenenza: testo + colore lo dicono sempre; l'highlight
+  // orienta solo al primo sguardo e sfuma alla prima interazione.
+  const isJoined =
+    !!userId && (lobby.participants ?? []).some((p) => p.user_id === userId);
   const statusVariant =
     lobby.status === "open"
       ? "accent"
@@ -137,17 +142,24 @@ export function LobbyCard({ lobby, userId }: LobbyCardProps) {
         <p className="text-sm text-[var(--danger)]">{error}</p>
       )}
 
-      {lobby.status === "open" && (
-        <Button
-          variant="primary"
-          size="sm"
-          className="w-full"
-          onClick={handleJoin}
-          disabled={joining || isFull}
-        >
-          {joining ? "Unione..." : isFull ? "Al completo" : "Unisciti"}
-        </Button>
-      )}
+      {lobby.status === "open" &&
+        (isJoined ? (
+          <NextHighlight>
+            <Badge variant="success" className="w-full justify-center py-2">
+              Sei dentro
+            </Badge>
+          </NextHighlight>
+        ) : (
+          <Button
+            variant="primary"
+            size="sm"
+            className="w-full"
+            onClick={handleJoin}
+            disabled={joining || isFull}
+          >
+            {joining ? "Unione..." : isFull ? "Al completo" : "Unisciti"}
+          </Button>
+        ))}
     </div>
   );
 }
