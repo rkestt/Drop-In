@@ -126,7 +126,7 @@ export function BottomSheet({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/30 transition-opacity"
+        className="absolute inset-0 bg-[var(--overlay)] transition-opacity"
         onClick={onClose}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -141,7 +141,7 @@ export function BottomSheet({
       <div
         ref={sheetRef}
         className={cn(
-          "relative w-full max-w-[720px] mx-auto bg-[var(--bg-elevated)] rounded-t-[20px] shadow-lg transform transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0 pb-safe",
+          "relative w-full max-w-[720px] mx-auto bg-[var(--bg-elevated)] rounded-t-sheet shadow-lg transform transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0 pb-safe",
           className
         )}
         style={{

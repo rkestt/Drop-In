@@ -120,13 +120,13 @@ export function LobbyCard({ lobby, userId }: LobbyCardProps) {
           {lobby.participants.slice(0, 4).map((p) => (
             <span
               key={p.user_id}
-              className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)]"
+              className="text-label px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--text-primary)]"
             >
               {p.nickname || "Anonimo"}
             </span>
           ))}
           {lobby.participants.length > 4 && (
-            <span className="text-[11px] text-[var(--text-muted)]">
+            <span className="text-label text-[var(--text-muted)]">
               +{lobby.participants.length - 4}
             </span>
           )}

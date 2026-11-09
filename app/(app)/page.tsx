@@ -286,7 +286,7 @@ export default function HomePage() {
 
         <Link
           href="/submit-court"
-          className="absolute bottom-4 right-4 z-30 inline-flex items-center justify-center w-14 h-14 rounded-full bg-[var(--accent)] text-white shadow-lg hover:bg-[var(--accent-hover)] active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+          className="absolute bottom-4 right-4 z-30 inline-flex items-center justify-center w-14 h-14 rounded-chip bg-[var(--accent)] text-[var(--accent-foreground)] shadow-lg hover:bg-[var(--accent-hover)] active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           aria-label="Aggiungi un campo"
         >
           <Plus className="w-7 h-7" aria-hidden="true" />

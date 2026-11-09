@@ -31,9 +31,9 @@ export function LobbyTabs({ mine, nearby }: { mine: Lobby[]; nearby: Lobby[] }) 
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-chip text-sm font-medium transition-colors ${
               tab === t.id
-                ? "bg-[var(--accent)] text-white"
+                ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                 : "bg-[var(--bg-surface)] text-[var(--text-secondary)]"
             }`}
           >
@@ -46,7 +46,7 @@ export function LobbyTabs({ mine, nearby }: { mine: Lobby[]; nearby: Lobby[] }) 
           {list.map((lobby) => (
             <li
               key={lobby.id}
-              className="bg-[var(--bg-surface)] rounded-xl p-4 flex items-center justify-between"
+              className="bg-[var(--bg-surface)] rounded-card p-4 flex items-center justify-between"
             >
               <div>
                 <p className="font-semibold text-[var(--text-primary)]">
@@ -56,7 +56,7 @@ export function LobbyTabs({ mine, nearby }: { mine: Lobby[]; nearby: Lobby[] }) 
                   {new Date(lobby.start_time).toLocaleString("it-IT")}
                 </p>
               </div>
-              <span className="text-xs uppercase tracking-wider px-2.5 py-1 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)] font-medium">
+              <span className="text-xs uppercase tracking-wider px-2.5 py-1 rounded-chip bg-[var(--accent-subtle)] text-[var(--text-primary)] font-medium">
                 {lobby.status}
               </span>
             </li>

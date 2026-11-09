@@ -17,7 +17,7 @@ export default function AppLayout({
             aria-label="Mappa campi"
           >
             <MapPin className="w-6 h-6" aria-hidden="true" />
-            <span className="text-[10px] font-medium mt-0.5">Mappa</span>
+            <span className="text-label font-medium mt-0.5">Mappa</span>
           </Link>
           <Link
             href="/profile"
@@ -25,7 +25,7 @@ export default function AppLayout({
             aria-label="Profilo utente"
           >
             <User className="w-6 h-6" aria-hidden="true" />
-            <span className="text-[10px] font-medium mt-0.5">Profilo</span>
+            <span className="text-label font-medium mt-0.5">Profilo</span>
           </Link>
         </div>
       </nav>

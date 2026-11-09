@@ -73,6 +73,17 @@ npx supabase db reset # Apply migrations + seed (200 courts Roma dev, 10k prod)
 - **Browse-first**: `anon` vede solo le corti `approved` (policy `courts_select_all`: `moderation_status = 'approved'`); `pending`/`rejected`/`duplicate` sono invisibili al pubblico; auth required for lobbies
 - **Route groups**: `(app)` and `(dashboard)` are folder conventions, not segments
 
+## Design system (vincolante)
+
+- **Prima di toccare UI, componenti o schermate, leggi le guide in `docs/design/`**: `README.md`, `tokens.md`, `themes.md`, `components/`, `patterns/`, `workflow.md`, `checklist.md`, `patterns/onboarding.md`, `stack.md`. Le guide sono vincolanti, non consultive: se il codice diverge, si aggiorna il codice o si apre un ADR.
+- `docs/design/README.md` è fonte di verità per colori, tipografia, spacing, radius, motion.
+- Un solo tema, dark: mai `data-theme`, mai toggle, mai varianti Tailwind `dark:`.
+- Mai colori hardcoded (`#hex`, `rgb()`, `hsl()`, `oklch()`) fuori da `app/globals.css`: usa i token (`--bg-*`, `--text-*`, `--accent*`, `--success/--danger/--warning`, `--border*`, `--overlay`, `--focus-ring`). Eccezioni solo per fallback standalone o API esterne (allowlist in `scripts/check-design.mjs`).
+- Raggi, type scale e spacing solo dalle scale tokenizzate (`rounded-control*`, `text-label/display*`, scala Tailwind). `lint:design` blocca i valori arbitrari.
+- Mobile-first 360px. Touch target 44px, contrasto AA, focus visibile.
+- Ogni modifica UI passa da @designer e verifica live @tester.
+- `npm run lint:design` deve essere verde (è dentro `test:all`).
+
 ## Harness — Tracker & Process (surgical, ponytail)
 
 - **Wayfinder** (`.wayfinder/`): map `drop-in-next` attiva (ex `drop-in-bella-funzionante` chiusa 2026-08-23). Decision ticket + frontier, blocking via `blocked_by`, claim via `claimed`. Operativo solo per i lavori che lo usano già.

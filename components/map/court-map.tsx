@@ -216,7 +216,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     <div className="absolute inset-0" role="region" aria-label={ariaLabel}>
       <div ref={mapContainer} className="w-full h-full" />
       {locationError && (
-        <div className="absolute top-4 left-4 right-4 bg-[var(--bg-elevated)] rounded-xl p-3 shadow-lg z-10" role="alert" aria-live="polite">
+        <div className="absolute top-4 left-4 right-4 bg-[var(--bg-elevated)] rounded-card p-3 shadow-lg z-10" role="alert" aria-live="polite">
           <p className="text-sm text-[var(--text-secondary)]">{locationError}</p>
         </div>
       )}
@@ -224,7 +224,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
         <div className="absolute inset-0 flex items-center justify-center bg-[var(--bg-elevated)] z-20">
           <div className="text-center space-y-3">
             <p className="text-sm text-[var(--text-secondary)]">{mapError}</p>
-            <button type="button" onClick={handleRetry} className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm">
+            <button type="button" onClick={handleRetry} className="px-4 py-2 rounded-control-sm bg-[var(--accent)] text-[var(--accent-foreground)] text-sm">
               Riprova
             </button>
           </div>
