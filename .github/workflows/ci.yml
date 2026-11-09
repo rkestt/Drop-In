@@ -28,7 +28,7 @@ jobs:
       - run: npm run build
       - run: rm -rf .next
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright test tests/e2e/styleguide-visual.spec.ts tests/e2e/a11y.spec.ts
+      - run: npx playwright test tests/e2e/a11y.spec.ts
       # E2E richiede Supabase + Playwright browsers - step separato opzionale
       # - run: npx playwright install --with-deps chromium
       # - run: npm run test:e2e

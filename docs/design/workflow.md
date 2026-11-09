@@ -67,7 +67,7 @@ brief → references → prototype → design review → implementazione → ver
 ## Gate
 
 - `npm run lint:design` verde.
-- `npm run test:visual` verde (baseline `/styleguide` a 360/768/1280).
+- `npm run test:visual` verde in locale (baseline `/styleguide` a 360/768/1280). Non gira in CI: dipende dai font di `next/font` in dev, non deterministici tra locale e runner. Riabilitarlo richiede font locali.
 - `npm run test:a11y` verde (axe su `/styleguide`, `/~offline`, `/submit-court`).
 - Contrasto AA verificato sui nuovi token/sfondi.
 - Touch target 44px su ogni nuovo elemento interattivo.
