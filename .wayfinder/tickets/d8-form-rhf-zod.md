@@ -66,4 +66,40 @@ Assorbite da questo ticket (dedup del Phase 1 review, PR #49):
 
 ## Resolution
 
-(TBD — chiudere con: schemi creati, form migrati, casi di test, esito live, eventuali regole lasciate al DB.)
+Schemi creati in `lib/validation/schemas.ts` (unica fonte, messaggi in
+italiano): `submitCourtSchema` (nome max 120 come DB, regola nome-o-foto via
+flag `hasPhoto`, sport = 7 valori UI, superficie da allowlist), `createLobbySchema`
+(orario futuro, max giocatori 2–30 coerce), `editProfileSchema` (nickname trim,
+max 30, vuoto ammesso = azzera), `reportSchema` (categoria = CHECK DB,
+descrizione libera).
+
+Form migrati (i 4): `submit-court-form`, `create-lobby-sheet`,
+`edit-profile-sheet`, `report-sheet` — tutti `useForm` + `zodResolver`,
+`mode: "onSubmit"`, `reValidateMode: "onChange"`, errori inline con
+`aria-invalid` + `aria-describedby`, focus sul primo errore, submit disabilitato
+in corso + guardia `submittingRef` anti-doppio-invio. Nessun `useState` per i
+valori testuali; bozza `sessionStorage` invariata; payload Supabase invariati;
+foto fuori dallo schema; drawer/wrapper intatti.
+
+Test: `tests/unit/validation-schemas.test.ts` (16 casi: max 1/31/10, orario
+passato/futuro/vuoto, nickname vuoto/31/trim, categoria non valida/mancante/5
+valide, submit senza nome±foto, nome 121, sport/superficie invalidi).
+E2E nuovo `tests/e2e/submit-court-validation.spec.ts`: submit vuoto anonimo →
+errore inline + focus + `aria-invalid`; digitazione → errore via, zero console
+error. Docs: `patterns/onboarding.md` (contratto validazione), `COMPONENTS.md`
+(input errore a11y). `stack.md`, `MAP.md`, `1.5.md` non toccati.
+
+Esiti: `vitest run` 10 file/97 test verdi; `lint` 0 errori; `tsc` pulito;
+`lint:design` OK (65 file); e2e nuovo 1/1; `a11y` 3/3 (include `/submit-court`).
+
+Regole lasciate al DB: rate-limit submit (1/h), validità percorso foto, ban/karma
+lobby, CHECK categoria, lat/lng. Nota: `Sport` TS e UI non includono mai
+`'altro'` (DB sì): lo schema enumera i 7 sport UI, nessun comportamento cambiato.
+Cambio di prodotto consapevole (d8, richiesto
+da @oracle): **orario lobby futuro** — il DB non lo vincolava; una lobby con
+orario passato è inutilizzabile, ora il client la blocca (DB invariato).
+Test di bordo: −2 min → errore, +2 min → ok. Trim descrizione report spostato
+nello schema (`description: z.string().trim()`); "solo spazi" → `""` → payload
+`null`, come prima. Reset-on-open lasciato com'è in create-lobby/report
+(non richiesto dall'acceptance).
+Successo completo con auth+GPS resta verifica manuale.

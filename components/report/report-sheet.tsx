@@ -1,6 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useForm, type FieldErrors } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  REPORT_CATEGORY_VALUES,
+  reportSchema,
+  type ReportValues,
+} from "@/lib/validation/schemas";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
@@ -11,7 +18,7 @@ const REPORT_CATEGORIES = [
   { value: "lighting", label: "Illuminazione" },
   { value: "occupied", label: "Occupato" },
   { value: "other", label: "Altro" },
-];
+] as const;
 
 interface ReportSheetProps {
   open: boolean;
@@ -21,15 +28,48 @@ interface ReportSheetProps {
 }
 
 export function ReportSheet({ open, onClose, courtId, courtName }: ReportSheetProps) {
-  const [category, setCategory] = useState("");
-  const [description, setDescription] = useState("");
+  // Categoria e descrizione in react-hook-form (schema zod = unica fonte).
+  // Restano useState solo per: loading, errori di rete/DB, successo.
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    reset,
+    setFocus,
+    watch,
+    formState: { errors, isSubmitted },
+  } = useForm<ReportValues>({
+    resolver: zodResolver(reportSchema),
+    mode: "onSubmit",
+    reValidateMode: "onChange",
+    defaultValues: { category: "", description: "" } as unknown as ReportValues,
+  });
+
+  const selectedCategory = watch("category");
+  const firstCategoryRef = useRef<HTMLButtonElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  // Guardia anti-doppio-invio (il disabled non copre due submit ravvicinati).
+  const submittingRef = useRef(false);
   const supabase = createClient();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const selectCategory = (value: (typeof REPORT_CATEGORY_VALUES)[number]) => {
+    // Dopo il primo errore la rivalidazione è live (reValidateMode: onChange).
+    setValue("category", value, { shouldValidate: isSubmitted });
+  };
+
+  const focusFirstError = (fieldErrors: FieldErrors<ReportValues>) => {
+    if (fieldErrors.category) {
+      firstCategoryRef.current?.focus();
+    } else if (fieldErrors.description) {
+      setFocus("description");
+    }
+  };
+
+  const onValidSubmit = async (values: ReportValues) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -42,15 +82,11 @@ export function ReportSheet({ open, onClose, courtId, courtName }: ReportSheetPr
         throw new Error("Devi effettuare l'accesso per inviare una segnalazione.");
       }
 
-      if (!category) {
-        throw new Error("Seleziona una categoria.");
-      }
-
       const { error: insertError } = await supabase.from("court_reports").insert({
         court_id: courtId,
         user_id: user.id,
-        category,
-        description: description || null,
+        category: values.category,
+        description: values.description || null,
         expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
       });
 
@@ -60,12 +96,12 @@ export function ReportSheet({ open, onClose, courtId, courtName }: ReportSheetPr
       setTimeout(() => {
         onClose();
         setSuccess(false);
-        setCategory("");
-        setDescription("");
+        reset({ category: "", description: "" } as unknown as ReportValues);
       }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Errore durante l'invio.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };
@@ -89,19 +125,29 @@ export function ReportSheet({ open, onClose, courtId, courtName }: ReportSheetPr
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit(onValidSubmit, focusFirstError)} className="space-y-3" noValidate>
           <div>
-            <label className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium block mb-2">
+            <span
+              id="report-category-label"
+              className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium block mb-2"
+            >
               Categoria
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {REPORT_CATEGORIES.map((cat) => (
+            </span>
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-labelledby="report-category-label"
+              aria-describedby={errors.category ? "report-category-error" : undefined}
+            >
+              {REPORT_CATEGORIES.map((cat, i) => (
                 <button
                   key={cat.value}
+                  ref={i === 0 ? firstCategoryRef : undefined}
                   type="button"
-                  onClick={() => setCategory(cat.value)}
+                  onClick={() => selectCategory(cat.value)}
+                  aria-pressed={selectedCategory === cat.value}
                   className={`px-3 py-2 rounded-control-sm text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 ${
-                    category === cat.value
+                    selectedCategory === cat.value
                       ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                       : "bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   }`}
@@ -110,6 +156,11 @@ export function ReportSheet({ open, onClose, courtId, courtName }: ReportSheetPr
                 </button>
               ))}
             </div>
+            {errors.category && (
+              <p id="report-category-error" role="alert" className="mt-1.5 text-sm text-[var(--danger)]">
+                {errors.category.message}
+              </p>
+            )}
           </div>
 
           <div>
@@ -121,11 +172,17 @@ export function ReportSheet({ open, onClose, courtId, courtName }: ReportSheetPr
             </label>
             <textarea
               id="report-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              {...register("description")}
               className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-control px-4 py-3.5 text-base border border-transparent transition-colors placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[100px] resize-none"
               placeholder="Aggiungi dettagli..."
+              aria-invalid={errors.description ? "true" : undefined}
+              aria-describedby={errors.description ? "report-description-error" : undefined}
             />
+            {errors.description && (
+              <p id="report-description-error" role="alert" className="mt-1.5 text-sm text-[var(--danger)]">
+                {errors.description.message}
+              </p>
+            )}
           </div>
 
           <Button type="submit" className="w-full" disabled={loading || success}>

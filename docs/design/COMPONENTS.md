@@ -19,7 +19,7 @@ Contratti brevi dei componenti esistenti. Dettagli (anatomia, snippet) in `compo
 - **API pubblica:** input a singola variante; errore passando `className` esterno (`border-danger text-danger`).
 - **Stati:** default (`bg-surface`, bordo trasparente), focus (bordo + anello accent), filled, disabled (stile browser + opzionale `opacity-50`), error (esterno).
 - **Token:** `--bg-surface`, `--text-primary`, `--text-muted` (placeholder), `--accent`, `--danger` (errore).
-- **A11y:** label associata (`htmlFor`/`id`) obbligatoria; font 16px (niente zoom iOS); altezza ≥ 44px. Placeholder `--text-muted` su `--bg-surface` = 5,43:1 (AA, vedi [tokens.md](tokens.md)).
+- **A11y:** label associata (`htmlFor`/`id`) obbligatoria; font 16px (niente zoom iOS); altezza ≥ 44px. Placeholder `--text-muted` su `--bg-surface` = 5,43:1 (AA, vedi [tokens.md](tokens.md)). Errore di validazione: testo con `role="alert"` sotto il campo, `aria-invalid="true"` + `aria-describedby` verso il messaggio, focus sul primo campo errato al submit (vedi schemi in `lib/validation/schemas.ts`).
 - Dettagli: [components/input.md](components/input.md).
 
 ## Badge — `components/ui/badge.tsx`
