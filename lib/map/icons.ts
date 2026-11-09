@@ -16,6 +16,8 @@ export const BOLLARD_ICON_ID = "bollard";
 // Classi barriera dal layer `poi` servite da ciascuna icona: `gate` e
 // `lift_gate` usano l'icona gate; `bollard`, `cycle_barrier` e `block`
 // usano l'icona bollard.
+export const GATE_CLASSES = ["gate", "lift_gate"] as const;
+export const BOLLARD_CLASSES = ["bollard", "cycle_barrier", "block"] as const;
 
 const warned = new Set<string>();
 

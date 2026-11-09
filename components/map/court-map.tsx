@@ -5,7 +5,9 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MAP_PROVIDER, MAP_STYLE_URL, MAP_ATTRIBUTION } from "@/lib/map/provider";
 import {
+  BOLLARD_CLASSES,
   BOLLARD_ICON_ID,
+  GATE_CLASSES,
   GATE_ICON_ID,
   registerBarrierIcons,
   type BarrierIconUris,
@@ -39,13 +41,14 @@ function warnBarrierSetupOnce(message: string): void {
 }
 
 const BARRIER_LAYER_ID = "dropin-barriers";
-const BARRIER_CLASSES = ["gate", "lift_gate", "bollard", "cycle_barrier", "block"];
 
 // Gap-filler sopra i tile OpenFreeMap (maxzoom 14, overzoom oltre): lo
 // stile Liberty mostra i POI barriera per rank (poi_r7 a z16 copre solo
 // rank 7-19), quindi a z16 quasi tutte le barriere mancherebbero. Questo
-// layer le disegna tutte da z16 con le icone inline. Il doppio disegno a
-// z17+ con poi_r20 e' identico per immagine e ancora: accettato.
+// layer le disegna tutte da z16 con le icone inline. A z17+ c'e' doppio
+// disegno con poi_r20: stessa immagine e ancora; size 0.8 vs 1.0 stock e
+// overlap nostro: a z17 le icone stock crescono e possono cullare, il
+// nostro layer resta sotto — salto lieve accettato.
 function addBarrierLayer(map: maplibregl.Map): void {
   const spec = {
     id: BARRIER_LAYER_ID,
@@ -56,7 +59,7 @@ function addBarrierLayer(map: maplibregl.Map): void {
     filter: [
       "match",
       ["get", "class"],
-      [...BARRIER_CLASSES],
+      [...GATE_CLASSES, ...BOLLARD_CLASSES],
       true,
       false,
     ],
@@ -64,7 +67,7 @@ function addBarrierLayer(map: maplibregl.Map): void {
       "icon-image": [
         "match",
         ["get", "class"],
-        ["gate", "lift_gate"],
+        [...GATE_CLASSES],
         GATE_ICON_ID,
         BOLLARD_ICON_ID,
       ],

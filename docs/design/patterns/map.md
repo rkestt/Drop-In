@@ -53,8 +53,10 @@
   `poi_r7` a z16 (rank 7–19), `poi_r20` a z17 (rank 20+). A Villa Borghese
   294/295 barriere hanno rank ≥ 20, quindi a z16 lo stock ne disegna 1 sola.
 - `dropin-barriers` è il nostro gap-filler su `source-layer: "poi"` da
-  z16 (nessun `maxzoom`; il doppio disegno a z17+ con `poi_r20` è identico
-  per immagine e ancora: accettato): `filter` match sulle 5 classi
+  z16 (nessun `maxzoom`; a z17+ c'è doppio disegno con `poi_r20`: stessa
+  immagine e ancora; size 0.8 vs 1.0 stock e overlap nostro: a z17 le icone
+  stock crescono e possono cullare, il nostro layer resta sotto — salto
+  lieve accettato): `filter` match sulle 5 classi
   barriera, `icon-image` match `gate`+`lift_gate` → gate, resto → bollard,
   icon-size 0.8, overlap. Icone inline da `lib/map/icons.ts` (SVG data URI,
   colore da `--text-secondary` con fallback `--border-strong`, mai hex:

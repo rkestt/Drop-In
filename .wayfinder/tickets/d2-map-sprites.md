@@ -71,7 +71,9 @@ Riproduzione (2026-11-09, verifica statica + browser):
   1 sola; `poi_r20` parte da z17. Perciò `dropin-barriers` TORNA come
   gap-filler su `source-layer: "poi"`: filter match sulle 5 classi,
   icon-image match gate+lift_gate → gate e resto → bollard, minzoom 16
-  senza maxzoom (doppio disegno a z17+ identico per immagine e ancora:
+  senza maxzoom (a z17+ doppio disegno con `poi_r20`: stessa immagine e
+  ancora; size 0.8 vs 1.0 stock e overlap nostro: a z17 le icone stock
+  crescono e possono cullare, il nostro layer resta sotto — salto lieve
   accettato).
 
 Classi servite dalle icone (`class` dal layer `poi`): `gate`,
@@ -82,9 +84,11 @@ Esito e2e (`tests/e2e/map-sprites.spec.ts`, 3/3 verdi):
   `dropin-barriers` su `openmaptiles`/`poi`, minzoom 16 senza maxzoom,
   filtro e icon-image verificati.
 - Zoom 13 → 0 feature sul nostro layer.
-- Villa Borghese z16: decine di barriere rese dal nostro layer,
-  strettamente più delle barriere rese dai layer `poi_*` stock (misura il
-  gap, non un `>= 0`); nessun warning gate/bollard dopo la registrazione.
+- Villa Borghese z16 (centro sud-ovest, viewport 2560x1440): 91 barriere
+  rese dal nostro layer contro 0 dei layer `poi_*` stock (misura il gap,
+  non un `>= 0`); soglia assoluta `> 20` — dipende dai varchi mappati,
+  il gate principale resta `ours > stock`; nessun warning gate/bollard
+  dopo la registrazione.
 - Nessun 404 di sprite; nessun host oltre `tiles.openfreemap.org`
   (+ localhost). Restano i warning pre-esistenti dei POI (`office`,
   `sports_centre`, `recycling`, `swimming_pool`) — mismatch stile/sprite
