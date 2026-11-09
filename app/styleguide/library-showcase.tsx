@@ -86,11 +86,26 @@ function DrawerExample() {
             <Drawer.Description className="mt-1 text-sm text-[var(--text-secondary)]">
               Scegli orario e posti. Puoi modificarla fino a 30 minuti prima.
             </Drawer.Description>
-            <div className="mt-4 flex gap-2">
-              <Drawer.Close className={trigger}>Annulla</Drawer.Close>
-              <Drawer.Close className="inline-flex min-h-[44px] items-center rounded-control bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-foreground)]">
-                Crea
-              </Drawer.Close>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label
+                  htmlFor="lib-drawer-nome"
+                  className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]"
+                >
+                  Nome lobby
+                </label>
+                <input
+                  id="lib-drawer-nome"
+                  placeholder="Es. Serale al Nomentano"
+                  className="min-h-[44px] w-full rounded-control border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Drawer.Close className={trigger}>Annulla</Drawer.Close>
+                <Drawer.Close className="inline-flex min-h-[44px] items-center rounded-control bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-foreground)]">
+                  Crea
+                </Drawer.Close>
+              </div>
             </div>
           </Drawer.Popup>
         </Drawer.Viewport>

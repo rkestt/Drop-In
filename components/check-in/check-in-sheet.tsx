@@ -6,7 +6,7 @@ import { createLogger } from "@/lib/logger";
 
 const log = createLogger("check-in");
 import { Button } from "@/components/ui/button";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Drawer } from "@/components/ui/drawer";
 import { MapPin, Navigation, AlertTriangle } from "lucide-react";
 
 interface CheckInSheetProps {
@@ -120,7 +120,7 @@ export function CheckInSheet({
   };
 
   return (
-    <BottomSheet open={open} onClose={onClose} title="Check-in">
+    <Drawer open={open} onClose={onClose} title="Check-in">
       <div className="space-y-4">
         <div className="flex items-start gap-3">
           <MapPin className="w-5 h-5 text-[var(--accent)] mt-0.5 shrink-0" />
@@ -174,6 +174,6 @@ export function CheckInSheet({
           {loading ? "Verifica posizione..." : success ? "Check-in OK" : "Check-in"}
         </Button>
       </div>
-    </BottomSheet>
+    </Drawer>
   );
 }

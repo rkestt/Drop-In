@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Drawer } from "@/components/ui/drawer";
 
 const REPORT_CATEGORIES = [
   { value: "broken_hoop", label: "Canestro rotto" },
@@ -71,7 +71,7 @@ export function ReportSheet({ open, onClose, courtId, courtName }: ReportSheetPr
   };
 
   return (
-    <BottomSheet open={open} onClose={onClose} title="Segnala stato campo">
+    <Drawer open={open} onClose={onClose} title="Segnala stato campo">
       <div className="space-y-4">
         <p className="text-sm text-[var(--text-secondary)]">
           {courtName}
@@ -133,6 +133,6 @@ export function ReportSheet({ open, onClose, courtId, courtName }: ReportSheetPr
           </Button>
         </form>
       </div>
-    </BottomSheet>
+    </Drawer>
   );
 }

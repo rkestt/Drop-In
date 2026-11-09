@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 
 interface EditProfileSheetProps {
@@ -58,7 +58,7 @@ export function EditProfileSheet({
       >
         {children}
       </button>
-      <BottomSheet open={open} onClose={() => setOpen(false)} title="Modifica profilo">
+      <Drawer open={open} onClose={() => setOpen(false)} title="Modifica profilo">
         <form onSubmit={handleSave} className="space-y-4">
           {error && (
             <div className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm">
@@ -91,7 +91,7 @@ export function EditProfileSheet({
             {loading ? "Salvataggio..." : "Salva"}
           </Button>
         </form>
-      </BottomSheet>
+      </Drawer>
     </>
   );
 }

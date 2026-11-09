@@ -7,7 +7,7 @@ I componenti riutilizzabili vivono in `components/ui/`. Sono atomici: nessuna lo
 - [Button](button.md)
 - [Input](input.md)
 - [Badge](badge.md)
-- [Bottom Sheet](bottom-sheet.md)
+- [Drawer](drawer.md)
 
 ## Componenti non atomici ma documentati
 

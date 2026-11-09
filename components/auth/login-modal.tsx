@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { resolveLoginDestination } from "@/lib/auth/routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Drawer } from "@/components/ui/drawer";
 
 
 interface LoginModalProps {
@@ -90,7 +90,7 @@ export function LoginModal({ open, onClose, next }: LoginModalProps) {
   };
 
   return (
-    <BottomSheet open={open} onClose={onClose} title={isSignUp ? "Registrati" : "Accedi"}>
+    <Drawer open={open} onClose={onClose} title={isSignUp ? "Registrati" : "Accedi"}>
       <div className="space-y-4">
         {error && (
           <div className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm animate-scale-in" role="alert" aria-live="assertive">
@@ -158,6 +158,6 @@ export function LoginModal({ open, onClose, next }: LoginModalProps) {
           </button>
         </p>
       </div>
-    </BottomSheet>
+    </Drawer>
   );
 }
