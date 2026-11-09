@@ -57,4 +57,29 @@ npm run test:a11y
 
 ## Resolution
 
-(TBD — chiudere con: file rimossi, configurazione Sonner, esito safe-area/swipe, screenshot, docs.)
+Implementato (branch `fix/d6-f1`):
+
+- **Rimossi**: `components/notifications/toast-provider.tsx`, `components/notifications/notification-toast.tsx` (array/timer/markup fatti in casa).
+- **Nuovi**:
+  - `components/notifications/toaster.tsx` — unico `<Toaster />`: `theme="dark"`, `position="top-center"`, `closeButton`, `richColors={false}`, `expand={false}`, `visibleToasts={1}`, `offset`/`mobileOffset = calc(env(safe-area-inset-top, 0px) + 16px)`, `classNames` dai token.
+  - `components/notifications/karma-events.ts` — funzione pura `profileChangeEvents(old, new)`: calo → `karma_drop` (id `karma-${newKarma}`), recupero → `karma_recovery`, ban → `ban_applied` (id `ban-${banned_until}`). Stesso evento → stesso id: Sonner sostituisce, non accoda.
+  - `components/notifications/karma-listener.tsx` — stessa subscription Realtime su `profiles`, chiama `toast.warning/error/success`; ritorna `null` (nessun markup); nessun canale se non loggato.
+- **Aggiornati**: `app/layout.tsx` (`<Toaster />` + `<KarmaListener />`), `app/styleguide/library-showcase.tsx` (rimosso il `<Toaster />` locale, resta solo `toast`), `app/globals.css` (override `--normal-bg/text/border` → token, specificità sopra il CSS runtime di Sonner), `docs/design/components/toast.md` (nuovo).
+- **Non toccati**: `docs/design/COMPONENTS.md`, `README.md`, `stack.md`, `.wayfinder/MAP.md`, `docs/design/1.5.md`, `push-provider.tsx`, `bottom-sheet.tsx`.
+
+Esiti verifiche (dal worktree):
+
+- `grep -rn "toast-provider" app components` → vuoto (exit 1).
+- `npm run lint` → 0 errori (1 warning pre-esistente in `scripts/check-design.mjs`).
+- `npx tsc --noEmit` → pulito. `npm run lint:design` → OK (63 file).
+- `npx vitest run` → 8 file, 73 test passati (nuovo `tests/unit/karma-events.test.ts`: 5 casi, incl. id stabile su payload duplicato).
+- `tests/e2e/toast.spec.ts` (nuovo, 2 test passati su porta 3101 — la 3100 era occupata dal dev server della lane d5, non toccato): dalla styleguide un click produce **1 solo** `[data-sonner-toast]`; a riposo y=16px dal top, centrato orizzontalmente; drag verso l'alto → toast rimosso (`toHaveCount(0)`); zero errori console. Nota: la misura y va presa ad animazione finita (il toast monta da translateY(±100%)).
+- `test:a11y` (3 pagine axe) → passato.
+- Safe-area: offset con `env(safe-area-inset-top)` + 16px; sopra la bottom nav (toast in alto); reduced motion: animazione ~0 (regola globale + media query Sonner), testo leggibile — coperto dal secondo test e2e.
+- Screenshot: non salvati (toast effimero); evidenza = test e2e + DOM ispezionato (`[data-sonner-toaster]` singolo, top computato 16px).
+
+Scostamenti dal ticket:
+
+- Aggiunto `theme="dark"` (non elencato ma necessario: Sonner v2 ha default `light`, l'app è dark-only; la styleguide usava già `theme="dark"`).
+- Logica di mapping estratta in `karma-events.ts` puro per renderla unit-testabile in ambiente node (vitest non include `.tsx`/jsdom); in più coperto il caso recupero karma → `toast.success` (il ticket elenca le tre chiamate `warning/error/success`).
+- Karma reale via Supabase non simulato e2e (richiede auth + realtime): dedup verificato a livello unit (id stabile) + singolo nodo DOM.
