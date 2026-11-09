@@ -2,8 +2,10 @@
 id: d1
 type: bug
 hitl: false
-claimed: false
+claimed: true
 blocked_by: []
+status: closed
+closed_at: 2026-11-09
 ---
 ## Question
 

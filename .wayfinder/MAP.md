@@ -35,9 +35,6 @@ Nessun codice finto in produzione.
 
 ### Frontier (sbloccati)
 
-- [d1-fix-auth-middleware](tickets/d1-fix-auth-middleware.md) — bug: 500 offline, destinazione login, prefissi.
-- [d2-map-sprites](tickets/d2-map-sprites.md) — bug: icone gate/bollard e layer barriere.
-- [d3-visual-ci-fonts](tickets/d3-visual-ci-fonts.md) — infra: font locali e visual in CI.
 - [d4-safari-ios-check](tickets/d4-safari-ios-check.md) — verify HITL: Drawer + Sonner su iPhone.
 - [d9-proto-onboarding](tickets/d9-proto-onboarding.md) — design HITL: primo avvio.
 - [d10-proto-settings](tickets/d10-proto-settings.md) — design HITL: impostazioni.
@@ -47,6 +44,12 @@ Nessun codice finto in produzione.
 - [d14-proto-notifications](tickets/d14-proto-notifications.md) — design HITL: notifiche.
 - [d15-proto-report](tickets/d15-proto-report.md) — design HITL: segnalazioni.
 - [d16-proto-offline](tickets/d16-proto-offline.md) — design HITL: offline/errori/vuoti.
+
+### Decisions so far (map design-system)
+
+- [d1-fix-auth-middleware](tickets/d1-fix-auth-middleware.md) ✅ 2026-11-09 — middleware fail-open su errore di rete (timeout 3s), `next` preservato fino al callback (password e OAuth), match per primo segmento (`/profiles` non protetto), `LoginModal` senza `next` resta sulla pagina; `/courts/<id>` con Supabase spento resta 404 del dato, shell offline a `d24`.
+- [d2-map-sprites](tickets/d2-map-sprites.md) ✅ 2026-11-09 — icone inline `gate`/`bollard` (niente sprite, offline-safe); OpenFreeMap non distribuisce `barrier_line`, quindi `dropin-barriers` è un gap-filler su `poi` da z16 (a Villa Borghese 91 icone nostre vs 0 stock, che rende le barriere solo da z17 per rank). Accoppiato ai rank Liberty: riverificare se lo stile cambia.
+- [d3-visual-ci-fonts](tickets/d3-visual-ci-fonts.md) ✅ 2026-11-09 — Syne e Source Sans 3 self-hosted (62 KB, OFL), `next/font/local`, `document.fonts.ready` prima degli screenshot, visual regression nel job CI.
 
 ### Blocked
 
@@ -70,9 +73,9 @@ Nessun codice finto in produzione.
 
 | Ticket | Tipo | HITL | Blocked by | Stato |
 |---|---|---|---|---|
-| [d1-fix-auth-middleware](tickets/d1-fix-auth-middleware.md) | bug | no | — | aperto |
-| [d2-map-sprites](tickets/d2-map-sprites.md) | bug | no | — | aperto |
-| [d3-visual-ci-fonts](tickets/d3-visual-ci-fonts.md) | infra | no | — | aperto |
+| [d1-fix-auth-middleware](tickets/d1-fix-auth-middleware.md) | bug | no | — | chiuso 2026-11-09 |
+| [d2-map-sprites](tickets/d2-map-sprites.md) | bug | no | — | chiuso 2026-11-09 |
+| [d3-visual-ci-fonts](tickets/d3-visual-ci-fonts.md) | infra | no | — | chiuso 2026-11-09 |
 | [d4-safari-ios-check](tickets/d4-safari-ios-check.md) | verify | sì | — | aperto |
 | [d5-drawer-migration](tickets/d5-drawer-migration.md) | impl | no | d4 | aperto |
 | [d6-sonner-migration](tickets/d6-sonner-migration.md) | impl | no | d4 | aperto |
