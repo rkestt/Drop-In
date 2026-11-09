@@ -1,6 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isProtectedPath, loginRedirectUrl } from "@/lib/auth/routes";
 import { supabaseUrl } from "@/lib/supabase/url";
+
+const GET_USER_TIMEOUT_MS = 3000;
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -30,21 +33,44 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Refresh session if expired
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Refresh session if expired. Fail open on network errors (offline or
+  // unreachable Supabase): treat the user as anonymous instead of 500ing,
+  // so public pages and the offline fallback still render. Client-side
+  // guards remain the reliable layer; middleware is a UX optimisation.
+  let user = null;
+  try {
+    const getUserPromise = supabase.auth.getUser();
+    const timeout = new Promise<never>((_, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error("supabase.auth.getUser() timed out")),
+        GET_USER_TIMEOUT_MS
+      );
+      // Avoid keeping the process alive for a settled race.
+      getUserPromise.then(
+        () => clearTimeout(timer),
+        () => clearTimeout(timer)
+      );
+    });
+    const {
+      data: { user: fetchedUser },
+    } = await Promise.race([getUserPromise, timeout]);
+    user = fetchedUser;
+  } catch {
+    user = null;
+  }
 
-  // Protect dashboard routes (route group (dashboard) maps to /lobbies, /profile at root)
-  const protectedPrefixes = ["/dashboard", "/lobbies", "/profile"];
-  if (
-    protectedPrefixes.some((p) => request.nextUrl.pathname.startsWith(p)) &&
-    !user
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    url.searchParams.set("login", "required");
-    return NextResponse.redirect(url);
+  // Protect dashboard routes (route group (dashboard) maps to /lobbies, /profile at root).
+  // Exact first-segment match: /profile and /profile/x yes, /profiles no.
+  if (isProtectedPath(request.nextUrl.pathname) && !user) {
+    return NextResponse.redirect(
+      new URL(
+        loginRedirectUrl(
+          request.nextUrl.pathname,
+          request.nextUrl.search
+        ),
+        request.url
+      )
+    );
   }
 
   return supabaseResponse;

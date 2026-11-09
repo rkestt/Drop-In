@@ -16,6 +16,7 @@ import type { User } from "@supabase/supabase-js";
 import { bboxInside, type BBox } from "@/lib/geo";
 import { useSport } from "@/lib/sport/sport-context";
 import { sportLabel } from "@/lib/sport/sports";
+import { safeNext } from "@/lib/auth/routes";
 
 const CourtMap = dynamic(() => import("@/components/map/court-map").then((m) => ({ default: m.CourtMap })), {
   ssr: false,
@@ -65,6 +66,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
+  const [loginNext, setLoginNext] = useState("/");
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -222,7 +224,9 @@ export default function HomePage() {
     const login = params.get("login");
     if (login === "required" || login === "1") {
       setShowLogin(true);
+      setLoginNext(safeNext(params.get("next")));
       params.delete("login");
+      params.delete("next");
       const next = params.toString();
       history.replaceState(null, "", window.location.pathname + (next ? `?${next}` : ""));
     }
@@ -369,7 +373,7 @@ export default function HomePage() {
         )}
       </div>
 
-      <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
+      <LoginModal open={showLogin} onClose={() => setShowLogin(false)} next={loginNext} />
     </main>
   );
 }

@@ -57,4 +57,33 @@ npm run lint:design
 
 ## Resolution
 
-(TBD — chiudere con: test aggiunti, esito della prova offline, route verificate, eventuale nota in `docs/research/pwa-offline.md`.)
+- **Test aggiunti** (`tests/unit/auth-routes.test.ts`, 20 casi verdi): `safeNext`
+  (default `/`, path validi, query+hash preservati, rigetto di `//evil.com`,
+  `/\`, backslash, `http(s):`, `javascript:`, `data:`, path senza `/`
+  iniziale, whitespace interno; trim degli spazi esterni), `isProtectedPath`
+  (primo segmento: `/profile`, `/profile/x`, `/lobbies`, `/lobbies/x`,
+  `/dashboard` sì; `/profiles`, `/lobbying`, `/`, `/courts/<id>`,
+  `/~offline` no; query/hash ignorati), `loginRedirectUrl`
+  (`/lobbies`+`?tab=mine` → `/?login=required&next=%2Flobbies%3Ftab%3Dmine`,
+  con/senza `?` iniziale, round-trip via `safeNext`).
+- **Comandi/esiti** (dal worktree, branch `fix/d1-f0`): `npx vitest run`
+  6 file / 54 test verdi (20 nuovi); `npm run lint` 0 errori (1 warning
+  pre-esistente in `scripts/check-design.mjs`, non toccato);
+  `npx tsc --noEmit` pulito; `npm run lint:design` OK (61 file).
+- **Route toccate**: nuovo `lib/auth/routes.ts`
+  (`safeNext`/`isProtectedPath`/`loginRedirectUrl`);
+  `lib/supabase/middleware.ts` (`getUser()` in `try/catch` con timeout 3s,
+  fail-open a utente anonimo, redirect via `isProtectedPath` +
+  `loginRedirectUrl` con `next`); `middleware.ts` radice invariato
+  (delega già a `updateSession`, logica nel lib); `app/(app)/page.tsx`
+  (legge+sanitizza `next`, lo passa al modal, pulisce `login`+`next`
+  dall'URL); `components/auth/login-modal.tsx` (prop `next`, OAuth con
+  `redirectTo .../callback?next=...`, password login con
+  `router.replace(destination)` + `router.refresh()`, niente più
+  `window.location.reload()` nel login); `app/api/auth/callback/route.ts`
+  (`next` validato con `safeNext`).
+- **Resta da verificare manualmente** (orchestratore, Supabase non toccato):
+  `npx supabase stop && npm run dev`, poi `/` → 200, `/courts/<id>` → 200,
+  `/~offline` → 200, `/profile` e `/lobbies` → redirect login senza 500;
+  login da `/profile` atterra su `/profile`; login da
+  `/lobbies?tab=nearby` atterra su `/lobbies?tab=nearby`.

@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { safeNext } from "@/lib/auth/routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -10,9 +12,11 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 interface LoginModalProps {
   open: boolean;
   onClose: () => void;
+  /** Post-login destination, sanitized with safeNext. Defaults to "/". */
+  next?: string;
 }
 
-export function LoginModal({ open, onClose }: LoginModalProps) {
+export function LoginModal({ open, onClose, next = "/" }: LoginModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -21,6 +25,8 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   const [message, setMessage] = useState<string | null>(null);
 
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
+  const destination = safeNext(next);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +49,8 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
         });
         if (error) throw error;
         onClose();
-        window.location.reload();
+        router.replace(destination);
+        router.refresh();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Errore durante l'autenticazione.");
@@ -59,7 +66,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback`,
+        redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(destination)}`,
       },
     });
 
