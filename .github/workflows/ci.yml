@@ -9,6 +9,12 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # Dummy values so `next build` can prerender pages that construct a
+      # Supabase client at build time (e.g. NotificationToast via useMemo).
+      # No network calls happen during prerender; never put real keys here.
+      NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-ci-build
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
