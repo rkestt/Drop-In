@@ -78,6 +78,16 @@ Esiti verifiche (dal worktree):
 - Safe-area: offset con `env(safe-area-inset-top)` + 16px; sopra la bottom nav (toast in alto); reduced motion: animazione ~0 (regola globale + media query Sonner), testo leggibile — coperto dal secondo test e2e.
 - Screenshot: non salvati (toast effimero); evidenza = test e2e + DOM ispezionato (`[data-sonner-toaster]` singolo, top computato 16px).
 
+## Follow-up review oracle (must-close + nit)
+
+- **DB (`relreplident`)**: verificato `d` (default) su `profiles` → `payload.old` arrivava vuoto (solo PK) e il delta veniva calcolato contro il fallback 90. Nuova migration `supabase/migrations/015_profiles_realtime_full.sql` (`ALTER TABLE public.profiles REPLICA IDENTITY FULL` + `profiles` aggiunta alla pubblicazione `supabase_realtime` — scoperta aggiuntiva: la tabella non era pubblicata, quindi nessun evento arrivava al client). Applicata in locale via psql: `relreplident=f`, `profiles` in pubblicazione (1 riga). Istruzioni idempotenti; nessuna migration esistente toccata.
+- **Testo che non mente**: `profileChangeEvents` ora emette calo/recupero solo se `old` e `new` sono entrambi numeri; con `old` vuoto (identity default) nessun evento karma, solo il ban (che dipende da `new`). Test aggiunti: old vuoto → `[]`, new senza karma → `[]`, ban con old vuoto → evento.
+- **Leak unmount/StrictMode**: logica estratta in `initKarmaSubscription()` (`karma-subscription.ts`) con flag `cancelled` — cleanup prima che `getUser()` risolva = nessun channel orfano; dopo = `removeChannel`. `KarmaListener` ridotto a `useEffect(() => initKarmaSubscription(supabase), …)`. Verificato con `tests/unit/karma-subscription.test.ts` (5 casi, client fake con `getUser` deferred: nessun channel dopo cancel precoce, topic/filtro corretti, stesso id su payload duplicato, `removeChannel` su cleanup, nessun channel se non loggato).
+- **Nit priorità**: con `visibleToasts={1}` l'ultimo toast sostituisce il precedente — gli eventi escono in ordine crescente di severità (karma poi ban), commentato nel codice e documentato in `toast.md`.
+- **Nit docs**: `toast.md` non presenta più le props come API di `<Toaster>` (configurazione hardcoded nel wrapper) e documenta che su touch il dismiss primario è lo swipe (closeButton ~20px < 44px, non ingrandibile via props/classi senza rompere lo stile della libreria).
+
+Riverifica post-review: `lint` 0 errori (1 warning pre-esistente), `tsc` pulito, `lint:design` OK, `vitest` 9 file / 81 test passati, `toast.spec` 2/2, `test:a11y` 3/3.
+
 Scostamenti dal ticket:
 
 - Aggiunto `theme="dark"` (non elencato ma necessario: Sonner v2 ha default `light`, l'app è dark-only; la styleguide usava già `theme="dark"`).

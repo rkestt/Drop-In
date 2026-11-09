@@ -48,6 +48,29 @@ describe("profileChangeEvents", () => {
     ).toEqual([]);
   });
 
+  it("old vuoto (senza REPLICA IDENTITY FULL) → nessun evento karma, non mente", () => {
+    // payload.old con solo la PK: direzione e delta sono indeterminabili.
+    expect(
+      profileChangeEvents({}, { karma_score: 87, banned_until: null })
+    ).toEqual([]);
+  });
+
+  it("new senza karma_score → nessun evento karma", () => {
+    expect(
+      profileChangeEvents({ karma_score: 90, banned_until: null }, {})
+    ).toEqual([]);
+  });
+
+  it("ban con old vuoto → evento ban comunque (dipende solo da new)", () => {
+    const events = profileChangeEvents(
+      {},
+      { karma_score: 87, banned_until: "2026-11-16T10:00:00.000Z" }
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe("ban_applied");
+  });
+
   it("calo + ban insieme → due eventi distinti", () => {
     const events = profileChangeEvents(
       { karma_score: 90, banned_until: null },

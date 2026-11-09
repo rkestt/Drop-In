@@ -4,25 +4,18 @@ Un solo punto per gli esiti non bloccanti: [Sonner](https://sonner.emilkowal.ski
 
 ## Anatomia
 
+Un solo mount in tutta l'app, nel root layout (`app/layout.tsx`):
+
 ```tsx
-// app/layout.tsx — un solo mount in tutta l'app
 <Toaster />
 <KarmaListener />
 ```
 
-```tsx
-// components/notifications/toaster.tsx
-<Toaster
-  theme="dark"
-  position="top-center"
-  closeButton
-  richColors={false}
-  expand={false}
-  visibleToasts={1}
-  offset="calc(env(safe-area-inset-top, 0px) + 16px)"
-  mobileOffset="calc(env(safe-area-inset-top, 0px) + 16px)"
-/>
-```
+La configurazione è hardcoded nel wrapper `components/notifications/toaster.tsx` — non sono props accettate dal componente, non passarne altre dai chiamanti:
+
+- `theme="dark"`, `position="top-center"`, `closeButton`, `richColors={false}`, `expand={false}`, `visibleToasts={1}`;
+- `offset` / `mobileOffset = calc(env(safe-area-inset-top, 0px) + 16px)`;
+- `toastOptions.classNames` dai token (il resto dello stile arriva dagli override in `app/globals.css`).
 
 Qualunque altro punto dell'app genera esiti con `toast.success` / `toast.warning` / `toast.error` di Sonner. Mai montare un secondo `<Toaster />` (la styleguide usa solo `toast`).
 
@@ -44,6 +37,7 @@ Errore di campo nei form → inline nel campo, mai toast. Mai `alert()`.
 | Descrizione | Testo secondary: spiega cosa è cambiato e cosa fare. |
 | Singolo | `visibleToasts={1}`, `expand={false}`: un solo toast alla volta. |
 | Dismiss | Pulsante chiudi, swipe verso l'alto, timeout Sonner. |
+| Priorità | Con un solo toast visibile l'ultimo sostituisce il precedente: gli eventi escono in ordine crescente di severità (prima karma, poi ban) così il ban resta visibile. |
 
 ## Misure
 
@@ -65,3 +59,7 @@ Errore di campo nei form → inline nel campo, mai toast. Mai `alert()`.
 - Errori di campo nei form: restano inline.
 - Contenuto bloccante o che richiede scelta: usa un dialog/bottom sheet.
 - Permessi push: `components/notifications/push-provider.tsx`, flusso separato.
+
+## Dismiss su touch
+
+Il `closeButton` di Sonner è ~20px: sotto il target minimo di 44px. Non si ingrandisce via props/classi senza rompere lo stile della libreria, quindi su touch il dismiss primario è lo **swipe verso l'alto** (gesto nativo di Sonner); il pulsante resta un affordance supplementare per puntatore e l'auto-dismiss chiude comunque dopo il timeout.
