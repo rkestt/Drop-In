@@ -76,6 +76,7 @@ const ARBITRARY_ALLOWLIST = [
   { re: /text-\[13px\]/, reason: "13px fuori scala" },
   { re: /text-\[64px\]/, reason: "numeri hero fuori scala" },
   { re: /rounded-\[1px\]/, reason: "barra 1px, non un raggio di componente" },
+  { re: /rounded-\[inherit\]/, reason: "eredita il raggio tokenizzato del figlio, non un valore nuovo" },
 ];
 const ROUNDED_ARB_RE = /rounded(?:-[trblse])?-\[(?!var\()[^\]\n]+\]/g;
 const TEXT_PX_RE = /text-\[([0-9.]+)px\]/g;

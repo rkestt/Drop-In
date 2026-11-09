@@ -121,6 +121,14 @@ Regole:
 - Il loading non deve mai lasciare il bottone tappabile due volte: `disabled` durante la richiesta.
 - Annunci: `role="status"` / `aria-live="polite"` per l’esito; `assertive` solo per errori bloccanti. Dettagli in [accessibility.md](../accessibility.md).
 
+## Implementazione (primitive `components/motion/`)
+
+- **Token**: `lib/motion/tokens.ts` (`MOTION` in secondi, `EASE` come array) rispecchia `:root --motion-*` e `@theme --ease-*` in `app/globals.css`. Il test `tests/unit/motion-tokens.test.ts` fallisce se divergono. Nei componenti si importa da lì: mai numeri scritti a mano.
+- **StepTransition** (`step-transition.tsx`): `AnimatePresence` + `motion.div`, prop `stepKey`. Entra in 250ms, esce in 200ms fuori dal flusso (`popLayout`, niente salti di layout). Usato negli sheet quando il contenuto si scambia (form → esito). L'ingresso/uscita del drawer resta quella di Base UI: nessuna animazione custom sul contenitore.
+- **SuccessPop** (`success-pop.tsx`): check + titolo + descrizione, `--success`, `role="status"`. Il check scala una volta in 400ms; il testo è fermo da subito. Il titolo dice l'effetto ("Check-in effettuato", non "Operazione completata"), la descrizione dice cosa succede ora ("Check-in attivo fino alle 19:40").
+- **NextHighlight** (`next-highlight.tsx`): ring accent statico in CSS + velo Motion che sfuma in opacità (200ms) alla prima interazione (tap, click, focus). Il contenuto non si muove mai. Usato per lo stato "Sei dentro" nella lobby card.
+- **Reduced motion**: ogni primitiva usa `useStableReducedMotion()` (`lib/motion/use-reduced-motion.ts`: primo render statico, poi `matchMedia` reale con listener — quello di Motion fotografa il valore SSR e non si aggiorna) e rende contenuto statico (niente transform inline: la sola media query CSS non basterebbe). Verifica: DevTools → Rendering → `prefers-reduced-motion`, oppure `page.emulateMedia({ reduced motion: "reduce" })` in `tests/e2e/motion-pipelines.spec.ts` (demo deterministica in `/styleguide`, sezione Motion → Pipeline).
+
 ## Back, bozza, niente modali a catena
 
 - **Back** (gesture, tasto browser, bottone) torna allo step precedente finché esistono step; solo dall’ingresso esce dalla pipeline.

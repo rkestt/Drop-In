@@ -18,6 +18,9 @@ import { Badge } from "@/components/ui/badge";
 import { Drawer } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NextHighlight } from "@/components/motion/next-highlight";
+import { StepTransition } from "@/components/motion/step-transition";
+import { SuccessPop } from "@/components/motion/success-pop";
 import { LibraryShowcase } from "./library-showcase";
 import { cn } from "@/lib/utils";
 
@@ -480,6 +483,110 @@ function FieldLabel({
     >
       {children}
     </label>
+  );
+}
+
+/**
+ * Demo deterministica delle primitive di pipeline (d7): niente dati reali,
+ * solo i tre componenti. È la superficie su cui gira
+ * `tests/e2e/motion-pipelines.spec.ts`, anche con reduced motion.
+ */
+function PipelineMotionDemo() {
+  const [step, setStep] = useState<"uno" | "due">("uno");
+  const [popRun, setPopRun] = useState(0);
+  const [highlightRun, setHighlightRun] = useState(0);
+  return (
+    <div className="grid gap-4 sm:grid-cols-3">
+      <div className="rounded-card border border-[var(--cool-muted)]/25 bg-[var(--bg-elevated)] p-4">
+        <p className="text-sm font-medium">StepTransition</p>
+        <p className="mt-0.5 font-mono text-label leading-snug text-[var(--text-secondary)]">
+          entra 250 ms · esce 200 ms
+        </p>
+        <div className="mt-3 flex h-28 items-center justify-center overflow-hidden rounded-control-sm bg-[var(--bg-surface)] p-3">
+          <StepTransition
+            stepKey={step}
+            className="flex w-full items-center justify-center"
+          >
+            <span
+              data-testid="pipe-step"
+              className="rounded-control-sm border border-[var(--accent)]/30 bg-[var(--accent-subtle)] px-4 py-2 text-sm text-[var(--text-primary)]"
+            >
+              {step === "uno" ? "Passo 1: posizione" : "Passo 2: conferma"}
+            </span>
+          </StepTransition>
+        </div>
+        <div className="mt-2 flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-ml-3 gap-2"
+            onClick={() => setStep("uno")}
+          >
+            Passo 1
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2"
+            onClick={() => setStep("due")}
+          >
+            Passo 2
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-card border border-[var(--cool-muted)]/25 bg-[var(--bg-elevated)] p-4">
+        <p className="text-sm font-medium">SuccessPop</p>
+        <p className="mt-0.5 font-mono text-label leading-snug text-[var(--text-secondary)]">
+          pop 400 ms · una sola volta
+        </p>
+        <div className="mt-3 flex min-h-28 items-center justify-center overflow-hidden rounded-control-sm bg-[var(--bg-surface)] p-3">
+          <div key={popRun} data-testid="pipe-success" className="w-full">
+            <SuccessPop
+              title="Check-in effettuato"
+              description="Check-in attivo fino alle 19:40."
+            />
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-2 -ml-3 gap-2"
+          onClick={() => setPopRun((n) => n + 1)}
+        >
+          <RotateCcw className="h-4 w-4" aria-hidden="true" />
+          Ripeti
+        </Button>
+      </div>
+
+      <div className="rounded-card border border-[var(--cool-muted)]/25 bg-[var(--bg-elevated)] p-4">
+        <p className="text-sm font-medium">NextHighlight</p>
+        <p className="mt-0.5 font-mono text-label leading-snug text-[var(--text-secondary)]">
+          ring accent · sfuma al primo tap
+        </p>
+        <div className="mt-3 flex h-28 items-center justify-center overflow-hidden rounded-control-sm bg-[var(--bg-surface)] p-3">
+          <div key={highlightRun} className="w-full max-w-[220px]">
+            <NextHighlight>
+              <span
+                data-testid="pipe-highlight"
+                className="block rounded-control-sm bg-[var(--accent-subtle)] px-4 py-2 text-center text-sm font-medium text-[var(--text-primary)]"
+              >
+                Sei dentro
+              </span>
+            </NextHighlight>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-2 -ml-3 gap-2"
+          onClick={() => setHighlightRun((n) => n + 1)}
+        >
+          <RotateCcw className="h-4 w-4" aria-hidden="true" />
+          Ripristina
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -1306,6 +1413,20 @@ export function StyleguideClient() {
                 <span className="font-mono">prefers-reduced-motion: reduce</span>{" "}
                 tutte le durate scendono a 0.01 ms: l&apos;esito resta perché è
                 anche in testo e stato.
+              </p>
+            </SubSection>
+
+            <SubSection title="Pipeline" note="primitive d7, durate dai token">
+              <PipelineMotionDemo />
+              <p className="mt-3 max-w-[680px] text-label leading-relaxed text-[var(--text-secondary)]">
+                Le tre primitive vivono in{" "}
+                <span className="font-mono">components/motion/</span> e leggono
+                le durate da{" "}
+                <span className="font-mono">lib/motion/tokens.ts</span> (che
+                rispecchia i token CSS: il test unitario lo verifica). Con{" "}
+                <span className="font-mono">prefers-reduced-motion: reduce</span>{" "}
+                non si muove nulla: stesso testo, stesso stato, nessun transform
+                inline.
               </p>
             </SubSection>
 
