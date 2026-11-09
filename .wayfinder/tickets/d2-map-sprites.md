@@ -49,4 +49,48 @@ npx tsc --noEmit
 
 ## Resolution
 
-(TBD — chiudere con: classi mappate, screenshot a zoom 16, esito offline, eventuale nota su `patterns/map.md`.)
+Riproduzione (2026-11-09, verifica statica + browser):
+- Stile liberty: 111 layer, nessuno su `barrier_line`; sprite
+  `ofm_f384` da 264 icone, nessuna `gate`/`bollard`. Nel codice non
+  esistevano `addImage`/`loadImage`/`hasImage` ne' alcun layer barriere.
+- Sintomo diverso da quello ipotizzato: i warning `Image "gate" /
+  "bollard" could not be loaded` esistevano GIA' al primo load, emessi dai
+  layer POI dello stile (`poi_r20/r7/r1`, `poi_transit` usano `icon-image`
+  data-driven da `class`/`subclass`) — non da un layer futuro. Il tile z14
+  su Roma contiene classi POI `gate`, `bollard`, `lift_gate`,
+  `cycle_barrier` (verificato parsando il pbf).
+- Scoperta adattata (layer non cambiato d'obiettivo): i tile OpenFreeMap
+  (`planet`, TileJSON `maxzoom: 14`) NON distribuiscono `barrier_line`
+  (layer presenti: aeroway, boundary, building, housenumber, landcover,
+  landuse, park, place, poi, transportation(+_name), water(+_name)).
+  Quindi `dropin-barriers` e' configurato correttamente ma rende 0 feature
+  finche' la sorgente non espone il layer; le icone inline servono gia' i
+  POI barriera, che e' il percorso visibile reale.
+
+Classi mappate (match su `class`): `gate`, `lift_gate` → `gate`;
+`bollard`, `cycle_barrier`, `block` → `bollard`; default → `bollard`.
+
+Esito e2e (`tests/e2e/map-sprites.spec.ts`, 3/3 verdi):
+- `hasImage("gate"|"bollard") === true`, layer `dropin-barriers` con
+  source `openmaptiles`, source-layer `barrier_line`, minzoom 16,
+  icon-size 0.8, overlap, match con le 5 classi.
+- Zoom 13 → 0 feature renderizzate; zoom 16 → query senza errori.
+- Nessun nuovo warning gate/bollard dopo il setup; nessun 404 di sprite;
+  nessun host oltre `tiles.openfreemap.org` (+ localhost). Restano i
+  warning pre-esistenti dei POI (`office`, `sports_centre`, `recycling`,
+  `swimming_pool`) — mismatch stile/sprite fuori scope.
+- Offline: dopo `setOffline(true)`, i data URI si decodificano via
+  `Image` senza rete (test dedicato verde).
+- Villa Borghese z16: 983 feature barriera nei tile caricati
+  (`querySourceFeatures` su `poi`), 12 renderizzate dai layer POI con le
+  icone inline; screenshot `/tmp/opencode/borghese-z16.png` (mappa e POI
+  regolari, nessun errore).
+
+Nota tecnica per futuri ticket: `map.loadImage` (fetch +
+`createImageBitmap`) NON decodifica gli SVG in Chromium
+(`InvalidStateError: The source image could not be decoded`) — usare
+`HTMLImageElement` + `addImage`. E registrare le icone PRIMA di
+`addLayer`, altrimenti il renderer logga warning una tantum per id.
+
+`docs/design/patterns/map.md`: aggiunta sezione "Barriere" + token
+`--border-strong`.

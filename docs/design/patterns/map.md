@@ -39,6 +39,31 @@
 | Errore geolocalizzazione | Fallback su centro di Roma, messaggio discreto. |
 | Nessun campo | Banner inline sulla mappa. |
 
+## Barriere
+
+- Lo stile liberty non fornisce sprite `gate`/`bollard` (sprite da 264
+  icone, nessun match) e i tile OpenFreeMap non distribuiscono il layer
+  `barrier_line` (TileJSON `maxzoom: 14`, nessun layer barriera).
+- I layer POI dello stile (`poi_r20/r7/r1`, `poi_transit`) risolvono
+  `icon-image` per classe: le classi `gate`, `bollard`, `lift_gate`,
+  `cycle_barrier` arrivano dal layer `poi` e senza sprite dedicati
+  MapLibre logga `Image "gate" could not be loaded`.
+- Icone inline in `lib/map/icons.ts`: SVG data URI, colore letto a runtime
+  da `--text-secondary` (fallback `--border-strong`), mai hex nel sorgente
+  (lo impone `lint:design`). Registrate con `addImage` + `pixelRatio: 2`
+  **prima** di aggiungere qualunque layer, altrimenti il renderer logga
+  warning per le icone mancanti.
+- Layer `dropin-barriers` (`openmaptiles`/`barrier_line`, symbol,
+  minzoom 16, icon-size 0.8, overlap): mapping `gate`+`lift_gate` → gate,
+  `bollard`+`cycle_barrier`+`block` → bollard, default bollard. Oggi rende
+  zero feature (sorgente senza `barrier_line`), ma non crasha e non sporca
+  la console; le icone servono gia' i POI barriera (Villa Borghese, z16).
+- Nota tecnica: `map.loadImage` non decodifica gli SVG in Chromium
+  (`createImageBitmap` → `InvalidStateError`), quindi le icone si caricano
+  con `HTMLImageElement` + `addImage`. Le icone funzionano offline (nessuna
+  richiesta di rete); se la registrazione fallisce: un solo `console.warn`,
+  nessun retry infinito.
+
 ## Token usati
 
-`--accent`, `--bg-elevated`, `--text-secondary`, `--danger`.
+`--accent`, `--bg-elevated`, `--text-secondary`, `--danger`, `--border-strong`.
