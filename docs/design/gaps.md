@@ -21,6 +21,7 @@ Ogni riga è un debito esplicito: o si chiude (rimozione prevista) o resta docum
 | 2026-11-09 | `text-[13px]` (5 punti) | Fuori scala: nessun token equivalente tra label 11 e xs 12 / sm 14. Il check-design lo permette via allowlist | @designer | Mappare a 12 o 14 al prossimo ridisegno della schermata |
 | 2026-11-09 | `text-[64px]` (2 punti) | Numero hero fuori scala (display-lg 40). Il check-design lo permette via allowlist | @designer | Valutare `text-display-lg` con `clamp()` quando si ridisegna |
 | 2026-11-09 | `rounded-[1px]` (1 punto) | Barra di progresso da 1px, non un raggio di componente. Il check-design lo permette via allowlist | @designer | — |
+| 2026-11-09 | `rounded-[inherit]` in `components/motion/next-highlight.tsx` | Non è un raggio: il velo del ring eredita il raggio tokenizzato del figlio (Badge, card…). Il check-design lo permette via allowlist | d7 | — |
 
 ## Template per nuove righe
 

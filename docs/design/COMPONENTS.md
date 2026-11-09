@@ -70,5 +70,5 @@ Contratti brevi dei componenti esistenti. Dettagli (anatomia, snippet) in `compo
 - **API pubblica:** `StepTransition({ stepKey, children, className? })`; `SuccessPop({ title, description?, className? })`; `NextHighlight({ children, className? })`; `MOTION = { fast: 0.15, base: 0.2, slow: 0.25, success: 0.4 }`, `EASE = { standard, elastic }` (array cubic-bezier).
 - **Stati:** step entra 250ms / esce 200ms (`popLayout`, niente salti di layout); pop una volta al mount in 400ms; highlight `data-highlight="on"` finché tap/click/focus lo spegne (`"off"`).
 - **Token:** `--motion-*` / `--ease-*` da `app/globals.css` via `lib/motion/tokens.ts` (mai numeri nei componenti); `--success` per l'esito, `--accent` per l'highlight.
-- **A11y:** `SuccessPop` è `role="status"`; con reduced motion (`useReducedMotion`, non solo media query) niente si muove e tutto resta in testo/colore/outline; la transizione non blocca mai l'input.
+- **A11y:** `SuccessPop` è `role="status"`; con reduced motion (`useStableReducedMotion`, non solo media query) niente si muove e tutto resta in testo/colore/outline; la transizione non blocca mai l'input.
 - Dettagli: pattern [patterns/onboarding.md](patterns/onboarding.md) (sezione implementazione), token [tokens.md](tokens.md#motion-per-onboarding), ADR [decisions/0003-motion-token.md](decisions/0003-motion-token.md).

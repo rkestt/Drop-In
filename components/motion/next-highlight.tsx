@@ -30,7 +30,7 @@ export function NextHighlight({ children, className }: NextHighlightProps) {
   const dismiss = React.useCallback(() => setDismissed(true), []);
 
   const ringClassName =
-    "pointer-events-none absolute inset-0 rounded-inherit ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg-base)]";
+    "pointer-events-none absolute inset-0 rounded-[inherit] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg-base)]";
 
   return (
     <div

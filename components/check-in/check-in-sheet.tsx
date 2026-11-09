@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { createLogger } from "@/lib/logger";
 
@@ -38,6 +38,7 @@ export function CheckInSheet({
   const [success, setSuccess] = useState(false);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const closeTimer = useRef<number | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -50,6 +51,12 @@ export function CheckInSheet({
         setGpsAccuracy(null);
       });
     }
+    return () => {
+      if (closeTimer.current !== null) {
+        window.clearTimeout(closeTimer.current);
+        closeTimer.current = null;
+      }
+    };
   }, [open]);
 
   const handleCheckIn = async () => {
@@ -112,7 +119,9 @@ export function CheckInSheet({
         })
       );
       setSuccess(true);
-      setTimeout(() => {
+      // Stesso pattern di create-lobby-sheet: il timer si cancella su
+      // chiusura/unmount, così onClose scatta una volta sola.
+      closeTimer.current = window.setTimeout(() => {
         onClose();
       }, 1500);
     } catch (err) {
