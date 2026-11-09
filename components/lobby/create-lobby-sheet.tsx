@@ -1,6 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useForm, type FieldErrors } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  createLobbySchema,
+  type CreateLobbyInput,
+  type CreateLobbyValues,
+} from "@/lib/validation/schemas";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,15 +26,40 @@ export function CreateLobbySheet({
   courtId,
   courtName,
 }: CreateLobbySheetProps) {
-  const [startTime, setStartTime] = useState("");
-  const [maxPlayers, setMaxPlayers] = useState("10");
+  // Orario e posti in react-hook-form (schema zod = unica fonte).
+  // Restano useState solo per: loading, errori di rete/DB.
+  const {
+    register,
+    handleSubmit,
+    setFocus,
+    formState: { errors },
+  } = useForm<CreateLobbyInput, unknown, CreateLobbyValues>({
+    resolver: zodResolver(createLobbySchema),
+    mode: "onSubmit",
+    reValidateMode: "onChange",
+    defaultValues: { startTime: "", maxPlayers: 10 },
+  });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Guardia anti-doppio-invio (il disabled non copre due submit ravvicinati).
+  const submittingRef = useRef(false);
 
   const supabase = createClient();
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const focusFirstError = (fieldErrors: FieldErrors<CreateLobbyInput>) => {
+    const order: (keyof CreateLobbyInput)[] = ["startTime", "maxPlayers"];
+    for (const field of order) {
+      if (fieldErrors[field]) {
+        setFocus(field);
+        return;
+      }
+    }
+  };
+
+  const onValidCreate = async (values: CreateLobbyValues) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -62,8 +94,8 @@ export function CreateLobbySheet({
       const { error } = await supabase.from("lobbies").insert({
         court_id: courtId,
         creator_id: user.id,
-        start_time: new Date(startTime).toISOString(),
-        max_players: parseInt(maxPlayers, 10),
+        start_time: new Date(values.startTime).toISOString(),
+        max_players: values.maxPlayers,
         status: "open",
       });
 
@@ -81,6 +113,7 @@ export function CreateLobbySheet({
       const msg = err instanceof Error ? err.message : "Errore durante la creazione della lobby.";
       setError(msg);
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };
@@ -96,12 +129,16 @@ export function CreateLobbySheet({
         </div>
 
         {error && (
-          <div className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm">
+          <div
+            className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm"
+            role="alert"
+            aria-live="assertive"
+          >
             {error}
           </div>
         )}
 
-        <form onSubmit={handleCreate} className="space-y-3">
+        <form onSubmit={handleSubmit(onValidCreate, focusFirstError)} className="space-y-3" noValidate>
           <div>
             <label
               htmlFor="lobby-start-time"
@@ -112,10 +149,15 @@ export function CreateLobbySheet({
             <Input
               id="lobby-start-time"
               type="datetime-local"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              required
+              {...register("startTime")}
+              aria-invalid={errors.startTime ? "true" : undefined}
+              aria-describedby={errors.startTime ? "lobby-start-time-error" : undefined}
             />
+            {errors.startTime && (
+              <p id="lobby-start-time-error" role="alert" className="mt-1.5 text-sm text-[var(--danger)]">
+                {errors.startTime.message}
+              </p>
+            )}
           </div>
 
           <div>
@@ -128,12 +170,16 @@ export function CreateLobbySheet({
             <Input
               id="lobby-max-players"
               type="number"
-              min={2}
-              max={30}
-              value={maxPlayers}
-              onChange={(e) => setMaxPlayers(e.target.value)}
-              required
+              inputMode="numeric"
+              {...register("maxPlayers")}
+              aria-invalid={errors.maxPlayers ? "true" : undefined}
+              aria-describedby={errors.maxPlayers ? "lobby-max-players-error" : undefined}
             />
+            {errors.maxPlayers && (
+              <p id="lobby-max-players-error" role="alert" className="mt-1.5 text-sm text-[var(--danger)]">
+                {errors.maxPlayers.message}
+              </p>
+            )}
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>

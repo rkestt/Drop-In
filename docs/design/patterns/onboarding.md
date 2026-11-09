@@ -32,7 +32,7 @@ Regole:
 - **Un compito per step.** Se una schermata chiede due cose non correlate, sono due step.
 - Titolo = cosa deve fare l’utente, non il nome del campo (“Scatta una foto”, non “Foto”).
 - Un solo controllo primario, largo tutta la colonna. Il resto è `variant="secondary"` o testo.
-- Validazione sullo step, non a ogni tasto: l’errore compare quando l’utente prova ad avanzare (`Button` disabilitato + messaggio, oppure submit con errore inline).
+- Validazione sullo step, non a ogni tasto: l’errore compare quando l’utente prova ad avanzare (`Button` disabilitato + messaggio, oppure submit con errore inline). Implementazione: `react-hook-form` + `zodResolver`, schemi in `lib/validation/schemas.ts` (unica fonte, messaggi in italiano); `mode: "onSubmit"`, `reValidateMode: "onChange"` dopo il primo errore; errore inline sotto il campo con `aria-invalid` + `aria-describedby`, focus sul primo campo errato; submit disabilitato durante la richiesta (guardia anti-doppio-invio). La foto resta fuori dallo schema (file gestito a parte). La validazione zod non sostituisce i vincoli DB (trigger/RLS restano l’ultima difesa).
 - Uno step può essere **condizionale** solo se è dichiarato e ha un’uscita chiara: il dedup di submit-court non è uno step, è una diramazione (“Esiste già un campo qui: è questo?”) con “Sì, è questo” / “No, è un altro”.
 
 ### Conferma

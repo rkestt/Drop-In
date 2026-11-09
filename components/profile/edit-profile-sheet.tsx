@@ -1,6 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useForm, type FieldErrors } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  editProfileSchema,
+  type EditProfileValues,
+} from "@/lib/validation/schemas";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
@@ -18,21 +24,52 @@ export function EditProfileSheet({
   userId,
 }: EditProfileSheetProps) {
   const [open, setOpen] = useState(false);
-  const [nickname, setNickname] = useState(currentNickname || "");
+  // Nickname in react-hook-form (schema zod = unica fonte).
+  // Restano useState solo per: apertura, loading, errori di rete/DB, successo.
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setFocus,
+    formState: { errors },
+  } = useForm<EditProfileValues>({
+    resolver: zodResolver(editProfileSchema),
+    mode: "onSubmit",
+    reValidateMode: "onChange",
+    defaultValues: { nickname: currentNickname ?? "" },
+  });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  // Guardia anti-doppio-invio (il disabled non copre due submit ravvicinati).
+  const submittingRef = useRef(false);
   const supabase = createClient();
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // A ogni apertura si riparte dal nickname corrente (dati conservati su
+  // errore solo dentro la stessa apertura).
+  useEffect(() => {
+    if (open) {
+      reset({ nickname: currentNickname ?? "" });
+      setError(null);
+      setSuccess(false);
+    }
+  }, [open, currentNickname, reset]);
+
+  const focusFirstError = (fieldErrors: FieldErrors<EditProfileValues>) => {
+    if (fieldErrors.nickname) setFocus("nickname");
+  };
+
+  const onValidSave = async (values: EditProfileValues) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ nickname: nickname.trim() || null })
+        .update({ nickname: values.nickname || null })
         .eq("user_id", userId);
 
       if (updateError) throw updateError;
@@ -45,6 +82,7 @@ export function EditProfileSheet({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Errore durante il salvataggio.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };
@@ -59,9 +97,13 @@ export function EditProfileSheet({
         {children}
       </button>
       <Drawer open={open} onClose={() => setOpen(false)} title="Modifica profilo">
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={handleSubmit(onValidSave, focusFirstError)} className="space-y-4" noValidate>
           {error && (
-            <div className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm">
+            <div
+              className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm"
+              role="alert"
+              aria-live="assertive"
+            >
               {error}
             </div>
           )}
@@ -80,11 +122,17 @@ export function EditProfileSheet({
             </label>
             <Input
               id="profile-nickname"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
+              {...register("nickname")}
               placeholder="Il tuo nickname"
-              maxLength={30}
+              autoComplete="nickname"
+              aria-invalid={errors.nickname ? "true" : undefined}
+              aria-describedby={errors.nickname ? "profile-nickname-error" : undefined}
             />
+            {errors.nickname && (
+              <p id="profile-nickname-error" role="alert" className="mt-1.5 text-sm text-[var(--danger)]">
+                {errors.nickname.message}
+              </p>
+            )}
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
