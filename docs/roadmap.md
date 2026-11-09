@@ -26,21 +26,21 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 
 | Feature | Status | Notes / gaps |
 |---|---|---|
-| Theming (dark/light) | 🔴 | Only light CSS vars in `globals.css`; no toggle, no `prefers-color-scheme`, no GitHub-dark palette. |
-| Lazy-loaded map | 🔴 | `maplibre-gl` + CSS imported statically; no `next/dynamic` with `ssr:false`. |
-| World-wide data | 🔴 | Seed is Rome-only (`scripts/extract_osm.py`, `seed_courts.sql`); no community submission flow; no global extraction. |
+| Theming | 🟡 | Un solo tema, chiaro, accent arancione (dark rimosso in #50). Le superfici di sistema (404, error page, `<meta name="theme-color">`) seguono ancora `prefers-color-scheme`: da allineare al redesign. |
+| Lazy-loaded map | ✅ | `next/dynamic` con `ssr:false` + `MapSkeleton`; MapLibre fuori dal bundle iniziale. |
+| World-wide data | 🟡 | Invio comunitario e dedup/moderation attivi; `extract_osm.py` accetta `--bbox/--country/--city` con `--upsert-sql`. Manca un'estrazione globale eseguita e il seed resta Roma. |
 | i18n (Italian only) | 🔴 | Hardcoded Italian strings across components; no locale routing. |
 | Accessibility audit | 🟡 | Some ARIA on map markers; no full audit, focus traps in sheets unverified. |
-| Test coverage | 🔴 | No test framework; only `tsc --noEmit`. |
+| Test coverage | 🟡 | Vitest (34 unit), asserzioni RLS su `db reset`, Playwright e2e, CI su ogni PR. Scoperta e i flussi autenticati restano manuali. |
 | Error boundaries / loading states | 🟡 | Per-page loading; no global error boundary or retry. |
-| Court photos / media | 🔴 | No upload/storage bucket usage. |
-| Search & filter courts | 🔴 | `limit(100)` fetch; no query, radius filter, or sport filter (venue/sport columns exist from migration 003). |
+| Court photos / media | 🟡 | Upload con ri-encodaggio, bucket `court-photos`, foto congelata dopo l'approvazione (014). Mancano thumbnail e pulizia degli orfani. |
+| Search & filter courts | ✅ | Ricerca per nome, sport di sessione persistito (mappa + lobby + ricerca), filtri lato RPC. |
 | Favorites / saved courts | 🔴 | No table or UI. |
 | Install prompt (PWA) | 🔴 | Manifest present; no `beforeinstallprompt` handling. |
 | Offline mutation queue | 🔴 | Check-in/lobby join fail offline; no retry. |
 | Analytics / observability | 🔴 | `lib/logger.ts` only; no error tracking. |
-| Moderation / admin | 🔴 | No admin routes or report triage UI. |
-| Court verification / dedup | 🔴 | Community-submitted courts need review to avoid duplicates. |
+| Moderation / admin | 🟡 | Coda e RPC (`approve/reject/mark_duplicate`) documentate in `docs/moderation.md`, eseguibili da Studio. Nessuna UI. |
+| Court verification / dedup | ✅ | `dedup_candidates` a 100 m con conferma esplicita, mascheramento delle proposte altrui, coda di moderazione. |
 
 ## Proposed tickets (GitHub issue titles)
 
