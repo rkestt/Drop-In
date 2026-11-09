@@ -86,7 +86,7 @@ Regole:
 - Una pipeline sta in **un solo contenitore**: o sheet o pagina, mai metà e metà.
 - **Sheet sequenziali**: un sheet alla volta. Si avanza sostituendo il contenuto dello stesso sheet, non aprendone un secondo sopra.
 - Il sheet non si allarga in pagina a metà flusso: se la pipeline è cresciuta, la decisione si prende a monte (o si promuove l’intera pipeline).
-- Regole di contenuto e accessibilità del sheet: [sheets.md](sheets.md), [bottom-sheet.md](../components/bottom-sheet.md).
+- Regole di contenuto e accessibilità del sheet: [sheets.md](sheets.md), [drawer.md](../components/drawer.md).
 
 ## Coach mark contestuali
 

@@ -1,6 +1,6 @@
 # Pattern: sheet
 
-Gli sheet sono pannelli scorrevoli dal basso. L’implementazione di riferimento è `components/ui/bottom-sheet.tsx`.
+Gli sheet sono pannelli scorrevoli dal basso. L’implementazione di riferimento è `components/ui/drawer.tsx`.
 
 ## Quando usarli
 
@@ -40,10 +40,10 @@ Gli sheet sono pannelli scorrevoli dal basso. L’implementazione di riferimento
 ## Esempio
 
 ```tsx
-<BottomSheet open={open} onClose={() => setOpen(false)} title="Filtri">
+<Drawer open={open} onClose={() => setOpen(false)} title="Filtri">
   <div className="space-y-4">
     <Input placeholder="Cerca campo" />
     <Button className="w-full">Applica</Button>
   </div>
-</BottomSheet>
+</Drawer>
 ```

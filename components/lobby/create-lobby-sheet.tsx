@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Drawer } from "@/components/ui/drawer";
 
 interface CreateLobbySheetProps {
   open: boolean;
@@ -86,7 +86,7 @@ export function CreateLobbySheet({
   };
 
   return (
-    <BottomSheet open={open} onClose={onClose} title="Crea lobby">
+    <Drawer open={open} onClose={onClose} title="Crea lobby">
       <div className="space-y-4">
         <div>
           <label className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">
@@ -141,6 +141,6 @@ export function CreateLobbySheet({
           </Button>
         </form>
       </div>
-    </BottomSheet>
+    </Drawer>
   );
 }

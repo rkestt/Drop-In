@@ -15,7 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Drawer } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LibraryShowcase } from "./library-showcase";
@@ -1486,17 +1486,17 @@ export function StyleguideClient() {
               </Specimen>
             </SubSection>
 
-            <SubSection title="BottomSheet" note="dialog, focus trap, swipe">
+            <SubSection title="Drawer" note="dialog, focus trap, swipe">
               <Specimen className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium">Apri un foglio reale</p>
                   <p className="mt-0.5 text-label text-[var(--text-secondary)]">
-                    Chiude con Escape, tap sul backdrop o trascinamento oltre 80
-                    px.
+                    Chiude con Escape, tap sul backdrop o trascinamento verso il
+                    basso.
                   </p>
                 </div>
                 <Button variant="secondary" onClick={() => setSheet("demo")}>
-                  Apri sheet
+                  Apri drawer
                 </Button>
               </Specimen>
             </SubSection>
@@ -1718,7 +1718,7 @@ export function StyleguideClient() {
         </div>
       </footer>
 
-      <BottomSheet
+      <Drawer
         open={sheet !== null}
         onClose={() => setSheet(null)}
         title={sheet === "lobby" ? "Dettaglio lobby" : "Esempio di sheet"}
@@ -1753,6 +1753,10 @@ export function StyleguideClient() {
               Il foglio sale dal basso, intrappola il focus e restituisce il
               controllo al pulsante che lo ha aperto.
             </p>
+            <div>
+              <FieldLabel htmlFor="sg-drawer-nome">Nome campo</FieldLabel>
+              <Input id="sg-drawer-nome" placeholder="Es. Campo Nomentano" />
+            </div>
             <div className="flex items-center gap-2">
               <Badge variant="accent">Aperta</Badge>
               <span className="text-sm text-[var(--text-secondary)]">
@@ -1773,7 +1777,7 @@ export function StyleguideClient() {
             </div>
           </div>
         )}
-      </BottomSheet>
+      </Drawer>
     </div>
   );
 }

@@ -65,4 +65,33 @@ npm run test:a11y
 
 ## Resolution
 
-(TBD — chiudere con: call site migrati, esito focus/ESC/drag/scroll, screenshot 360px, docs aggiornate.)
+Call site migrati (6/6, solo import + nome componente, contenuti invariati):
+`components/auth/login-modal.tsx`, `components/check-in/check-in-sheet.tsx`,
+`components/lobby/create-lobby-sheet.tsx`, `components/profile/edit-profile-sheet.tsx`,
+`components/report/report-sheet.tsx`, `app/styleguide/styleguide-client.tsx`.
+`components/ui/bottom-sheet.tsx` eliminato; nuovo wrapper `components/ui/drawer.tsx`
+(`Drawer.Root` controllato con `open`/`onOpenChange`, `modal`, `swipeDirection="down"`,
+stesse classi/z-index del vecchio sheet, handle 44px visivo `aria-hidden`).
+
+Esito verifiche (Playwright Chromium, dev su :3100, `tests/e2e/drawer.spec.ts` 5/5 PASS):
+- Focus trap che cicla: Tab da Conferma torna all'input, 3 Shift+Tab percorrono
+  Annulla → input → Conferma; focus mai uscito dal dialog in 9+ pressioni.
+- Focus iniziale dentro al dialog all'apertura.
+- Restore focus al trigger ("Apri drawer") sia con Escape che con tap sul backdrop.
+- `body.style.overflow = "hidden"` da aperto, ripristinato (`""`) da chiuso.
+- Drag oltre soglia chiude: swipe touch sintetico (CDP, 450px dalla handle) sposta
+  il popup (`translate3d(0px, 420px, 0px)` mid-drag) e al rilascio il drawer si chiude.
+- Nessuna prop extra servita: `modal` di default + `initialFocus`/`finalFocus` di
+  default di Base UI bastano; nessun codice di trap/scroll/restore scritto a mano.
+
+Styleguide: sezione Componenti mostra "Drawer" (con campo di testo `#sg-drawer-nome`
+nel demo) e sezione Librerie con campo `lib-drawer-nome` nel `DrawerExample`.
+
+Docs: `components/bottom-sheet.md` → `components/drawer.md` (riscritta su Base UI),
+aggiornati `components/README.md`, `patterns/sheets.md`, link in `patterns/onboarding.md`.
+NON toccati: `stack.md`, `COMPONENTS.md`, `README.md`, `MAP.md`, `1.5.md`.
+
+Comandi: `grep ui/bottom-sheet` e `grep BottomSheet` su app/components vuoti;
+`lint` 0 errori (1 warning pre-esistente in scripts/check-design.mjs),
+`tsc --noEmit` OK, `lint:design` OK (62 file), `vitest` 68/68, `test:a11y` 3/3,
+`drawer.spec.ts` 5/5.

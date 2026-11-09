@@ -1,0 +1,75 @@
+# Drawer
+
+File sorgente: `components/ui/drawer.tsx` (wrapper del progetto su `Drawer` di Base UI, unica primitiva per dialog/drawer).
+
+## Anatomia
+
+```tsx
+<Drawer.Root open={open} onOpenChange={...} modal swipeDirection="down">
+  <Drawer.Portal>
+    <Drawer.Backdrop className="fixed inset-0 z-50 bg-[var(--overlay)]" />
+    <Drawer.Viewport className="fixed inset-0 z-50 flex items-end justify-center">
+      <Drawer.Popup className="w-full max-w-[720px] rounded-t-sheet bg-[var(--bg-elevated)] shadow-lg pb-safe">
+        <div className="min-h-[44px] flex justify-center pt-3 pb-3" aria-hidden="true">
+          <div className="w-10 h-1.5 rounded-full bg-[var(--text-muted)]/30" />
+        </div>
+        {title && <Drawer.Title className="font-syne text-xl ...">{title}</Drawer.Title>}
+        <div className="px-5 pb-6">{children}</div>
+      </Drawer.Popup>
+    </Drawer.Viewport>
+  </Drawer.Portal>
+</Drawer.Root>
+```
+
+## API del wrapper
+
+```tsx
+<Drawer open={open} onClose={() => setOpen(false)} title="Crea lobby">
+  …
+</Drawer>
+```
+
+- Props: `open`, `onClose`, `title?`, `description?`, `children`, `className?` (unito al Popup con `cn()`).
+- Nessuna animazione custom: transizioni di Base UI; `prefers-reduced-motion` già globale in `globals.css`.
+
+## Comportamento (da Base UI, `modal`)
+
+- Focus trap: Tab cicla dentro il drawer, Shift+Tab torna all'ultimo.
+- `initialFocus`: primo elemento tabbabile; `finalFocus`: trigger o elemento precedente.
+- Chiude con swipe verso il basso, tasto `Escape`, tap sul backdrop.
+- Blocca lo scroll del body.
+- Al chiusura restituisce il focus all’elemento che ha aperto lo sheet.
+
+## Varianti
+
+Unica. Il contenuto è libero ma deve rispettare i token e i componenti UI.
+
+## Stati
+
+| Stato | Aspetto |
+|---|---|
+| Closed | Non renderizzato. |
+| Open | Drawer in posizione finale, backdrop opaco. |
+| Swiping | Drawer traslato in base al dito; rilascio oltre soglia chiude. |
+
+## Misure
+
+- Larghezza massima: 720px, centrata.
+- Radius superiore: 20px (`rounded-t-sheet` = `--radius-sheet`).
+- Handle: 40x6px, touch target 44px (visivo, `aria-hidden`: la chiusura da tastiera passa da Escape e dai bottoni).
+- Padding contenuto: 20px orizzontale, 24px inferiore.
+
+## Token usati
+
+`--bg-elevated`, `--text-primary`, `--text-muted`, `--overlay`, `--radius-sheet`.
+
+## Quando usarlo
+
+- Dettagli campo.
+- Filtri o azioni contestuali.
+- Form brevi.
+
+## Quando NON usarlo
+
+- Per flussi lunghi: usa una pagina intera.
+- Per messaggi di conferma semplici: usa Toast o un inline banner.
