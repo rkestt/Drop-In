@@ -42,24 +42,31 @@
 ## Barriere
 
 - Lo stile liberty non fornisce sprite `gate`/`bollard` (sprite da 264
-  icone, nessun match).
+  icone, nessun match). I tile OpenFreeMap arrivano solo fino a z14
+  (TileJSON `maxzoom: 14`, oltre si va in overzoom) e non contengono
+  `barrier_line`.
 - I layer POI dello stile (`poi_r20/r7/r1`, `poi_transit`) risolvono
-  `icon-image` per classe: le classi `gate`, `bollard`, `lift_gate`,
-  `cycle_barrier` arrivano dal layer `poi` e senza sprite dedicati
-  MapLibre logga `Image "gate" could not be loaded`.
-- Icone inline in `lib/map/icons.ts`: SVG data URI, colore letto a runtime
-  da `--text-secondary` (fallback `--border-strong`), mai hex nel sorgente
-  (lo impone `lint:design`). Registrate con `addImage` + `pixelRatio: 2`
-  dopo il `load`; se la registrazione fallisce: un solo `console.warn`,
-  nessun retry infinito.
-- Niente layer proprio: i tile OpenFreeMap non distribuiscono
-  `barrier_line` (pbf verificato, TileJSON `maxzoom: 14`), quindi sarebbe
-  un no-op; se un provider futuro esporrà barriere su un altro
-  `source-layer`, ticket dedicato con verifica sul pbf reale.
+  `icon-image` per classe (`gate`, `bollard`, `lift_gate`, `cycle_barrier`
+  arrivano dal layer `poi`): senza sprite dedicati MapLibre logga
+  `Image "gate" could not be loaded`.
+- Liberty mostra i POI barriera per rank: `poi_r1` a z15 (rank 1–6),
+  `poi_r7` a z16 (rank 7–19), `poi_r20` a z17 (rank 20+). A Villa Borghese
+  294/295 barriere hanno rank ≥ 20, quindi a z16 lo stock ne disegna 1 sola.
+- `dropin-barriers` è il nostro gap-filler su `source-layer: "poi"` da
+  z16 (nessun `maxzoom`; il doppio disegno a z17+ con `poi_r20` è identico
+  per immagine e ancora: accettato): `filter` match sulle 5 classi
+  barriera, `icon-image` match `gate`+`lift_gate` → gate, resto → bollard,
+  icon-size 0.8, overlap. Icone inline da `lib/map/icons.ts` (SVG data URI,
+  colore da `--text-secondary` con fallback `--border-strong`, mai hex:
+  lo impone `lint:design`), registrate con `addImage` + `pixelRatio: 2`
+  dopo il `load` e prima di `addLayer`.
+- Il layer è accoppiato ai rank di Liberty: se lo stile cambia rank,
+  riverificare i conteggi a z16.
 - Nota tecnica: `map.loadImage` non decodifica gli SVG in Chromium
   (`createImageBitmap` → `InvalidStateError`), quindi le icone si caricano
   con `HTMLImageElement` + `addImage`. Le icone funzionano offline (nessuna
-  richiesta di rete).
+  richiesta di rete); se la registrazione fallisce: un solo `console.warn`,
+  nessun retry infinito.
 
 ## Token usati
 

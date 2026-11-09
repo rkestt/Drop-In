@@ -5,6 +5,8 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MAP_PROVIDER, MAP_STYLE_URL, MAP_ATTRIBUTION } from "@/lib/map/provider";
 import {
+  BOLLARD_ICON_ID,
+  GATE_ICON_ID,
   registerBarrierIcons,
   type BarrierIconUris,
 } from "@/lib/map/icons";
@@ -28,27 +30,85 @@ declare global {
   }
 }
 
-let barrierIconsWarned = false;
+let barrierSetupWarned = false;
 
-function warnBarrierIconsOnce(message: string): void {
-  if (barrierIconsWarned) return;
-  barrierIconsWarned = true;
+function warnBarrierSetupOnce(message: string): void {
+  if (barrierSetupWarned) return;
+  barrierSetupWarned = true;
   console.warn(message);
 }
 
-// Registra le icone inline gate/bollard dopo il load. Servono i layer POI
-// dello stile, che risolvono icon-image per classe (`poi`: gate, bollard,
-// lift_gate, cycle_barrier). Idempotente e mai fatale: se la registrazione
-// fallisce, la mappa continua a funzionare.
-function setupBarrierIcons(map: maplibregl.Map): void {
+const BARRIER_LAYER_ID = "dropin-barriers";
+const BARRIER_CLASSES = ["gate", "lift_gate", "bollard", "cycle_barrier", "block"];
+
+// Gap-filler sopra i tile OpenFreeMap (maxzoom 14, overzoom oltre): lo
+// stile Liberty mostra i POI barriera per rank (poi_r7 a z16 copre solo
+// rank 7-19), quindi a z16 quasi tutte le barriere mancherebbero. Questo
+// layer le disegna tutte da z16 con le icone inline. Il doppio disegno a
+// z17+ con poi_r20 e' identico per immagine e ancora: accettato.
+function addBarrierLayer(map: maplibregl.Map): void {
+  const spec = {
+    id: BARRIER_LAYER_ID,
+    type: "symbol",
+    source: "openmaptiles",
+    "source-layer": "poi",
+    minzoom: 16,
+    filter: [
+      "match",
+      ["get", "class"],
+      [...BARRIER_CLASSES],
+      true,
+      false,
+    ],
+    layout: {
+      "icon-image": [
+        "match",
+        ["get", "class"],
+        ["gate", "lift_gate"],
+        GATE_ICON_ID,
+        BOLLARD_ICON_ID,
+      ],
+      "icon-size": 0.8,
+      "icon-allow-overlap": true,
+    },
+  } as unknown as maplibregl.LayerSpecification;
+  // I marker dei campi sono DOM (sempre sopra il canvas); il layer va
+  // comunque sotto le etichette di luogo per non coprirle.
+  const beforeId = map
+    .getStyle()
+    ?.layers.find((layer) => layer.type === "symbol")?.id;
+  if (beforeId) map.addLayer(spec, beforeId);
+  else map.addLayer(spec);
+}
+
+// Registra le icone inline gate/bollard e aggiunge il layer
+// dropin-barriers. Idempotente e mai fatale: se le icone o la sorgente
+// mancano, la mappa continua a funzionare senza il layer.
+function setupBarrierLayer(map: maplibregl.Map): void {
   if (MAP_PROVIDER !== "openfreemap") return;
   window.__dropinMap = map;
+  // Prima le icone, poi il layer: aggiungerlo prima causerebbe
+  // "Image gate/bollard could not be loaded" in console.
   void registerBarrierIcons(map)
     .then((uris) => {
       window.__dropinBarrierIconUris = uris;
+      try {
+        if (map.getLayer(BARRIER_LAYER_ID)) return;
+        if (!map.hasImage(GATE_ICON_ID) || !map.hasImage(BOLLARD_ICON_ID)) {
+          warnBarrierSetupOnce("[map] barrier icons missing, skipping dropin-barriers");
+          return;
+        }
+        if (!map.getSource("openmaptiles")) {
+          warnBarrierSetupOnce("[map] openmaptiles source missing, skipping dropin-barriers");
+          return;
+        }
+        addBarrierLayer(map);
+      } catch {
+        warnBarrierSetupOnce("[map] could not add dropin-barriers layer");
+      }
     })
     .catch(() => {
-      warnBarrierIconsOnce("[map] barrier icon registration failed");
+      warnBarrierSetupOnce("[map] barrier icon registration failed");
     });
 }
 
@@ -123,7 +183,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     };
     instance.on("load", () => {
       loadedRef.current = true;
-      setupBarrierIcons(instance);
+      setupBarrierLayer(instance);
       fireBounds();
       requestAnimationFrame(() => instance.resize());
     });

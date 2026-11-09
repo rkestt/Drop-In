@@ -14,7 +14,7 @@ blocked_by: []
 **File coinvolti.**
 
 - `lib/map/icons.ts` (nuovo): SVG inline per `gate` e `bollard`, caricati con `HTMLImageElement` (non `map.loadImage`: non decodifica SVG in Chromium) e registrati con `map.addImage("gate" | "bollard", image, { pixelRatio: 2 })`.
-- `components/map/court-map.tsx`: dopo `load`, registra le icone.
+- `components/map/court-map.tsx`: dopo `load`, registra le icone e aggiunge il layer gap-filler `dropin-barriers` su `source-layer: "poi"`.
 - `tests/e2e/map-sprites.spec.ts` (nuovo).
 - `docs/design/patterns/map.md`: sezione "Barriere".
 
@@ -24,11 +24,11 @@ blocked_by: []
 - **Niente hex nel sorgente TS**: il colore si legge a runtime da `getComputedStyle(document.documentElement).getPropertyValue("--text-secondary")` (o `--border-strong`) e si compone nell'SVG. `lint:design` scansiona `lib/` e fallirebbe su un `#hex`; `components/map/court-map.tsx` è in allowlist ma `lib/map/icons.ts` no.
 - Icone inline (data URI), nessun file binario, nessun nuovo host di rete: devono funzionare anche con il service worker offline.
 - Se la registrazione fallisce, la mappa continua a funzionare: `console.warn` una volta, nessun crash, nessun retry infinito.
-- Niente layer proprio: i tile OpenFreeMap non distribuiscono `barrier_line`, quindi un layer dedicato sarebbe un no-op.
+- Layer `dropin-barriers` come gap-filler su `source-layer: "poi"` (non `barrier_line`, assente nei tile): `source: "openmaptiles"`, `type: "symbol"`, `minzoom: 16`, nessun `maxzoom`, `filter` match sulle 5 classi barriera, `icon-image` match `gate`+`lift_gate` → gate e resto → bollard, `icon-size` 0.8, `icon-allow-overlap: true`, sotto le label, aggiunto dopo `hasImage`.
 
 **Acceptance.**
 
-Dopo il `load`, `hasImage("gate"|"bollard")` è true e a zoom 16 su Villa Borghese i POI con `class` barriera sono renderizzati dai layer POI dello stile senza warning `Image "gate"/"bollard"`; nessun host di rete nuovo, icone disponibili offline.
+Dopo il load `hasImage('gate'|'bollard')` è true e a z16 su Villa Borghese le barriere `poi` sono rese dal layer `dropin-barriers` (decine di icone, nessun warning sprite, nessun host nuovo).
 
 **Comandi di verifica.**
 
@@ -59,31 +59,38 @@ Riproduzione (2026-11-09, verifica statica + browser):
   landuse, park, place, poi, transportation(+_name), water(+_name)).
   Le icone inline servono i POI barriera, che e' il percorso visibile
   reale.
-- Decisione (b) dopo review: layer `dropin-barriers` RIMOSSO. Il layer
-  rende 0 feature perché i tile OpenFreeMap non distribuiscono
-  `barrier_line` (pbf, maxzoom 14); la forward-compat è illusoria (schema,
-  nome proprietà, placement e nome del source-layer andrebbero comunque
-  riverificati); i test fissavano un no-op (`toBeGreaterThanOrEqual(0)`, 0
-  garantito dal `minzoom`); l'effetto reale è già dato dalle icone sui
-  layer POI (`poi`: 983 feature barriera a Villa Borghese, 12 renderizzate
-  a z16, `class` distingue `gate`/`bollard`/`lift_gate`/`cycle_barrier`).
+- Decisione (b) dopo review: layer `dropin-barriers` su `barrier_line`
+  RIMOSSO. Il layer rendeva 0 feature perché i tile OpenFreeMap non
+  distribuiscono `barrier_line` (pbf, maxzoom 14); la forward-compat era
+  illusoria (schema, nome proprietà, placement e nome del source-layer
+  andrebbero comunque riverificati); i test fissavano un no-op
+  (`toBeGreaterThanOrEqual(0)`, 0 garantito dal `minzoom`); l'effetto reale
+  era già dato dalle icone sui layer POI.
+- Gap reale a z16 (recon): 294/295 barriere di Villa Borghese hanno
+  `rank ≥ 20`, quindi lo stile stock a z16 (`poi_r7`: rank 7–19) ne disegna
+  1 sola; `poi_r20` parte da z17. Perciò `dropin-barriers` TORNA come
+  gap-filler su `source-layer: "poi"`: filter match sulle 5 classi,
+  icon-image match gate+lift_gate → gate e resto → bollard, minzoom 16
+  senza maxzoom (doppio disegno a z17+ identico per immagine e ancora:
+  accettato).
 
 Classi servite dalle icone (`class` dal layer `poi`): `gate`,
 `lift_gate` → `gate`; `bollard`, `cycle_barrier`, `block` → `bollard`.
 
 Esito e2e (`tests/e2e/map-sprites.spec.ts`, 3/3 verdi):
-- `hasImage("gate"|"bollard") === true` dopo il `load`; nessun layer
-  proprio (scelta voluta, vedi sopra).
-- Nessun nuovo warning gate/bollard dopo la registrazione; nessun 404 di
-  sprite; nessun host oltre `tiles.openfreemap.org` (+ localhost). Restano
-  i warning pre-esistenti dei POI (`office`, `sports_centre`, `recycling`,
-  `swimming_pool`) — mismatch stile/sprite fuori scope.
+- `hasImage("gate"|"bollard") === true` dopo il `load`; layer
+  `dropin-barriers` su `openmaptiles`/`poi`, minzoom 16 senza maxzoom,
+  filtro e icon-image verificati.
+- Zoom 13 → 0 feature sul nostro layer.
+- Villa Borghese z16: decine di barriere rese dal nostro layer,
+  strettamente più delle barriere rese dai layer `poi_*` stock (misura il
+  gap, non un `>= 0`); nessun warning gate/bollard dopo la registrazione.
+- Nessun 404 di sprite; nessun host oltre `tiles.openfreemap.org`
+  (+ localhost). Restano i warning pre-esistenti dei POI (`office`,
+  `sports_centre`, `recycling`, `swimming_pool`) — mismatch stile/sprite
+  fuori scope.
 - Offline: dopo `setOffline(true)`, i data URI si decodificano via
   `Image` senza rete (test dedicato verde).
-- Villa Borghese z16: 983 feature barriera nei tile caricati
-  (`querySourceFeatures` su `poi`), 12 renderizzate dai layer POI con le
-  icone inline e nessun warning gate/bollard; screenshot
-  `/tmp/opencode/borghese-z16.png` (mappa e POI regolari, nessun errore).
 
 Nota tecnica per futuri ticket: `map.loadImage` (fetch +
 `createImageBitmap`) NON decodifica gli SVG in Chromium
