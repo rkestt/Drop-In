@@ -21,7 +21,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - UI changes: build/lint/typecheck/test green is not DONE. Always dispatch @tester on dev server (light/dark, reload, toggle, console/hydration errors, screenshots) before reporting done.
 
 # Wiki LLM (progetto)
-- Pre-flight obbligatorio: wiki_recall su vault progetto (`llm-wiki_*`) poi su globale (`llm-wiki-global_*`), progetto vince a parità; se <2 hit utili → wiki_search sui termini chiave. `wiki_status` va letto su entrambe le vault (quella risolta + globale), mai usato per concludere "wiki vuota".
+- Server MCP unico `llm-wiki` (dal 6 nov 2026; niente più `llm-wiki_*` / `llm-wiki-global_*` separati). Tool: `wiki_recall`, `wiki_search` (`scope: project|personal|both`), `wiki_retro` (`vault: project|personal`), `wiki_status`, `wiki_bootstrap`.
+- Pre-flight obbligatorio: una `wiki_recall` con la richiesta verbatim (cerca già su progetto+personale, ordina per score, progetto vince a parità); se <2 hit utili → `wiki_search` sui termini chiave. `wiki_status` mai usato per concludere "wiki vuota".
 - Scrivi insight stabili senza che l'utente lo chieda (trasversali → globale, progetto → progetto); 1 insight = 1 pagina atomica; mai scrivere a mano index.md/log.md/meta/**/raw/**.
 - Questo file batte le regole globali nella pratica: il passo wiki qui sopra non va omesso.
 
@@ -67,21 +68,23 @@ npx supabase db reset # Apply migrations + seed (200 courts Roma dev, 10k prod)
 
 - **PostGIS required**: migrations fail without `CREATE EXTENSION postgis`
 - **pg_cron enabled**: used for auto-checkout cron job (2h timeout, lobby close +30min)
-- **PWA cache**: map tiles cached in "map-tiles" (500 entries, 30 day TTL)
+- **PWA cache**: map tiles in `map-tiles-<provider>-v1` (10 entries, 7 day TTL) — vedi `app/sw.ts`
 - **Karma system**: starts at 90, -3 for no-show, ban <50 for 7 days
-- **Browse-first**: unauthenticated users can view map/courts; auth required for lobbies
+- **Browse-first**: `anon` vede solo le corti `approved` (policy `courts_select_all`: `moderation_status = 'approved'`); `pending`/`rejected`/`duplicate` sono invisibili al pubblico; auth required for lobbies
 - **Route groups**: `(app)` and `(dashboard)` are folder conventions, not segments
 
 ## Harness — Tracker & Process (surgical, ponytail)
 
-- **Wayfinder** (`.wayfinder/`): **CANONICAL** — map `drop-in-next` attiva (ex `drop-in-bella-funzionante` chiusa 2026-08-23). Decision ticket + frontier, blocking via `blocked_by`, claim via `claimed`. Unico tracker per God.
+- **Wayfinder** (`.wayfinder/`): map `drop-in-next` attiva (ex `drop-in-bella-funzionante` chiusa 2026-08-23). Decision ticket + frontier, blocking via `blocked_by`, claim via `claimed`. Operativo solo per i lavori che lo usano già.
 - **Taskman** (`.taskman/plans/`): FROZEN — 4 piani 2026-08-23 (2 done, 2 in-progress migrati in Wayfinder t6/t7). Solo lettura/archivio, non usare per nuovi lavori.
-- **Wiki** (`.llm-wiki/`): memoria durable (concept/entity/synthesis). `wiki_observe` per note, `wiki_retro` per insight atomici.
-- **Quality gate unico**: `npm run test:all` = `npm run lint && tsc --noEmit && vitest run && playwright test` — deve essere verde prima di ogni commit harness-relevant.
+- **Wiki** (`.llm-wiki/`): memoria durable (concept/entity/synthesis). `wiki_retro` per insight atomici.
+- **Quality gate unico**: `npm run test:all` = `npm run lint && tsc --noEmit && vitest run && npm run test:rls && playwright test` — deve essere verde prima di ogni commit harness-relevant.
 
 ## Agent skills
 
 ### Issue tracker
+
+**Regola unica tracker**: i ticket si aprono e si seguono su GitHub issues (intake e lavoro in corso); Wayfinder solo per i lavori che lo usano già, mai per ticket nuovi.
 
 GitHub issues in rkestt/Drop-In. See `docs/agents/issue-tracker.md`.
 

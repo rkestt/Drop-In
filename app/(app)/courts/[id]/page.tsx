@@ -47,6 +47,10 @@ export default async function CourtPage({
     data: { user },
   } = await supabase.auth.getUser();
 
+  const photoUrl = court.photo_path
+    ? supabase.storage.from("court-photos").getPublicUrl(court.photo_path).data.publicUrl
+    : null;
+
   const reportCategories: Record<string, string> = {
     broken_hoop: "Canestro rotto",
     wet_court: "Campo bagnato",
@@ -67,6 +71,17 @@ export default async function CourtPage({
           {court.address || "Indirizzo non disponibile"}
         </p>
       </div>
+
+      {photoUrl && (
+        <div className="relative aspect-video rounded-xl overflow-hidden bg-[var(--bg-surface)]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={photoUrl}
+            alt={`Foto di ${court.name}`}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
 
       {/* Info */}
       <div className="flex flex-wrap gap-2">

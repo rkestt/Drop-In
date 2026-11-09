@@ -13,11 +13,12 @@ interface CourtMapProps {
   reportedCourtIds?: string[];
   userLocation?: [number, number] | null;
   locationError?: string | null;
+  ariaLabel?: string;
 }
 
 const ROME_CENTER: [number, number] = [12.5113, 41.8919];
 
-export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedCourtIds = [], userLocation = null, locationError = null }: CourtMapProps) {
+export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedCourtIds = [], userLocation = null, locationError = null, ariaLabel = "Mappa dei campi" }: CourtMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const courtMarkers = useRef<maplibregl.Marker[]>([]);
@@ -128,7 +129,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     });
 
     map.current = instance;
-  }, []);
+  }, [onBoundsChange]);
 
   useEffect(() => {
     if (mapContainer.current && (mapContainer.current.clientWidth === 0 || mapContainer.current.clientHeight === 0)) {
@@ -224,7 +225,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
   }, [removeCourtMarkers]);
 
   return (
-    <div className="absolute inset-0" role="region" aria-label="Mappa dei campi da basket">
+    <div className="absolute inset-0" role="region" aria-label={ariaLabel}>
       <div ref={mapContainer} className="w-full h-full" />
       {locationError && (
         <div className="absolute top-4 left-4 right-4 bg-[var(--bg-elevated)] rounded-xl p-3 shadow-lg z-10" role="alert" aria-live="polite">
