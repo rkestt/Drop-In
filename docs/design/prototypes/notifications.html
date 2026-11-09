@@ -1,0 +1,1272 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Notifiche · Drop-In (prototipo)</title>
+    <link rel="stylesheet" href="proto.css" />
+    <style>
+      /* notifiche.html — solo ciò che è specifico della schermata.
+       * Colori, radius, motion e font vengono da proto.css: nessun token nuovo.
+       * Le tinte sono derivate con color-mix dai token, mai valori inventati. */
+
+      .proto {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        width: 100%;
+      }
+
+      /* proto.js nasconde gli stati con [hidden]: il display:flex locale
+       * altrimenti vincerebbe sullo stile del browser. */
+      [data-state][hidden] {
+        display: none !important;
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Stato                                                             */
+      /* ---------------------------------------------------------------- */
+
+      .nb-state {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .nb-state--center {
+        justify-content: center;
+        padding: 24px 20px;
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Frame futuro (permesso push)                                      */
+      /* ---------------------------------------------------------------- */
+
+      .nb-future {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin: 0;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        background: color-mix(in srgb, var(--warning) 8%, transparent);
+        color: var(--warning-dark);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .nb-future .badge {
+        flex: 0 0 auto;
+      }
+
+      .nb-flow {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 12px;
+        flex: 1;
+        padding: 24px 20px;
+      }
+
+      .nb-hero {
+        display: grid;
+        place-items: center;
+        width: 56px;
+        height: 56px;
+        border-radius: var(--radius-card);
+        background: var(--accent-subtle);
+        color: var(--accent);
+      }
+
+      .nb-hero .nb-ico {
+        width: 26px;
+        height: 26px;
+      }
+
+      .nb-hero--danger {
+        background: color-mix(in srgb, var(--danger) 14%, transparent);
+        color: var(--danger-dark);
+      }
+
+      .nb-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 0;
+        padding-left: 20px;
+        color: var(--text-secondary);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .nb-steps li::marker {
+        color: var(--text-muted);
+      }
+
+      .nb-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+        margin-top: 8px;
+      }
+
+      .nb-actions__hint {
+        margin: 2px 0 0;
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Barra della lista                                                 */
+      /* ---------------------------------------------------------------- */
+
+      .nb-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 52px;
+        padding: 8px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .nb-linkbtn {
+        min-height: 44px;
+        margin-right: -4px;
+        padding: 0 4px;
+        border: 0;
+        border-radius: var(--radius-control-sm);
+        background: transparent;
+        color: var(--accent);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .nb-linkbtn:hover {
+        color: var(--accent-hover);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+
+      .nb-linkbtn:focus-visible {
+        outline: 2px solid var(--focus-ring);
+        outline-offset: 2px;
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Lista                                                             */
+      /* ---------------------------------------------------------------- */
+
+      .nb-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-surface);
+      }
+
+      .nb-item + .nb-item {
+        border-top: 1px solid var(--border);
+      }
+
+      .nb-row {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 12px;
+        min-height: 44px;
+        padding: 14px 16px;
+        color: inherit;
+        text-decoration: none;
+        transition: background-color var(--motion-fast) var(--ease-standard);
+      }
+
+      a.nb-row:hover {
+        background: var(--bg-elevated);
+      }
+
+      a.nb-row:focus-visible {
+        outline: 2px solid var(--focus-ring);
+        outline-offset: -2px;
+      }
+
+      .nb-row--unread {
+        box-shadow: inset 3px 0 0 var(--accent);
+      }
+
+      .nb-row--new {
+        animation: nb-flash 2s var(--ease-standard) both;
+      }
+
+      @keyframes nb-flash {
+        0%,
+        80% {
+          box-shadow:
+            inset 0 0 0 2px var(--accent),
+            inset 3px 0 0 var(--accent);
+        }
+        100% {
+          box-shadow:
+            inset 0 0 0 2px transparent,
+            inset 3px 0 0 var(--accent);
+        }
+      }
+
+      .nb-icon {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-control);
+      }
+
+      .nb-icon--lobby {
+        background: var(--accent-subtle);
+        color: var(--accent);
+      }
+
+      .nb-icon--karma {
+        background: color-mix(in srgb, var(--warning) 16%, transparent);
+        color: var(--warning-dark);
+      }
+
+      .nb-icon--ban {
+        background: color-mix(in srgb, var(--danger) 16%, transparent);
+        color: var(--danger-dark);
+      }
+
+      .nb-icon--checkin {
+        background: color-mix(in srgb, var(--success) 16%, transparent);
+        color: var(--success-dark);
+      }
+
+      .nb-icon--weather {
+        background: color-mix(in srgb, var(--cool-muted) 28%, transparent);
+        color: var(--text-secondary);
+      }
+
+      .nb-main {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+
+      .nb-title {
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.35;
+        color: var(--text-primary);
+      }
+
+      .nb-text {
+        font-size: 14px;
+        line-height: 1.4;
+        color: var(--text-secondary);
+      }
+
+      .nb-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .nb-go {
+        color: var(--accent);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .nb-dot {
+        width: 8px;
+        height: 8px;
+        margin-top: 7px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      .nb-row--read .nb-title {
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+
+      .nb-row--read .nb-text {
+        color: var(--text-muted);
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Toast realtime                                                    */
+      /* ---------------------------------------------------------------- */
+
+      .nb-toast {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin: 12px 16px 0;
+        padding: 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-card);
+        background: var(--bg-elevated);
+        box-shadow: 0 10px 24px var(--overlay);
+        animation: nb-toast-in var(--motion-slow) var(--ease-standard) both;
+      }
+
+      .nb-toast__icon {
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-control-sm);
+        background: var(--accent-subtle);
+        color: var(--accent);
+      }
+
+      .nb-toast__icon .nb-ico {
+        width: 18px;
+        height: 18px;
+      }
+
+      .nb-toast__title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+
+      .nb-toast__text {
+        margin: 2px 0 0;
+        font-size: 13px;
+        line-height: 1.35;
+        color: var(--text-muted);
+      }
+
+      @keyframes nb-toast-in {
+        from {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Vuoto / errore / skeleton                                         */
+      /* ---------------------------------------------------------------- */
+
+      .nb-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        max-width: 300px;
+        text-align: center;
+      }
+
+      .nb-empty__icon {
+        display: grid;
+        place-items: center;
+        width: 56px;
+        height: 56px;
+        border-radius: var(--radius-card);
+        background: var(--bg-surface);
+        color: var(--text-muted);
+      }
+
+      .nb-empty__icon .nb-ico {
+        width: 26px;
+        height: 26px;
+      }
+
+      .nb-empty .body {
+        max-width: 260px;
+      }
+
+      .nb-empty .btn {
+        margin-top: 8px;
+      }
+
+      .nb-skel {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 12px;
+        padding: 16px;
+      }
+
+      .nb-skel + .nb-skel {
+        border-top: 1px solid var(--border);
+      }
+
+      /* Skeleton su --bg-surface: le barre usano --bg-elevated per restare visibili. */
+      .nb-skel .skeleton {
+        background: var(--bg-elevated);
+      }
+
+      .nb-skel__avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-control);
+      }
+
+      .nb-skel__lines {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-top: 3px;
+      }
+
+      .nb-skel__title {
+        width: 45%;
+        height: 12px;
+      }
+
+      .nb-skel__text {
+        width: 100%;
+        height: 10px;
+      }
+
+      .nb-skel__text--short {
+        width: 68%;
+      }
+
+      .nb-skel__meta {
+        width: 30%;
+        height: 8px;
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Offline                                                           */
+      /* ---------------------------------------------------------------- */
+
+      .nb-pad {
+        padding: 12px 16px 0;
+      }
+
+      .nb-banner__icon {
+        flex: 0 0 auto;
+        margin-top: 1px;
+      }
+
+      .nb-banner__title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .nb-banner__text {
+        margin: 2px 0 0;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Specimen della campanella (fuori dallo schermo)                   */
+      /* ---------------------------------------------------------------- */
+
+      .nb-specimen {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .nb-specimen__label {
+        color: var(--text-secondary);
+        font-weight: 600;
+      }
+
+      .nb-bell {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+        background: var(--bg-surface);
+        color: var(--text-secondary);
+      }
+
+      .nb-bell__count {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        display: grid;
+        place-items: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 4px;
+        border: 2px solid var(--bg-base);
+        border-radius: var(--radius-chip);
+        background: var(--accent);
+        color: var(--accent-foreground);
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Icone                                                             */
+      /* ---------------------------------------------------------------- */
+
+      .nb-sprite {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+
+      .nb-ico {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Pipeline: notifiche.
+      Dove siamo: prototipo d14, prima dell'implementazione d22.
+      Passo: centro notifiche con permesso push, lista, letto/non letto e stati.
+      Prossimo passo: review HITL su copy, tipi e badge; poi d22.
+      I frame Permesso e Negato sono FUTURO: non si implementano finché non
+      esiste il delivery push lato server. Il centro funziona anche senza.
+    -->
+
+    <svg class="nb-sprite" aria-hidden="true" focusable="false">
+      <symbol id="i-bell" viewBox="0 0 24 24">
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </symbol>
+      <symbol id="i-bell-off" viewBox="0 0 24 24">
+        <path d="M18 8a6 6 0 0 0-9.33-5" />
+        <path d="M6.26 6.26A6 6 0 0 0 6 8c0 7-3 9-3 9h14" />
+        <path d="M18 8c0 2.5.4 4.3 1 5.6" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        <path d="m2 2 20 20" />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+        <path d="M12 9v4" />
+        <path d="M12 17h.01" />
+      </symbol>
+      <symbol id="i-ban" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="m5.6 5.6 12.8 12.8" />
+      </symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="m8 12 2.5 2.5L16 9" />
+      </symbol>
+      <symbol id="i-arrow-left" viewBox="0 0 24 24">
+        <path d="M19 12H5" />
+        <path d="m12 19-7-7 7-7" />
+      </symbol>
+      <symbol id="i-wifi-off" viewBox="0 0 24 24">
+        <path d="m2 2 20 20" />
+        <path d="M8.5 8.5a11 11 0 0 1 12 1.5" />
+        <path d="M5 12.5a11 11 0 0 1 4-2.3" />
+        <path d="M8.5 16.4a6 6 0 0 1 7 0" />
+        <path d="M12 20h.01" />
+      </symbol>
+      <symbol id="i-cloud-rain" viewBox="0 0 24 24">
+        <path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2" />
+        <path d="M16 14v6" />
+        <path d="M8 14v6" />
+        <path d="M12 16v6" />
+      </symbol>
+    </svg>
+
+    <div class="proto" data-state-group data-initial="lista">
+      <header class="proto-head">
+        <p class="proto-head__title">Centro notifiche</p>
+        <p class="proto-head__meta">d14 · prossimo passo: review HITL</p>
+      </header>
+
+      <nav class="proto-toolbar" aria-label="Stati del prototipo">
+        <button class="proto-switch" type="button" data-show="permesso" aria-pressed="false">
+          Permesso
+        </button>
+        <button class="proto-switch" type="button" data-show="negato" aria-pressed="false">
+          Negato
+        </button>
+        <button class="proto-switch" type="button" data-show="lista" aria-pressed="false">
+          Lista
+        </button>
+        <button class="proto-switch" type="button" data-show="letto" aria-pressed="false">
+          Lette
+        </button>
+        <button class="proto-switch" type="button" data-show="vuoto" aria-pressed="false">
+          Vuoto
+        </button>
+        <button class="proto-switch" type="button" data-show="loading" aria-pressed="false">
+          Caricamento
+        </button>
+        <button class="proto-switch" type="button" data-show="errore" aria-pressed="false">
+          Errore
+        </button>
+        <button class="proto-switch" type="button" data-show="realtime" aria-pressed="false">
+          Arrivo
+        </button>
+        <button class="proto-switch" type="button" data-show="offline" aria-pressed="false">
+          Offline
+        </button>
+      </nav>
+
+      <p class="note">
+        Permesso e Negato sono frame <strong>futuro</strong>: il delivery push non è attivo.
+      </p>
+
+      <main class="phone phone--tall" aria-label="Centro notifiche">
+        <div class="screen">
+          <header class="appbar">
+            <button class="appbar__back" type="button" aria-label="Indietro">
+              <svg class="nb-ico" aria-hidden="true" focusable="false">
+                <use href="#i-arrow-left" />
+              </svg>
+            </button>
+            <h1 class="appbar__title">Notifiche</h1>
+          </header>
+
+          <div class="content content--flush">
+            <!-- 1. Permesso da chiedere — FUTURO -->
+            <section class="nb-state" data-state="permesso" hidden>
+              <p class="nb-future">
+                <span class="badge badge--warning">Futuro</span>
+                <span>Il delivery push non è attivo: oggi gli avvisi restano qui nell'app.</span>
+              </p>
+              <div class="nb-flow">
+                <span class="nb-hero" aria-hidden="true">
+                  <svg class="nb-ico" focusable="false"><use href="#i-bell" /></svg>
+                </span>
+                <h2 class="display-sm">Avvisi sul telefono</h2>
+                <p class="body">
+                  Ti avvisiamo 30 minuti prima della lobby e quando il karma cambia.
+                </p>
+                <p class="muted">Puoi cambiarli quando vuoi dalle impostazioni del telefono.</p>
+                <div class="nb-actions">
+                  <button class="btn btn--primary btn--block" type="button">Attiva notifiche</button>
+                  <button class="btn btn--ghost btn--block" type="button" data-goto="lista">
+                    Non ora
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <!-- 2. Permesso negato — FUTURO -->
+            <section class="nb-state" data-state="negato" hidden>
+              <p class="nb-future">
+                <span class="badge badge--warning">Futuro</span>
+                <span>Il delivery push non è attivo: oggi gli avvisi restano qui nell'app.</span>
+              </p>
+              <div class="nb-flow">
+                <span class="nb-hero nb-hero--danger" aria-hidden="true">
+                  <svg class="nb-ico" focusable="false"><use href="#i-bell-off" /></svg>
+                </span>
+                <h2 class="display-sm">Notifiche bloccate</h2>
+                <p class="body">Le notifiche sono bloccate dal browser.</p>
+                <ol class="nb-steps">
+                  <li>Tocca l'icona accanto all'indirizzo e apri le autorizzazioni del sito.</li>
+                  <li>Attiva Notifiche e ricarica la pagina.</li>
+                </ol>
+                <div class="nb-actions">
+                  <button class="btn btn--primary btn--block" type="button">Riprova</button>
+                  <p class="muted nb-actions__hint">
+                    Se il browser non lo permette, riapri l'app dopo aver cambiato l'impostazione.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <!-- 3. Lista con notifiche -->
+            <section class="nb-state" data-state="lista">
+              <div class="nb-bar">
+                <span class="badge badge--accent">3 non lette</span>
+                <button
+                  class="nb-linkbtn"
+                  type="button"
+                  data-goto="letto"
+                  data-mark-all
+                >
+                  Segna tutte come lette
+                </button>
+              </div>
+              <ul class="nb-list" aria-label="Notifiche">
+                <li class="nb-item">
+                  <a class="nb-row nb-row--unread" href="#lobby-parco-acquedotti">
+                    <span class="sr-only">Non letta.</span>
+                    <span class="nb-icon nb-icon--lobby" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-clock" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Lobby tra 30 minuti</span>
+                      <span class="nb-text">
+                        Parco degli Acquedotti, campo 2 · 5 giocatori. Alle 19:00.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-09T18:30">22 min fa</time>
+                        <span class="nb-go">Apri lobby</span>
+                      </span>
+                    </span>
+                    <span class="nb-dot" aria-hidden="true"></span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--unread" href="#profilo">
+                    <span class="sr-only">Non letta.</span>
+                    <span class="nb-icon nb-icon--karma" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-alert" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Karma −3</span>
+                      <span class="nb-text">
+                        Non sei arrivato ieri a Villa Pamphili. Il tuo karma è 54.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-09T16:52">2 ore fa</time>
+                        <span class="nb-go">Apri profilo</span>
+                      </span>
+                    </span>
+                    <span class="nb-dot" aria-hidden="true"></span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--unread" href="#campo-piazza-vittorio">
+                    <span class="sr-only">Non letta.</span>
+                    <span class="nb-icon nb-icon--checkin" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-check" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Check-in registrato</span>
+                      <span class="nb-text">Piazza Vittorio, campo 1. Sei dentro: buona partita.</span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-07T18:40">2 giorni fa</time>
+                        <span class="nb-go">Apri campo</span>
+                      </span>
+                    </span>
+                    <span class="nb-dot" aria-hidden="true"></span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--read" href="#campo-villa-pamphili">
+                    <span class="nb-icon nb-icon--weather" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-cloud-rain" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Campo allagato a Villa Pamphili</span>
+                      <span class="nb-text">
+                        Lobby di giovedì annullata: il campo è impraticabile.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-05T18:00">4 giorni fa</time>
+                        <span class="nb-go">Apri campo</span>
+                      </span>
+                    </span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--read" href="#profilo">
+                    <span class="nb-icon nb-icon--ban" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-ban" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Blocco di 7 giorni</span>
+                      <span class="nb-text">
+                        Troppe assenze: blocco fino al 29 ottobre. Il karma era sceso a 47.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-10-22T19:15">18 giorni fa</time>
+                        <span class="nb-go">Apri profilo</span>
+                      </span>
+                    </span>
+                  </a>
+                </li>
+              </ul>
+            </section>
+
+            <!-- 4. Tutto letto -->
+            <section class="nb-state" data-state="letto" hidden>
+              <div class="nb-bar">
+                <span class="badge">Tutte lette</span>
+              </div>
+              <ul class="nb-list" aria-label="Notifiche">
+                <li class="nb-item">
+                  <a class="nb-row nb-row--read" href="#lobby-parco-acquedotti">
+                    <span class="nb-icon nb-icon--lobby" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-clock" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Lobby tra 30 minuti</span>
+                      <span class="nb-text">
+                        Parco degli Acquedotti, campo 2 · 5 giocatori. Alle 19:00.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-09T18:30">22 min fa</time>
+                        <span class="nb-go">Apri lobby</span>
+                      </span>
+                    </span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--read" href="#profilo">
+                    <span class="nb-icon nb-icon--karma" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-alert" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Karma −3</span>
+                      <span class="nb-text">
+                        Non sei arrivato ieri a Villa Pamphili. Il tuo karma è 54.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-09T16:52">2 ore fa</time>
+                        <span class="nb-go">Apri profilo</span>
+                      </span>
+                    </span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--read" href="#campo-piazza-vittorio">
+                    <span class="nb-icon nb-icon--checkin" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-check" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Check-in registrato</span>
+                      <span class="nb-text">Piazza Vittorio, campo 1. Sei dentro: buona partita.</span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-07T18:40">2 giorni fa</time>
+                        <span class="nb-go">Apri campo</span>
+                      </span>
+                    </span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--read" href="#campo-villa-pamphili">
+                    <span class="nb-icon nb-icon--weather" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-cloud-rain" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Campo allagato a Villa Pamphili</span>
+                      <span class="nb-text">
+                        Lobby di giovedì annullata: il campo è impraticabile.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-05T18:00">4 giorni fa</time>
+                        <span class="nb-go">Apri campo</span>
+                      </span>
+                    </span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--read" href="#profilo">
+                    <span class="nb-icon nb-icon--ban" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-ban" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Blocco di 7 giorni</span>
+                      <span class="nb-text">
+                        Troppe assenze: blocco fino al 29 ottobre. Il karma era sceso a 47.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-10-22T19:15">18 giorni fa</time>
+                        <span class="nb-go">Apri profilo</span>
+                      </span>
+                    </span>
+                  </a>
+                </li>
+              </ul>
+            </section>
+
+            <!-- 5. Vuoto -->
+            <section class="nb-state nb-state--center" data-state="vuoto" hidden>
+              <div class="nb-empty">
+                <span class="nb-empty__icon" aria-hidden="true">
+                  <svg class="nb-ico" focusable="false"><use href="#i-bell" /></svg>
+                </span>
+                <p class="h2">Nessuna notifica</p>
+                <p class="body">Ti avvisiamo qui quando cambia qualcosa.</p>
+                <button class="btn btn--secondary btn--sm" type="button" data-goto="permesso">
+                  Attiva le notifiche
+                </button>
+              </div>
+            </section>
+
+            <!-- 6. Caricamento -->
+            <section class="nb-state" data-state="loading" hidden>
+              <div class="nb-list" aria-hidden="true">
+                <div class="nb-skel">
+                  <div class="skeleton nb-skel__avatar"></div>
+                  <div class="nb-skel__lines">
+                    <div class="skeleton nb-skel__title"></div>
+                    <div class="skeleton nb-skel__text"></div>
+                    <div class="skeleton nb-skel__meta"></div>
+                  </div>
+                </div>
+                <div class="nb-skel">
+                  <div class="skeleton nb-skel__avatar"></div>
+                  <div class="nb-skel__lines">
+                    <div class="skeleton nb-skel__title"></div>
+                    <div class="skeleton nb-skel__text"></div>
+                    <div class="skeleton nb-skel__meta"></div>
+                  </div>
+                </div>
+                <div class="nb-skel">
+                  <div class="skeleton nb-skel__avatar"></div>
+                  <div class="nb-skel__lines">
+                    <div class="skeleton nb-skel__title"></div>
+                    <div class="skeleton nb-skel__text nb-skel__text--short"></div>
+                    <div class="skeleton nb-skel__meta"></div>
+                  </div>
+                </div>
+                <div class="nb-skel">
+                  <div class="skeleton nb-skel__avatar"></div>
+                  <div class="nb-skel__lines">
+                    <div class="skeleton nb-skel__title"></div>
+                    <div class="skeleton nb-skel__text"></div>
+                    <div class="skeleton nb-skel__meta"></div>
+                  </div>
+                </div>
+              </div>
+              <p class="sr-only" role="status">Caricamento notifiche…</p>
+            </section>
+
+            <!-- 7. Errore -->
+            <section class="nb-state nb-state--center" data-state="errore" hidden>
+              <div class="nb-empty">
+                <span class="nb-hero nb-hero--danger" aria-hidden="true">
+                  <svg class="nb-ico" focusable="false"><use href="#i-alert" /></svg>
+                </span>
+                <p class="h2">Non riusciamo a caricare le notifiche.</p>
+                <p class="body">Controlla la connessione e riprova.</p>
+                <button class="btn btn--primary btn--block" type="button" data-goto="lista">
+                  Riprova
+                </button>
+              </div>
+            </section>
+
+            <!-- 8. Arrivo realtime -->
+            <section class="nb-state" data-state="realtime" hidden>
+              <div class="nb-toast" aria-hidden="true">
+                <span class="nb-toast__icon">
+                  <svg class="nb-ico" focusable="false"><use href="#i-bell" /></svg>
+                </span>
+                <div>
+                  <p class="nb-toast__title">Nuova lobby a 400 m</p>
+                  <p class="nb-toast__text">Piazza Vittorio, campo 1 · 3/5</p>
+                </div>
+              </div>
+              <div class="nb-bar">
+                <span class="badge badge--accent">4 non lette</span>
+                <button
+                  class="nb-linkbtn"
+                  type="button"
+                  data-goto="letto"
+                  data-mark-all
+                >
+                  Segna tutte come lette
+                </button>
+              </div>
+              <ul class="nb-list" aria-label="Notifiche">
+                <li class="nb-item">
+                  <a
+                    class="nb-row nb-row--unread nb-row--new"
+                    href="#lobby-piazza-vittorio"
+                    data-new-row
+                  >
+                    <span class="sr-only">Non letta. Nuova.</span>
+                    <span class="nb-icon nb-icon--lobby" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-bell" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Nuova lobby a 400 m</span>
+                      <span class="nb-text">
+                        Piazza Vittorio, campo 1 · 3/5. Unisciti prima che si riempia.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-09T18:52">Adesso</time>
+                        <span class="nb-go">Apri lobby</span>
+                      </span>
+                    </span>
+                    <span class="nb-dot" aria-hidden="true"></span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--unread" href="#lobby-parco-acquedotti">
+                    <span class="sr-only">Non letta.</span>
+                    <span class="nb-icon nb-icon--lobby" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-clock" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Lobby tra 30 minuti</span>
+                      <span class="nb-text">
+                        Parco degli Acquedotti, campo 2 · 5 giocatori. Alle 19:00.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-09T18:30">22 min fa</time>
+                        <span class="nb-go">Apri lobby</span>
+                      </span>
+                    </span>
+                    <span class="nb-dot" aria-hidden="true"></span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--unread" href="#profilo">
+                    <span class="sr-only">Non letta.</span>
+                    <span class="nb-icon nb-icon--karma" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-alert" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Karma −3</span>
+                      <span class="nb-text">
+                        Non sei arrivato ieri a Villa Pamphili. Il tuo karma è 54.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-09T16:52">2 ore fa</time>
+                        <span class="nb-go">Apri profilo</span>
+                      </span>
+                    </span>
+                    <span class="nb-dot" aria-hidden="true"></span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--unread" href="#campo-piazza-vittorio">
+                    <span class="sr-only">Non letta.</span>
+                    <span class="nb-icon nb-icon--checkin" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-check" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Check-in registrato</span>
+                      <span class="nb-text">Piazza Vittorio, campo 1. Sei dentro: buona partita.</span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-07T18:40">2 giorni fa</time>
+                        <span class="nb-go">Apri campo</span>
+                      </span>
+                    </span>
+                    <span class="nb-dot" aria-hidden="true"></span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--read" href="#campo-villa-pamphili">
+                    <span class="nb-icon nb-icon--weather" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-cloud-rain" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Campo allagato a Villa Pamphili</span>
+                      <span class="nb-text">
+                        Lobby di giovedì annullata: il campo è impraticabile.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-05T18:00">4 giorni fa</time>
+                        <span class="nb-go">Apri campo</span>
+                      </span>
+                    </span>
+                  </a>
+                </li>
+                <li class="nb-item">
+                  <a class="nb-row nb-row--read" href="#profilo">
+                    <span class="nb-icon nb-icon--ban" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-ban" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Blocco di 7 giorni</span>
+                      <span class="nb-text">
+                        Troppe assenze: blocco fino al 29 ottobre. Il karma era sceso a 47.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-10-22T19:15">18 giorni fa</time>
+                        <span class="nb-go">Apri profilo</span>
+                      </span>
+                    </span>
+                  </a>
+                </li>
+              </ul>
+            </section>
+
+            <!-- 9. Offline -->
+            <section class="nb-state" data-state="offline" hidden>
+              <div class="nb-pad">
+                <div class="banner banner--warning" role="status">
+                  <svg class="nb-ico nb-banner__icon" aria-hidden="true" focusable="false">
+                    <use href="#i-wifi-off" />
+                  </svg>
+                  <div>
+                    <p class="nb-banner__title">Dati di 12 min fa</p>
+                    <p class="nb-banner__text">
+                      Sei offline. Segnare come letta richiede la connessione.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="nb-bar">
+                <span class="badge badge--accent">3 non lette</span>
+              </div>
+              <ul class="nb-list" aria-label="Notifiche salvate">
+                <li class="nb-item">
+                  <div class="nb-row nb-row--unread">
+                    <span class="nb-icon nb-icon--lobby" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-clock" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Lobby tra 30 minuti</span>
+                      <span class="nb-text">
+                        Parco degli Acquedotti, campo 2 · 5 giocatori. Alle 19:00.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-09T18:30">22 min fa</time>
+                      </span>
+                    </span>
+                    <span class="nb-dot" aria-hidden="true"></span>
+                  </div>
+                </li>
+                <li class="nb-item">
+                  <div class="nb-row nb-row--unread">
+                    <span class="nb-icon nb-icon--karma" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-alert" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Karma −3</span>
+                      <span class="nb-text">
+                        Non sei arrivato ieri a Villa Pamphili. Il tuo karma è 54.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-09T16:52">2 ore fa</time>
+                      </span>
+                    </span>
+                    <span class="nb-dot" aria-hidden="true"></span>
+                  </div>
+                </li>
+                <li class="nb-item">
+                  <div class="nb-row nb-row--unread">
+                    <span class="nb-icon nb-icon--checkin" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-check" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Check-in registrato</span>
+                      <span class="nb-text">Piazza Vittorio, campo 1. Sei dentro: buona partita.</span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-07T18:40">2 giorni fa</time>
+                      </span>
+                    </span>
+                    <span class="nb-dot" aria-hidden="true"></span>
+                  </div>
+                </li>
+                <li class="nb-item">
+                  <div class="nb-row nb-row--read">
+                    <span class="nb-icon nb-icon--weather" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-cloud-rain" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Campo allagato a Villa Pamphili</span>
+                      <span class="nb-text">
+                        Lobby di giovedì annullata: il campo è impraticabile.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-11-05T18:00">4 giorni fa</time>
+                      </span>
+                    </span>
+                  </div>
+                </li>
+                <li class="nb-item">
+                  <div class="nb-row nb-row--read">
+                    <span class="nb-icon nb-icon--ban" aria-hidden="true">
+                      <svg class="nb-ico" focusable="false"><use href="#i-ban" /></svg>
+                    </span>
+                    <span class="nb-main">
+                      <span class="nb-title">Blocco di 7 giorni</span>
+                      <span class="nb-text">
+                        Troppe assenze: blocco fino al 29 ottobre. Il karma era sceso a 47.
+                      </span>
+                      <span class="nb-meta">
+                        <time datetime="2026-10-22T19:15">18 giorni fa</time>
+                      </span>
+                    </span>
+                  </div>
+                </li>
+              </ul>
+            </section>
+          </div>
+
+          <p id="nb-live" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+        </div>
+      </main>
+
+      <div class="note nb-specimen">
+        <span class="nb-specimen__label">Campanella in mappa e profilo</span>
+        <span class="nb-bell" aria-hidden="true">
+          <svg class="nb-ico" focusable="false"><use href="#i-bell" /></svg>
+          <span class="nb-bell__count">3</span>
+        </span>
+        <span>Badge con il numero di non lette; il nome accessibile è «Notifiche, 3 non lette».</span>
+      </div>
+
+      <p class="note">
+        Permesso e Negato sono frame <strong>futuro</strong> (delivery push non attivo): non si
+        implementano in d22, il centro funziona anche senza. Per rivedere l'arrivo, cambia stato e
+        torna su <strong>Arrivo</strong>: la riga resta in evidenza 2 secondi, poi torna una normale
+        riga non letta.
+      </p>
+    </div>
+
+    <script src="proto.js"></script>
+    <script>
+      /* Solo per il prototipo: i bottoni dentro gli stati non usano data-show,
+       * così proto.js non li tratta come toggle (niente aria-pressed falso).
+       * Il cambio stato passa dal bottone corrispondente della toolbar. */
+      (function () {
+        "use strict";
+
+        var live = document.getElementById("nb-live");
+
+        function announce(message) {
+          if (!live) return;
+          live.textContent = "";
+          window.setTimeout(function () {
+            live.textContent = message;
+          }, 150);
+        }
+
+        document.querySelectorAll("[data-goto]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            var target = document.querySelector(
+              '.proto-switch[data-show="' + button.getAttribute("data-goto") + '"]',
+            );
+            if (target) target.click();
+          });
+        });
+
+        document.querySelectorAll("[data-mark-all]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            announce("Tutte le notifiche sono state segnate come lette.");
+          });
+        });
+
+        var realtime = document.querySelector('.proto-switch[data-show="realtime"]');
+        if (realtime) {
+          realtime.addEventListener("click", function () {
+            announce(
+              "Nuova notifica: nuova lobby a 400 metri. Piazza Vittorio, campo 1, 3 posti su 5.",
+            );
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

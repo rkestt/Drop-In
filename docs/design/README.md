@@ -23,7 +23,7 @@ Se un file di codice diverge dalla documentazione, la documentazione vince: apri
   - [Button](components/button.md)
   - [Input](components/input.md)
   - [Badge](components/badge.md)
-  - [Bottom Sheet](components/bottom-sheet.md)
+  - [Drawer](components/drawer.md)
   - [Card](components/card.md)
   - [Navigazione + FAB](components/nav.md)
 - [Inventario contratti (COMPONENTS.md)](COMPONENTS.md)

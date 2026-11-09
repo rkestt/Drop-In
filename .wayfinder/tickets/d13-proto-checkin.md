@@ -2,7 +2,7 @@
 id: d13
 type: design
 hitl: true
-claimed: false
+claimed: true
 blocked_by: []
 ---
 ## Question
@@ -63,4 +63,51 @@ grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/checkin.html
 
 ## Resolution
 
-(TBD — esito review, copy approvato, stati mancanti, screenshot.)
+**Stato: in review HITL.** Prototipo completo, copy in italiano pronto da approvare. Nessuno stato mancante.
+
+**File.** `docs/design/prototypes/checkin.html` (nuovo, unico file scritto). `proto.css` e `proto.js` non toccati; i font self-hosted sono nella base condivisa `proto.css` (data URI, lavoro parallelo), quindi il prototipo non duplica `@font-face`. La tabella di `prototypes/README.md` **non** è stata aggiornata per istruzione dell'orchestratore: la riga `checkin.html` resta `da fare` e va portata a `in review` al merge.
+
+**Stati dalla toolbar (9/9).**
+
+| Toolbar | Stato | Copy / comportamento |
+|---|---|---|
+| Idle | default | Nome campo, «Check-in aperto ora», «Resta attivo 2 ore…», «Serve il GPS: ti verifichiamo entro 50 m dal campo.», CTA «Fai check-in», secondaria «Annulla» |
+| Attesa | loading | CTA disabilitata con spinner e label «Verifica posizione…», `aria-busy`, nessun secondo tap |
+| Permesso | permesso negato | «Permesso posizione negato» + «Abilitalo nelle impostazioni e riprova.»; «Come fare» apre i 3 passi inline; «Riprova» |
+| Distanza | fuori raggio | «Sei a 120 m dal campo. Avvicinati e riprova.», numero 120 m, meter 0–150 con soglia 50 m, «Aggiorna posizione» |
+| Posizione | GPS assente / timeout | «Non riusciamo a leggere la posizione. Esci all'aperto e riprova.» + hint GPS; «Riprova» |
+| Già dentro | check-in attivo | «Sei qui dalle 18:02, check-in attivo fino alle 20:02.»; nessuna CTA primaria, solo «Fai check-out» secondaria |
+| Successo | successo | Pop `--success`, «Check-in attivo fino alle 19:40», effetto «Sei dentro per 2 ore…», CTA «Chiudi» |
+| Salvataggio | errore server | «Non siamo riusciti a salvare il check-in. Riprova.» + «La posizione letta resta valida…»; «Riprova» |
+| Senza pop | reduced motion | Stesso successo senza animazione; nota di review che il testo resta |
+
+**Scelte.**
+- **Niente karma nel successo**: nel dominio il check-in GPS è presenza, non muove il karma (cfr. `rome-launch-readiness`); nessuna riga inventata.
+- **Un solo contenitore**: drawer, nessuno stepper, nessuna pagina intermedia. La scheda campo sotto è semplificata (mappa finta, nome, indirizzo) e la sua CTA sta in fondo, coperta dal drawer in tutti gli stati.
+- **Scadenza calcolata** da ora check-in + 2 ore e formattata `it-IT`: 17:40 → 19:40, 18:02 → 20:02. Ore simulate fisse per la review.
+- **Check-out**: chiude il drawer; il flusso di check-out non è in questo ticket. Le CTA di recovery sono stati visivi: il flusso si cambia dalla toolbar.
+- **Focus trap** attivo sul dialog; la toolbar è fuori (è chrome del prototipo): da tastiera si esce con `Esc` e si cambia stato dalla toolbar.
+- **Sheet idle** con `min-height: 424px`: a 768 il testo va a capo meno e lo sheet scenderebbe di 19 px tagliando l'indirizzo.
+
+**Verifiche eseguite (reali).**
+- `grep -L 'proto.css' docs/design/prototypes/checkin.html` → nessun output.
+- `grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/checkin.html` → nessun output.
+- `grep -rn 'docs/design/prototypes' app components lib` → nessun match; solo `proto.css`/`proto.js` come risorse, nessuna fetch, nessuna geolocalizzazione reale.
+- 360 e 768: `scrollWidth === innerWidth` (nessuno scroll orizzontale); toolbar 3×3 a 360, una riga a 768; tutti i 9 stati raggiungibili.
+- Console/network: 0 errori, 0 richieste esterne; Syne e Source Sans 3 caricati da `proto.css`.
+- Accessibilità: 1 sola CTA primaria per stato (0 in «Già dentro», da ticket), target ≥44 px anche in toolbar, focus visibile, trap Tab/Shift+Tab, `Esc` e backdrop chiudono con focus restituito, `aria-live="polite"` su loading/successo e `assertive` sugli errori, `aria-busy` sul loading.
+- Reduced motion: con `prefers-reduced-motion: reduce` l'animazione scende a 0.01 ms / 1 iterazione; lo stato «Senza pop» mostra il successo senza pop, testo e bordo restano.
+- Scadenza: verificati i valori calcolati 19:40 e 20:02.
+
+**Screenshot.**
+- Comandi del ticket (viewport): `/tmp/opencode/checkin-360.png`, `/tmp/opencode/checkin-768.png`.
+- Review full page: `/tmp/opencode/checkin-360-full.png`, `/tmp/opencode/checkin-768-full.png`; solo telefono: `/tmp/opencode/checkin-360-phone.png`, `/tmp/opencode/checkin-768-phone.png`.
+- Stati a 360: `/tmp/opencode/checkin-360-{idle,loading,denied,range,unavailable,inside,success,server,reduced}.png`; «Come fare» aperto: `/tmp/opencode/checkin-360-denied-open.png`.
+
+**Da guardare in review.**
+1. Copy del successo: «Check-in attivo fino alle 19:40» + effetto, senza «Operazione completata».
+2. Fuori raggio: 120 m + meter con soglia 50 m; il testo resta la fonte, la grafica è `aria-hidden`.
+3. Permesso: ordine «Come fare» (3 passi) → «Riprova»; va bene o va invertito?
+4. Già dentro: zero CTA primarie e check-out secondario, come da ticket.
+5. Reduced motion: «Senza pop» e nota di review.
+6. Tagli del background: l'idle non taglia nome/indirizzo a 360 e 768; gli sheet alti coprono il contesto (voluto).

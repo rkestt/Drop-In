@@ -32,15 +32,16 @@ Contratti brevi dei componenti esistenti. Dettagli (anatomia, snippet) in `compo
 - **A11y:** testo 12px maiuscolo — non usarlo per informazioni critiche solo-colore; se lo stato è essenziale, affianca testo o icona con label.
 - Dettagli: [components/badge.md](components/badge.md).
 
-## BottomSheet — `components/ui/bottom-sheet.tsx`
+## Drawer — `components/ui/drawer.tsx`
 
 - **Scopo (task utente):** dettagli campo, filtri o azioni contestuali, form brevi senza lasciare la mappa.
 - **NON usarlo per:** flussi lunghi (usa pagina intera); conferme semplici (usa toast o banner inline).
-- **API pubblica:** contenitore unico (`title?` + `children`); chiusura via swipe > 80px, `Escape`, clic backdrop.
-- **Stati:** closed (non renderizzato), open, dragging, exiting (`.sheet-exit`, `slideDown` 250ms).
-- **Token:** `--bg-elevated`, `--text-primary`, `--text-muted`, overlay nero 30%.
-- **A11y:** `role="dialog"` + `aria-modal="true"`; trappola focus con restituzione al trigger; handle con target 44px; `max-w-[720px]` centrata.
-- Dettagli: [components/bottom-sheet.md](components/bottom-sheet.md).
+- **Base:** `@base-ui/react` `Drawer` (una sola primitiva per dialog/drawer; `BottomSheet` non esiste più).
+- **API pubblica:** `open`, `onClose`, `title?`, `description?`, `children`, `className?`; chiusura via `Escape`, tap sul backdrop, drag oltre soglia.
+- **Stati:** closed (non renderizzato), open, dragging; transizioni Base UI, nessuna animazione custom.
+- **Token:** `--bg-elevated`, `--text-primary`, `--text-muted`, `--overlay` (backdrop), `rounded-t-sheet`, `pb-safe`.
+- **A11y:** `role="dialog"` + `aria-modal="true"` via Base UI; focus trap che cicla (Tab avanti e indietro), restore focus al trigger, handle 44px `aria-hidden`, scroll del body bloccato, reduced motion globale.
+- Dettagli: [components/drawer.md](components/drawer.md), pattern [patterns/sheets.md](patterns/sheets.md).
 
 ## Card — pattern (NON componente)
 

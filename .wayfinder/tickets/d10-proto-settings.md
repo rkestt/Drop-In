@@ -2,7 +2,7 @@
 id: d10
 type: design
 hitl: true
-claimed: false
+claimed: true
 blocked_by: []
 ---
 ## Question
@@ -68,4 +68,45 @@ grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/settings.html
 
 ## Resolution
 
-(TBD — esito review, voci tagliate, stato approvato, screenshot.)
+**Stato:** in review HITL — 2026-11-09. File: `docs/design/prototypes/settings.html` (prototipo statico, 8 stati, nessun import da `app/`/`components/`, nessuna fetch).
+
+**Stati (8/8, tutti dalla toolbar).** `default` (primo avvio: posizione “Da chiedere”), `notifiche-off`, `push-non-disponibile`, `posizione-negata`, `posizione-concessa`, `loading`, `logout-confirm`, `toast-successo`.
+
+**Interazioni verificate.**
+
+- Switch “Pallino degli avvisi non letti”: `role="switch"`, `aria-checked`, testo Attivo/Spento, pallino sulla campanella, toast e live region; il tap è su tutta la riga.
+- “Consenti posizione” / “Riprova”: badge → Consentita, istruzioni nascoste, riga “Non salviamo le tue coordinate”, `aria-live` aggiornata.
+- “Esci”: drawer con `role="dialog"`, `aria-modal`, titolo collegato; schermata sotto `inert`; “Annulla”, tap sul backdrop ed Esc tornano a `default`; nessuna doppia conferma.
+- Toolbar: ogni stato mostra una sola schermata; `aria-pressed` gestito da `proto.js`.
+
+**Esito check.**
+
+- `grep -L 'proto.css' docs/design/prototypes/settings.html` → vuoto.
+- `grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/settings.html` → vuoto.
+- Playwright a 360×780 e 768×900: nessuno scroll orizzontale su documento, phone, contenuto e toolbar; console pulita; 8 stati raggiungibili; target visibili ≥44px; focus visibile su switch, link e bottoni; `prefers-reduced-motion` → durate 0.01ms; `file://` apre con font e zero errori; nessuna richiesta esterna.
+- Font Syne/Source Sans 3 dalla base condivisa `proto.css` (self-hosted, OFL): nessun font diverso, nessun colore fuori dai token.
+- Verifica eseguita sulla porta **4175** (4173 occupata da un'altra lane), non 4173.
+
+**Screenshot.**
+
+- 360: `/tmp/opencode/settings-360.png`; 768: `/tmp/opencode/settings-768.png`; full page 360: `/tmp/opencode/settings-360-full.png`.
+- Tutto il contenuto del phone per la review: `/tmp/opencode/settings-360-expanded.png`.
+- Stati: `/tmp/opencode/state-<stato>.png` (inclusi `state-posizione-negata-posizione.png`, `state-logout-confirm.png`, `state-loading.png`, `state-toast-successo.png`).
+- A 328px (phone reale nel viewport 360): `/tmp/opencode/settings-328-bottom.png`, `settings-328-posizione-negata.png`, `settings-328-posizione-concessa.png`, `settings-328-logout.png`; focus switch: `/tmp/opencode/settings-328-focus-switch.png`.
+
+**Checklist `prototypes/README.md`.**
+
+- [x] Pipeline, passo e prossimo passo nel commento HTML e nel meta.
+- [x] Tutti gli 8 stati del ticket presenti e raggiungibili.
+- [x] Copy italiano, concreto; nessuna voce che prometta funzioni inesistenti.
+- [x] Un solo accent (switch attivo); “Esci” è danger, non accent (secondario in pagina, primario danger nel drawer); target ≥44px; focus visibile.
+- [x] Contrasto AA sui token usati (`tokens.md`); nessun colore hardcoded.
+- [x] `prefers-reduced-motion`: nessuna informazione affidata al movimento.
+- [x] Screenshot 360 e 768 allegati; verifica anche a 328.
+- [x] Nessun font diverso da Syne/Source Sans 3; nessun hex nell'HTML.
+
+**Tagli e note.** Push disabilitato (delivery fuori scope, nessun `Notification.requestPermission`; la riga diventa lo switch del permesso quando il server invierà notifiche). Niente “Elimina account” (richiede service role). “Modifica” è solo il link al drawer profilo (d11), non riprodotto. Focus trap del drawer con d5. Lo switch non persiste al reload (chiave `dropin:pref:badge:v1` in d18). “Avvisi” e campanella portano a `/notifications` (d14); privacy e “Segnala un problema” si definiscono in d18.
+
+**README.** La riga `settings.html` della tabella **non** è stata toccata in questa lane per il vincolo di concorrenza: va portata a “in review” al merge. La checklist sopra è compilata.
+
+**Review HITL.** In attesa di Andrea. Da guardare: gerarchia a 328/360, copy della riga push, drawer di uscita, switch del pallino.

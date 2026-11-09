@@ -35,14 +35,14 @@ Nessun codice finto in produzione.
 
 ### Frontier (sbloccati)
 
-- [d9-proto-onboarding](tickets/d9-proto-onboarding.md) — design HITL: primo avvio.
-- [d10-proto-settings](tickets/d10-proto-settings.md) — design HITL: impostazioni.
-- [d11-proto-profile](tickets/d11-proto-profile.md) — design HITL: profilo.
-- [d12-proto-lobby](tickets/d12-proto-lobby.md) — design HITL: lobby (lista/crea/dettaglio/join).
-- [d13-proto-checkin](tickets/d13-proto-checkin.md) — design HITL: check-in.
-- [d14-proto-notifications](tickets/d14-proto-notifications.md) — design HITL: notifiche.
-- [d15-proto-report](tickets/d15-proto-report.md) — design HITL: segnalazioni.
-- [d16-proto-offline](tickets/d16-proto-offline.md) — design HITL: offline/errori/vuoti.
+- [d9-proto-onboarding](tickets/d9-proto-onboarding.md) — design HITL: prototipo pronto, **in review** (`prototypes/onboarding.html`).
+- [d10-proto-settings](tickets/d10-proto-settings.md) — design HITL: prototipo pronto, **in review** (`prototypes/settings.html`).
+- [d11-proto-profile](tickets/d11-proto-profile.md) — design HITL: prototipo pronto, **in review** (`prototypes/profile.html`).
+- [d12-proto-lobby](tickets/d12-proto-lobby.md) — design HITL: prototipo pronto, **in review** (`prototypes/lobby.html`).
+- [d13-proto-checkin](tickets/d13-proto-checkin.md) — design HITL: prototipo pronto, **in review** (`prototypes/checkin.html`).
+- [d14-proto-notifications](tickets/d14-proto-notifications.md) — design HITL: prototipo pronto, **in review** (`prototypes/notifications.html`).
+- [d15-proto-report](tickets/d15-proto-report.md) — design HITL: prototipo pronto, **in review** (`prototypes/report.html`).
+- [d16-proto-offline](tickets/d16-proto-offline.md) — design HITL: prototipo pronto, **in review** (`prototypes/offline.html`).
 
 ### Decisions so far (map design-system)
 
@@ -77,18 +77,18 @@ Nessun codice finto in produzione.
 | [d2-map-sprites](tickets/d2-map-sprites.md) | bug | no | — | chiuso 2026-11-09 |
 | [d3-visual-ci-fonts](tickets/d3-visual-ci-fonts.md) | infra | no | — | chiuso 2026-11-09 |
 | [d4-safari-ios-check](tickets/d4-safari-ios-check.md) | verify | sì | — | chiuso 2026-11-09 (WebKit, device pendente) |
-| [d5-drawer-migration](tickets/d5-drawer-migration.md) | impl | no | d4 | aperto |
-| [d6-sonner-migration](tickets/d6-sonner-migration.md) | impl | no | d4 | aperto |
+| [d5-drawer-migration](tickets/d5-drawer-migration.md) | impl | no | d4 | chiuso 2026-11-09 |
+| [d6-sonner-migration](tickets/d6-sonner-migration.md) | impl | no | d4 | chiuso 2026-11-09 |
 | [d7-motion-pipelines](tickets/d7-motion-pipelines.md) | impl | no | d5, d6 | aperto |
 | [d8-form-rhf-zod](tickets/d8-form-rhf-zod.md) | impl | no | d5 | aperto |
-| [d9-proto-onboarding](tickets/d9-proto-onboarding.md) | design | sì | — | aperto |
-| [d10-proto-settings](tickets/d10-proto-settings.md) | design | sì | — | aperto |
-| [d11-proto-profile](tickets/d11-proto-profile.md) | design | sì | — | aperto |
-| [d12-proto-lobby](tickets/d12-proto-lobby.md) | design | sì | — | aperto |
-| [d13-proto-checkin](tickets/d13-proto-checkin.md) | design | sì | — | aperto |
-| [d14-proto-notifications](tickets/d14-proto-notifications.md) | design | sì | — | aperto |
-| [d15-proto-report](tickets/d15-proto-report.md) | design | sì | — | aperto |
-| [d16-proto-offline](tickets/d16-proto-offline.md) | design | sì | — | aperto |
+| [d9-proto-onboarding](tickets/d9-proto-onboarding.md) | design | sì | — | in review HITL |
+| [d10-proto-settings](tickets/d10-proto-settings.md) | design | sì | — | in review HITL |
+| [d11-proto-profile](tickets/d11-proto-profile.md) | design | sì | — | in review HITL |
+| [d12-proto-lobby](tickets/d12-proto-lobby.md) | design | sì | — | in review HITL |
+| [d13-proto-checkin](tickets/d13-proto-checkin.md) | design | sì | — | in review HITL |
+| [d14-proto-notifications](tickets/d14-proto-notifications.md) | design | sì | — | in review HITL |
+| [d15-proto-report](tickets/d15-proto-report.md) | design | sì | — | in review HITL |
+| [d16-proto-offline](tickets/d16-proto-offline.md) | design | sì | — | in review HITL |
 | [d17-impl-onboarding](tickets/d17-impl-onboarding.md) | impl | no | d9, d5, d6 | aperto |
 | [d18-impl-settings](tickets/d18-impl-settings.md) | impl | no | d10, d5, d6 | aperto |
 | [d19-impl-profile](tickets/d19-impl-profile.md) | impl | no | d11, d5, d6 | aperto |

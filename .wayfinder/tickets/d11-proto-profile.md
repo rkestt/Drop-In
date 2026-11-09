@@ -2,7 +2,7 @@
 id: d11
 type: design
 hitl: true
-claimed: false
+claimed: true
 blocked_by: []
 ---
 ## Question
@@ -59,4 +59,25 @@ grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/profile.html
 
 ## Resolution
 
-(TBD — esito review, stati tagliati, approvazione, screenshot.)
+**Stato:** in review HITL (2026-11-09). Nessuno stato tagliato.
+
+**File:** `docs/design/prototypes/profile.html` (nuovo). `proto.css` e `proto.js` non modificati. `README.md` non toccato in questa lane: la riga `profile.html` va aggiornata a parte.
+
+**Stati implementati (toolbar, 8/8):** `default`, `loading`, `banned`, `nickname-mancante`, `edit-drawer`, `edit-error`, `stats-vuote`, `toast-salvato`. In più `profile.html?state=<id>` apre direttamente uno stato per gli screenshot.
+
+**Screenshot:**
+- `/tmp/opencode/profile-360.png` (360×780) e `/tmp/opencode/profile-768.png` (768×900)
+- full page: `/tmp/opencode/profile-360-full.png`, `/tmp/opencode/profile-768-full.png`
+- per stato: `/tmp/opencode/profile-<stato>-360.png` (banned, nickname-mancante, edit-drawer, edit-error, stats-vuote, toast-salvato, loading)
+
+**Check eseguiti (verdi):**
+- `grep -L 'proto.css' docs/design/prototypes/profile.html` → nessun output.
+- `grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/profile.html` → nessun output.
+- Playwright 360/768: un solo stato visibile per volta, nessuno scroll orizzontale su pagina e telefono in tutti gli 8 stati; target ≥44px su schermata default e drawer; zero errori console.
+- Font Syne e Source Sans 3 caricati da `proto.css` (data URI nella base condivisa, nessun font-face duplicato nel prototipo); apertura `file://` verificata.
+- Drawer: focus sul campo all'apertura; `Esc` e tap sul backdrop chiudono e riportano il focus a "Modifica"; submit valido → `toast-salvato`; submit invalido resta su `edit-error` e rifocalizza il campo (`aria-invalid`, `aria-describedby`).
+- `banned`: banner `role="status"`, scadenza 16 novembre 2026; karma 43, barra `--danger`.
+- `loading`: skeleton con la stessa struttura del contenuto, `aria-busy` e status solo screen reader.
+
+**Da guardare in review:** gerarchia nome/karma (87 hero, statistiche 22px), copy del banner ("puoi partecipare di nuovo dal 16 novembre 2026" + cosa fare nel frattempo), drawer che lascia visibili header e karma, toast sopra la bottom nav, una sola CTA accent per stato. Nel prototipo l'errore inline mostra il caso vuoto; il limite di 30 caratteri è nel hint e va validato anche in implementazione.
+

@@ -1,0 +1,1201 @@
+<!doctype html>
+<!--
+  Drop-In · prototipo statico d9 — Primo avvio
+  Pipeline: primo avvio (3 passi, una volta sola, skippabile)
+  Dove siamo: prototipo completo, in review HITL (Andrea)
+  Unico prossimo passo: approvazione → d17 (components/onboarding/first-run.tsx)
+  Stati: step-1 | step-2 | step-3 | coach-mark | reduced-motion
+  Non è una route: drawer sopra la mappa, massimo 70% dell'altezza.
+  Persistenza descritta in fondo al file, non implementata.
+-->
+<html lang="it" data-demo-motion="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Drop-In — Primo avvio (prototipo d9)</title>
+    <link rel="stylesheet" href="proto.css" />
+    <style>
+      /* Syne e Source Sans 3 arrivano da proto.css (base condivisa). */
+
+      /* Solo layout e superficie di questa schermata: colori, radius,
+         tipografia e motion vengono da proto.css. Nessun colore nuovo. */
+
+      body {
+        gap: 12px;
+        padding-top: 12px;
+      }
+
+      /* .onb-drawer e .courtcard dichiarano display:flex, che vincerebbe
+         sullo stile UA di [hidden]: il cambio stato di proto.js deve
+         continuare a nasconderli davvero. */
+      [hidden] {
+        display: none !important;
+      }
+
+      .proto-head,
+      .proto-toolbar,
+      .note {
+        max-width: 720px;
+      }
+
+      /* Senza questo il gruppo (flex item della body column) si allarga
+         sul max-content del telefono da 360px e sfonda il padding. */
+      [data-state-group] {
+        width: 100%;
+        max-width: 720px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .stage {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+      }
+
+      /* 588px: a 360px di viewport il frame entra intero nello screenshot
+         di review (780px), drawer compreso. */
+      .stage .phone {
+        height: 588px;
+        min-height: 0;
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Mappa finta: contesto, non MapLibre                               */
+      /* ---------------------------------------------------------------- */
+
+      .map {
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .map__deco {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .map__road {
+        position: absolute;
+        height: 6px;
+        border-radius: var(--radius-chip);
+        background: var(--text-muted);
+        opacity: 0.28;
+      }
+
+      .map__road--1 {
+        top: 21%;
+        left: -12%;
+        width: 124%;
+        height: 8px;
+        opacity: 0.36;
+        transform: rotate(-8deg);
+      }
+
+      .map__road--2 {
+        top: 52%;
+        left: -12%;
+        width: 124%;
+        height: 5px;
+        transform: rotate(4deg);
+      }
+
+      .map__road--3 {
+        top: -12%;
+        left: 20%;
+        width: 5px;
+        height: 124%;
+        transform: rotate(7deg);
+      }
+
+      .map__road--4 {
+        top: -12%;
+        left: 73%;
+        width: 4px;
+        height: 124%;
+        transform: rotate(-5deg);
+      }
+
+      .map__rail {
+        position: absolute;
+        top: 37%;
+        left: -12%;
+        width: 124%;
+        height: 0;
+        border-top: 2px dashed var(--text-muted);
+        opacity: 0.45;
+        transform: rotate(-3deg);
+      }
+
+      .map__block {
+        position: absolute;
+        border: 1px solid var(--text-muted);
+        opacity: 0.16;
+      }
+
+      .map__block--1 {
+        top: 10%;
+        left: 29%;
+        width: 64px;
+        height: 38px;
+        transform: rotate(-8deg);
+      }
+
+      .map__block--2 {
+        top: 27%;
+        left: 8%;
+        width: 46px;
+        height: 30px;
+        transform: rotate(-8deg);
+      }
+
+      .map__block--3 {
+        top: 57%;
+        left: 55%;
+        width: 58px;
+        height: 34px;
+        transform: rotate(4deg);
+      }
+
+      /* Il Tevere: stessa tinta di .map__water, geometria diversa. */
+      .map__water {
+        top: -12%;
+        right: 26px;
+        bottom: auto;
+        left: auto;
+        width: 58px;
+        height: 124%;
+        transform: rotate(5deg);
+      }
+
+      .map__sport {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 44px;
+        padding: 0 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-chip);
+        background: var(--bg-elevated);
+        color: var(--text-primary);
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .map__marker {
+        position: absolute;
+        z-index: 2;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid var(--text-primary);
+        border-radius: 50%;
+        background: var(--accent);
+        color: var(--accent-foreground);
+        cursor: pointer;
+      }
+
+      .map__marker:hover {
+        background: var(--accent-hover);
+      }
+
+      .map__marker:focus-visible {
+        outline: 2px solid var(--focus-ring);
+        outline-offset: 2px;
+      }
+
+      .map__marker svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .map__marker--a {
+        top: 78px;
+        left: 14%;
+      }
+
+      .map__marker--b {
+        top: 140px;
+        left: 58%;
+      }
+
+      .map__marker--c {
+        top: 196px;
+        left: 76%;
+      }
+
+      .map__me {
+        position: absolute;
+        top: 218px;
+        left: 26%;
+        z-index: 2;
+        width: 14px;
+        height: 14px;
+        border: 3px solid var(--text-primary);
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      .map__me::after {
+        content: "";
+        position: absolute;
+        inset: -9px;
+        border: 1px solid var(--accent);
+        border-radius: 50%;
+        opacity: 0.35;
+      }
+
+      .map__zoom {
+        position: absolute;
+        right: 16px;
+        bottom: 84px;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--bg-elevated);
+        color: var(--text-secondary);
+      }
+
+      .map__zoom span {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      .map__zoom span + span {
+        border-top: 1px solid var(--border);
+      }
+
+      .map__fab {
+        bottom: 16px;
+        z-index: 2;
+        transition: background-color var(--motion-fast) var(--ease-standard);
+      }
+
+      .map__fab:hover {
+        background: var(--accent-hover);
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Scheda campo + coach mark                                         */
+      /* ---------------------------------------------------------------- */
+
+      .courtcard {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 4;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        max-height: 62%;
+        padding: 18px 20px 22px;
+        border-top: 1px solid var(--border);
+        border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+        background: var(--bg-elevated);
+      }
+
+      .courtcard__label {
+        color: var(--text-muted);
+        font-size: var(--text-label);
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .courtcard__title {
+        margin: 4px 0 2px;
+        font-family: var(--font-syne);
+        font-size: 20px;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+
+      .courtcard__meta {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 14px;
+      }
+
+      .courtcard__actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .coach {
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        bottom: calc(100% + 12px);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 14px 14px 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-card);
+        background: var(--bg-surface);
+      }
+
+      .coach::after {
+        content: "";
+        position: absolute;
+        left: 76px;
+        bottom: -6px;
+        width: 10px;
+        height: 10px;
+        border-right: 1px solid var(--border-strong);
+        border-bottom: 1px solid var(--border-strong);
+        background: var(--bg-surface);
+        transform: rotate(45deg);
+      }
+
+      .coach__label {
+        margin: 0;
+        color: var(--accent);
+        font-size: var(--text-label);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .coach__title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+
+      /* Il titolo riceve il focus all'apertura per gli screen reader, ma
+         non è un controllo: niente anello visivo che sembri un input. */
+      .coach__title:focus,
+      .onb-title:focus {
+        outline: none;
+      }
+
+      .coach__body {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .coach__actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 2px;
+      }
+
+      .iconbtn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-control);
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+      }
+
+      .iconbtn:hover {
+        background: var(--bg-elevated);
+        color: var(--text-primary);
+      }
+
+      .iconbtn:focus-visible {
+        outline: 2px solid var(--focus-ring);
+        outline-offset: 2px;
+      }
+
+      .iconbtn svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Drawer dell'onboarding                                            */
+      /* ---------------------------------------------------------------- */
+
+      .onb-scrim {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        background: var(--overlay);
+        opacity: 0.75;
+      }
+
+      .onb-drawer {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 6;
+        display: flex;
+        flex-direction: column;
+        max-height: 70%;
+        overflow-x: hidden;
+        overflow-y: auto;
+        padding: 12px 20px 24px;
+        border-top: 1px solid var(--border);
+        border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+        background: var(--bg-elevated);
+        box-shadow:
+          inset 0 1px 0 var(--border-strong),
+          0 -16px 40px var(--overlay);
+      }
+
+      /* L'entrata si anima solo al cambio stato: allo screenshot iniziale
+         (e al primo avvio già aperto) il drawer è fermo e leggibile. */
+      .onb-drawer.is-entering {
+        animation: onb-rise var(--motion-slow) var(--ease-standard) both;
+      }
+
+      @keyframes onb-rise {
+        from {
+          opacity: 0;
+          transform: translateY(18px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      .onb-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 44px;
+      }
+
+      .onb-count {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+
+      .onb-back,
+      .onb-skip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        border: 0;
+        background: transparent;
+        color: var(--text-secondary);
+        font: inherit;
+        font-size: 14px;
+        text-decoration: underline;
+        text-underline-offset: 4px;
+        cursor: pointer;
+      }
+
+      .onb-back {
+        gap: 2px;
+        margin-left: -6px;
+        padding: 0 6px 0 0;
+      }
+
+      .onb-skip {
+        margin-left: auto;
+        min-width: 44px;
+        padding: 0 4px;
+        justify-content: center;
+      }
+
+      .onb-back:hover,
+      .onb-skip:hover {
+        color: var(--text-primary);
+      }
+
+      .onb-back:focus-visible,
+      .onb-skip:focus-visible {
+        outline: 2px solid var(--focus-ring);
+        outline-offset: 2px;
+      }
+
+      .onb-back svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .onb-meter {
+        display: flex;
+        gap: 6px;
+        margin: 8px 0 16px;
+        padding: 0;
+        list-style: none;
+      }
+
+      .onb-meter__item {
+        flex: 1;
+        height: 4px;
+        border-radius: var(--radius-chip);
+        background: var(--border);
+      }
+
+      .onb-meter__item[data-done] {
+        background: var(--text-secondary);
+      }
+
+      .onb-meter__item[aria-current="step"] {
+        background: var(--text-primary);
+      }
+
+      .onb-title {
+        margin: 0 0 8px;
+        font-family: var(--font-syne);
+        font-size: var(--text-display-sm);
+        font-weight: 700;
+        line-height: 1.15;
+        text-wrap: balance;
+      }
+
+      .onb-body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin: 0 0 20px;
+        color: var(--text-secondary);
+        font-size: 16px;
+        line-height: 1.45;
+        text-wrap: pretty;
+      }
+
+      .onb-body p {
+        margin: 0;
+      }
+
+      .onb-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .onb-hint,
+      .onb-motion {
+        margin: 0;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control-sm);
+        background: var(--bg-surface);
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .onb-motion {
+        margin-top: 12px;
+        border-style: dashed;
+        border-color: var(--border-strong);
+      }
+
+      .onb-motion strong {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+
+      .onb-closed {
+        position: absolute;
+        top: 256px;
+        left: 12px;
+        right: 12px;
+        z-index: 3;
+        margin: 0;
+        padding: 8px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-chip);
+        background: var(--bg-elevated);
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      /* Riduzione del movimento simulata dallo stato "reduced-motion" della
+         toolbar; la media query vera resta quella di proto.css. */
+      html[data-demo-motion="reduced"] .onb-drawer.is-entering {
+        animation: none;
+      }
+
+      /* Il prototipo non carica font esterni (d3): gli stack sono quelli
+         dichiarati in proto.css. */
+    </style>
+  </head>
+  <body>
+    <header class="proto-head">
+      <h1 class="proto-head__title">Primo avvio</h1>
+      <p class="proto-head__meta">d9 · in review HITL</p>
+    </header>
+
+    <div data-state-group data-initial="step-1">
+      <div class="proto-toolbar" role="group" aria-label="Stati del prototipo">
+        <span class="proto-toolbar__label">Stato</span>
+        <button class="proto-switch" type="button" data-show="step-1">Passo 1</button>
+        <button class="proto-switch" type="button" data-show="step-2">Passo 2</button>
+        <button class="proto-switch" type="button" data-show="step-3">Passo 3</button>
+        <button class="proto-switch" type="button" data-show="coach-mark">Coach mark</button>
+        <button class="proto-switch" type="button" data-show="reduced-motion">Ridotto</button>
+      </div>
+
+      <div class="stage">
+        <div class="phone">
+          <!-- Mappa: contesto visibile dietro il drawer -->
+          <div class="map" role="region" aria-label="Mappa dei campi da basket" tabindex="-1">
+            <div class="map__deco" aria-hidden="true">
+              <span class="map__road map__road--1"></span>
+              <span class="map__road map__road--2"></span>
+              <span class="map__road map__road--3"></span>
+              <span class="map__road map__road--4"></span>
+              <span class="map__rail"></span>
+              <span class="map__block map__block--1"></span>
+              <span class="map__block map__block--2"></span>
+              <span class="map__block map__block--3"></span>
+              <span class="map__water"></span>
+            </div>
+
+            <div class="map__sport" aria-hidden="true">
+              Basket
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </div>
+
+            <button class="map__marker map__marker--a" type="button" data-open-court aria-label="Apri il campo Parco delle Valli">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="m4.93 4.93 14.14 14.14" />
+              </svg>
+            </button>
+            <button class="map__marker map__marker--b" type="button" data-open-court aria-label="Apri il campo Piazza Ragusa">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="m4.93 4.93 14.14 14.14" />
+              </svg>
+            </button>
+            <button class="map__marker map__marker--c" type="button" data-open-court aria-label="Apri il campo Villa Torlonia">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="m4.93 4.93 14.14 14.14" />
+              </svg>
+            </button>
+
+            <span class="map__me" aria-hidden="true"></span>
+
+            <div class="map__zoom" aria-hidden="true">
+              <span>+</span>
+              <span>−</span>
+            </div>
+
+            <button class="fab map__fab" type="button" aria-label="Aggiungi un campo">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Esito della chiusura: la mappa resta pulita -->
+          <p class="onb-closed" role="status" aria-live="polite" data-closed-status hidden>
+            Onboarding segnato come visto. Tocca un campo per iniziare.
+          </p>
+
+          <!-- Frame extra: coach mark nella scheda campo -->
+          <section class="courtcard" data-state="coach-mark" hidden aria-label="Scheda del campo Parco delle Valli">
+            <div class="courtcard__head">
+              <p class="courtcard__label">Basket · 2 canestri</p>
+              <h2 class="courtcard__title">Parco delle Valli</h2>
+              <p class="courtcard__meta">Via Conca d’Oro · 350 m</p>
+            </div>
+
+            <div class="coach" role="note" aria-labelledby="coach-title">
+              <p class="coach__label">Suggerimento</p>
+              <p class="coach__title" id="coach-title" tabindex="-1" data-autofocus>
+                Fai check-in qui quando arrivi
+              </p>
+              <p class="coach__body">
+                Il GPS ti conferma a meno di 50&nbsp;m.
+              </p>
+              <div class="coach__actions">
+                <button class="btn btn--secondary btn--sm" type="button" data-coach-dismiss>
+                  Ho capito
+                </button>
+                <button class="iconbtn" type="button" data-coach-dismiss aria-label="Chiudi il suggerimento">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="courtcard__actions">
+              <button class="btn btn--primary" type="button" data-checkin>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                Check-in
+              </button>
+              <button class="btn btn--secondary" type="button">Crea lobby</button>
+            </div>
+
+            <p class="sr-only" role="status" aria-live="polite" data-coach-status hidden>
+              Suggerimento chiuso. Non ricompare.
+            </p>
+          </section>
+
+          <!-- Passo 1 -->
+          <div class="onb-scrim" data-state="step-1" aria-hidden="true"></div>
+          <section
+            class="onb-drawer"
+            data-state="step-1"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="onb-title-1"
+            aria-describedby="onb-body-1"
+          >
+            <div class="onb-head">
+              <p class="onb-count">Passo 1 di 3</p>
+              <button class="onb-skip" type="button" data-onb-skip aria-label="Salta il primo avvio">
+                Salta
+              </button>
+            </div>
+            <ol class="onb-meter" aria-label="Passi del primo avvio">
+              <li class="onb-meter__item" aria-current="step">
+                <span class="sr-only">Passo 1, corrente: Trova il campo più vicino</span>
+              </li>
+              <li class="onb-meter__item">
+                <span class="sr-only">Passo 2: Fai check-in quando arrivi</span>
+              </li>
+              <li class="onb-meter__item">
+                <span class="sr-only">Passo 3: Entra in una lobby o creane una</span>
+              </li>
+            </ol>
+            <h2 class="onb-title" id="onb-title-1" tabindex="-1" data-autofocus>
+              Trova il campo più vicino
+            </h2>
+            <div class="onb-body" id="onb-body-1">
+              <p>La mappa è il navigatore.</p>
+              <p>Tocca un campo e vedi chi gioca.</p>
+            </div>
+            <div class="onb-actions">
+              <button class="btn btn--primary btn--block" type="button" data-goto="step-2">
+                Inizia
+              </button>
+            </div>
+          </section>
+
+          <!-- Passo 2 -->
+          <div class="onb-scrim" data-state="step-2" aria-hidden="true"></div>
+          <section
+            class="onb-drawer"
+            data-state="step-2"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="onb-title-2"
+            aria-describedby="onb-body-2"
+          >
+            <div class="onb-head">
+              <button class="onb-back" type="button" data-goto="step-1" aria-label="Passo precedente">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+                Indietro
+              </button>
+              <p class="onb-count">Passo 2 di 3</p>
+              <button class="onb-skip" type="button" data-onb-skip aria-label="Salta il primo avvio">
+                Salta
+              </button>
+            </div>
+            <ol class="onb-meter" aria-label="Passi del primo avvio">
+              <li class="onb-meter__item" data-done>
+                <span class="sr-only">Passo 1, completato: Trova il campo più vicino</span>
+              </li>
+              <li class="onb-meter__item" aria-current="step">
+                <span class="sr-only">Passo 2, corrente: Fai check-in quando arrivi</span>
+              </li>
+              <li class="onb-meter__item">
+                <span class="sr-only">Passo 3: Entra in una lobby o creane una</span>
+              </li>
+            </ol>
+            <h2 class="onb-title" id="onb-title-2" tabindex="-1" data-autofocus>
+              Fai check-in quando arrivi
+            </h2>
+            <div class="onb-body" id="onb-body-2">
+              <p>Check-in valido entro 50 m.</p>
+              <p>Se non ti presenti a una lobby, perdi 3 punti karma.</p>
+            </div>
+            <div class="onb-actions">
+              <button class="btn btn--primary btn--block" type="button" data-goto="step-3">
+                Avanti
+              </button>
+            </div>
+          </section>
+
+          <!-- Passo 3 -->
+          <div class="onb-scrim" data-state="step-3" aria-hidden="true"></div>
+          <section
+            class="onb-drawer"
+            data-state="step-3"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="onb-title-3"
+            aria-describedby="onb-body-3"
+          >
+            <div class="onb-head">
+              <button class="onb-back" type="button" data-goto="step-2" aria-label="Passo precedente">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+                Indietro
+              </button>
+              <p class="onb-count">Passo 3 di 3</p>
+              <button class="onb-skip" type="button" data-onb-skip aria-label="Salta il primo avvio">
+                Salta
+              </button>
+            </div>
+            <ol class="onb-meter" aria-label="Passi del primo avvio">
+              <li class="onb-meter__item" data-done>
+                <span class="sr-only">Passo 1, completato: Trova il campo più vicino</span>
+              </li>
+              <li class="onb-meter__item" data-done>
+                <span class="sr-only">Passo 2, completato: Fai check-in quando arrivi</span>
+              </li>
+              <li class="onb-meter__item" aria-current="step">
+                <span class="sr-only">Passo 3, corrente: Entra in una lobby o creane una</span>
+              </li>
+            </ol>
+            <h2 class="onb-title" id="onb-title-3" tabindex="-1" data-autofocus>
+              Entra in una lobby o creane una
+            </h2>
+            <div class="onb-body" id="onb-body-3">
+              <p>C’è già una partita? Entra.</p>
+              <p>Non c’è? Aprine una.</p>
+            </div>
+            <div class="onb-actions">
+              <button class="btn btn--primary btn--block" type="button" data-onb-skip data-checklist>
+                Cerca un campo
+              </button>
+              <button
+                class="btn btn--secondary btn--block"
+                type="button"
+                data-login
+                aria-expanded="false"
+                aria-controls="onb-login-note"
+              >
+                Accedi per salvare i progressi
+              </button>
+              <p class="onb-hint" id="onb-login-note" role="status" aria-live="polite" hidden>
+                Si apre il drawer di accesso. Poi torni al passo 3.
+              </p>
+            </div>
+          </section>
+
+          <!-- Ridotto: stesso passo 2 senza animazione -->
+          <div class="onb-scrim" data-state="reduced-motion" aria-hidden="true"></div>
+          <section
+            class="onb-drawer"
+            data-state="reduced-motion"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="onb-title-rm"
+            aria-describedby="onb-body-rm onb-motion-note"
+          >
+            <div class="onb-head">
+              <button class="onb-back" type="button" data-goto="step-1" aria-label="Passo precedente">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+                Indietro
+              </button>
+              <p class="onb-count">Passo 2 di 3</p>
+              <button class="onb-skip" type="button" data-onb-skip aria-label="Salta il primo avvio">
+                Salta
+              </button>
+            </div>
+            <ol class="onb-meter" aria-label="Passi del primo avvio">
+              <li class="onb-meter__item" data-done>
+                <span class="sr-only">Passo 1, completato: Trova il campo più vicino</span>
+              </li>
+              <li class="onb-meter__item" aria-current="step">
+                <span class="sr-only">Passo 2, corrente: Fai check-in quando arrivi</span>
+              </li>
+              <li class="onb-meter__item">
+                <span class="sr-only">Passo 3: Entra in una lobby o creane una</span>
+              </li>
+            </ol>
+            <h2 class="onb-title" id="onb-title-rm" tabindex="-1" data-autofocus>
+              Fai check-in quando arrivi
+            </h2>
+            <div class="onb-body" id="onb-body-rm">
+              <p>Check-in valido entro 50 m.</p>
+              <p>Se non ti presenti a una lobby, perdi 3 punti karma.</p>
+            </div>
+            <p class="onb-motion" id="onb-motion-note">
+              <strong>Movimento ridotto.</strong> Il passo cambia subito.
+              Restano testo, titolo e focus.
+            </p>
+            <div class="onb-actions">
+              <button class="btn btn--primary btn--block" type="button" data-goto="step-3">
+                Avanti
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <p class="note">
+      <strong>Persistenza (non implementata nel prototipo):</strong> il drawer si
+      apre al primo avvio se la chiave <code>dropin:onboarded:v1</code> in
+      <code>localStorage</code> non è impostata; «Salta», Esc e tap fuori la
+      scrivono. Il coach mark usa <code>dropin:coach:check-in</code> e compare una
+      volta sola nella scheda campo. Il drawer sta sopra la mappa e non supera il
+      70% dell’altezza. Con <code>prefers-reduced-motion: reduce</code> il passo
+      cambia senza animazione: restano stepper, titoli, stato e focus. Syne e
+      Source Sans 3 (OFL) sono incorporati nella base condivisa
+      <code>proto.css</code>: nessuna richiesta esterna.
+    </p>
+
+    <script src="proto.js"></script>
+    <script>
+      (function () {
+        "use strict";
+
+        var group = document.querySelector("[data-state-group]");
+        if (!group) return;
+
+        var map = group.querySelector(".map");
+        var closedStatus = group.querySelector("[data-closed-status]");
+        var toolbarButtons = Array.prototype.slice.call(
+          group.querySelectorAll("[data-show]"),
+        );
+
+        function allStates() {
+          return Array.prototype.slice.call(
+            group.querySelectorAll("[data-state]"),
+          );
+        }
+
+        function visibleStates() {
+          return allStates().filter(function (el) {
+            return !el.hidden;
+          });
+        }
+
+        function visibleDialog() {
+          return (
+            visibleStates().filter(function (el) {
+              return el.getAttribute("role") === "dialog";
+            })[0] || null
+          );
+        }
+
+        function focusTitle(stateId) {
+          if (!stateId) return;
+          // Lo stesso data-state è su scrim e pannello: si cerca il titolo
+          // dentro il nodo che lo contiene davvero.
+          var target = group.querySelector(
+            '[data-state="' + stateId + '"] [data-autofocus]',
+          );
+          if (target) target.focus({ preventScroll: true });
+        }
+
+        function closeOnboarding() {
+          allStates().forEach(function (el) {
+            el.hidden = true;
+          });
+          toolbarButtons.forEach(function (button) {
+            button.setAttribute("aria-pressed", "false");
+          });
+          if (closedStatus) closedStatus.hidden = false;
+          if (map) map.focus({ preventScroll: true });
+        }
+
+        function dismissCoach() {
+          var coach = group.querySelector(".coach");
+          var status = group.querySelector("[data-coach-status]");
+          if (coach) coach.hidden = true;
+          if (status) status.hidden = false;
+          var checkIn = group.querySelector("[data-checkin]");
+          if (checkIn) checkIn.focus({ preventScroll: true });
+        }
+
+        // L'animazione di entrata vale solo per i cambi di stato, non per
+        // il primo paint del prototipo.
+        Array.prototype.slice
+          .call(group.querySelectorAll(".onb-drawer"))
+          .forEach(function (drawer) {
+            drawer.addEventListener("animationend", function () {
+              drawer.classList.remove("is-entering");
+            });
+          });
+
+        // Stato scelto dalla toolbar: proto.js ha già mostrato il nodo,
+        // qui si porta il focus sul titolo e si sincronizza il motion.
+        toolbarButtons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            var id = button.getAttribute("data-show");
+            if (closedStatus) closedStatus.hidden = true;
+            // Il frame si resetta cambiando stato: il coach torna visibile
+            // per poterlo rivedere in review.
+            var coach = group.querySelector(".coach");
+            var coachStatus = group.querySelector("[data-coach-status]");
+            if (coach) coach.hidden = false;
+            if (coachStatus) coachStatus.hidden = true;
+            document.documentElement.setAttribute(
+              "data-demo-motion",
+              id === "reduced-motion" ? "reduced" : "auto",
+            );
+            if (id !== "reduced-motion") {
+              var drawer = group.querySelector(
+                '[data-state="' + id + '"].onb-drawer',
+              );
+              if (drawer) {
+                drawer.classList.remove("is-entering");
+                // Reflow: riavvia l'animazione anche se lo stato era già
+                // visibile (tap ripetuto sulla stessa voce di toolbar).
+                void drawer.offsetWidth;
+                drawer.classList.add("is-entering");
+              }
+            }
+            window.setTimeout(function () {
+              focusTitle(id);
+            }, 0);
+          });
+        });
+
+        // Avanti / Indietro / Inizia: si muovono tra gli stati della toolbar.
+        Array.prototype.slice
+          .call(group.querySelectorAll("[data-goto]"))
+          .forEach(function (button) {
+            button.addEventListener("click", function () {
+              var target = group.querySelector(
+                '[data-show="' + button.getAttribute("data-goto") + '"]',
+              );
+              if (target) target.click();
+            });
+          });
+
+        // Salta e "Cerca un campo": chiudono e segnano come visto.
+        Array.prototype.slice
+          .call(
+            group.querySelectorAll(
+              "[data-onb-skip], [data-checklist]",
+            ),
+          )
+          .forEach(function (button) {
+            button.addEventListener("click", closeOnboarding);
+          });
+
+        Array.prototype.slice
+          .call(group.querySelectorAll(".onb-scrim"))
+          .forEach(function (scrim) {
+            scrim.addEventListener("click", closeOnboarding);
+          });
+
+        Array.prototype.slice
+          .call(group.querySelectorAll("[data-coach-dismiss]"))
+          .forEach(function (button) {
+            button.addEventListener("click", dismissCoach);
+          });
+
+        Array.prototype.slice
+          .call(group.querySelectorAll("[data-open-court]"))
+          .forEach(function (marker) {
+            marker.addEventListener("click", function () {
+              var coach = group.querySelector('[data-show="coach-mark"]');
+              if (coach) coach.click();
+            });
+          });
+
+        // Il secondario del passo 3 spiega dove porta l'accesso: nessun
+        // secondo dialog sopra questo (pattern: niente modali a catena).
+        var login = group.querySelector("[data-login]");
+        if (login) {
+          login.addEventListener("click", function () {
+            var note = document.getElementById(
+              login.getAttribute("aria-controls"),
+            );
+            var open = login.getAttribute("aria-expanded") === "true";
+            login.setAttribute("aria-expanded", String(!open));
+            if (note) note.hidden = open;
+          });
+        }
+
+        // Il drawer del primo avvio è già aperto: il focus va sul titolo
+        // del passo iniziale, senza scrollare la pagina di review.
+        window.setTimeout(function () {
+          var state = visibleStates().filter(function (el) {
+            return el.querySelector("[data-autofocus]");
+          })[0];
+          if (state) focusTitle(state.getAttribute("data-state"));
+        }, 0);
+
+        document.addEventListener("keydown", function (event) {
+          if (event.key === "Escape") {
+            if (visibleDialog()) {
+              event.preventDefault();
+              closeOnboarding();
+              return;
+            }
+            var coach = group.querySelector(".coach");
+            if (coach && !coach.hidden && visibleStates().length) {
+              event.preventDefault();
+              dismissCoach();
+            }
+            return;
+          }
+
+          if (event.key !== "Tab") return;
+          var dialog = visibleDialog();
+          if (!dialog) return;
+
+          var focusables = Array.prototype.slice.call(
+            dialog.querySelectorAll(
+              'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
+            ),
+          );
+          if (!focusables.length) return;
+
+          var first = focusables[0];
+          var last = focusables[focusables.length - 1];
+          var title = dialog.querySelector("[data-autofocus]");
+          var inside = dialog.contains(document.activeElement);
+
+          if (!inside || document.activeElement === title) {
+            event.preventDefault();
+            (event.shiftKey ? last : first).focus();
+          } else if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

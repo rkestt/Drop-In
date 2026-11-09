@@ -1,0 +1,1336 @@
+<!doctype html>
+<!--
+  Prototipo d16 — Offline, errore, stati vuoti.
+  Pipeline: prototipo statico → review HITL → implementazione (d24) → verifica PWA (d26).
+  Dove siamo: 13 frame completi, in review HITL.
+  Unico prossimo passo: approvare copy e gerarchia, poi aprire d24-impl-offline.
+  Regole: solo token di proto.css, nessuna rete, nessun import dall'app.
+-->
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Drop-In — Offline, errore e stati vuoti (d16)</title>
+<link rel="stylesheet" href="proto.css" />
+<style>
+
+
+  /* Font reali dell'app, incorporati come negli altri prototipi:
+     i token --font-syne / --font-source-sans devono rendere davvero,
+     anche aprendo il file da file://. */
+
+
+
+  /* ==================================================================
+     Solo ciò che è specifico di questa schermata. Colori, radius,
+     tipografia e motion vengono da proto.css.
+     ================================================================== */
+
+  /* proto.js usa l'attributo [hidden]: .screen{display:flex} lo
+     scavalcherebbe, quindi la regola va riportata qui. */
+  [hidden] {
+    display: none !important;
+  }
+
+  /* --- selettore dei frame (toolbar) ------------------------------- */
+  .frame-select {
+    flex: 1 1 240px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control-sm);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .frame-select:hover {
+    background: var(--bg-elevated);
+  }
+
+  .frame-select:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .frame-hint {
+    flex: 1 1 100%;
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  /* --- icone ------------------------------------------------------- */
+  .sprite {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+  }
+
+  .icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .icon--sm {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* --- banner (estensione di .banner) ------------------------------ */
+  .banner--stack {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .banner__top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .banner__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .banner__title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .banner__meta {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+
+  .banner__icon {
+    margin-top: 1px;
+    color: var(--warning-dark);
+  }
+
+  .banner--success .banner__icon {
+    color: var(--success-dark);
+  }
+
+  .banner--action {
+    align-items: center;
+  }
+
+  .banner--action .btn {
+    flex: 0 0 auto;
+  }
+
+  /* --- mappa ------------------------------------------------------- */
+  .offline-wrap {
+    padding: 12px 16px 0;
+  }
+
+  .map--fit {
+    flex: 1 1 auto;
+    min-height: 220px;
+  }
+
+  .map--full {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .map--behind {
+    position: absolute;
+    inset: 0;
+    min-height: 0;
+  }
+
+  /* I pin hanno z-index 2: lo sheet deve stare sopra la mappa. */
+  .sheet {
+    z-index: 3;
+  }
+
+  .pin {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    transform: translate(-50%, -50%);
+    border: 2px solid var(--bg-base);
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  .pin .icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .map-note {
+    position: absolute;
+    z-index: 2;
+    left: 12px;
+    bottom: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100% - 24px);
+    padding: 6px 10px;
+    border-radius: var(--radius-chip);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* --- campi salvati ----------------------------------------------- */
+  .cache {
+    border-top: 1px solid var(--border);
+    background: var(--bg-surface);
+  }
+
+  .cache__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 12px 16px 4px;
+  }
+
+  .cache__count {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .cache__list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0 16px 8px;
+    list-style: none;
+  }
+
+  .cache-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 56px;
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .cache-row:first-child {
+    border-top: 0;
+  }
+
+  .cache-dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .cache-row__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cache-row__name {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .cache-row__meta {
+    margin: 2px 0 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .cache-row__time {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* --- riconnessione ----------------------------------------------- */
+  .reconnect-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px 0;
+  }
+
+  .reconnect-after {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 4px 2px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .reconnect-after .icon {
+    color: var(--success);
+  }
+
+  /* --- azione offline (sheet check-in) ----------------------------- */
+  .sheet__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .sheet__panel .muted {
+    font-size: 13px;
+  }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .chip:focus-visible,
+  .appbar__back:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .icon-btn:hover {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+  }
+
+  .icon-btn:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* --- retry ------------------------------------------------------- */
+  .spinner {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: proto-spin 800ms linear infinite;
+  }
+
+  @keyframes proto-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* --- errore di route --------------------------------------------- */
+  .error-screen {
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 32px 24px;
+    text-align: center;
+  }
+
+  .error-screen .body {
+    max-width: 30ch;
+  }
+
+  .error-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--danger);
+    border-radius: 50%;
+    color: var(--danger-dark);
+    font-family: var(--font-syne);
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .error-code {
+    margin: 4px 0 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* --- errore critico: fuori dai token, di proposito ---------------
+     Usa solo colori di sistema e font di sistema: è la pagina che deve
+     leggersi anche se il CSS e i font dell'app non sono disponibili. */
+  .boot {
+    justify-content: center;
+    padding: 32px 24px;
+    background: Canvas;
+    color: CanvasText;
+    color-scheme: dark;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  .boot__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .boot__brand {
+    margin: 0;
+    color: GrayText;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .boot__title {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  .boot__text {
+    margin: 0;
+    color: GrayText;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .boot__primary {
+    width: 100%;
+    min-height: 48px;
+    margin-top: 8px;
+    border: 0;
+    border-radius: 10px;
+    background: ButtonText;
+    color: ButtonFace;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .boot__secondary {
+    width: 100%;
+    min-height: 44px;
+    border: 0;
+    background: transparent;
+    color: LinkText;
+    font: inherit;
+    font-size: 15px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .boot__code {
+    margin: 8px 0 0;
+    color: GrayText;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .boot :focus-visible {
+    outline: 2px solid LinkText;
+    outline-offset: 2px;
+  }
+
+  /* --- vuoti ------------------------------------------------------- */
+  .empty--fill {
+    flex: 1;
+    justify-content: center;
+    padding: 24px 8px;
+  }
+
+  .empty .body {
+    max-width: 34ch;
+  }
+
+  .empty .btn {
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .empty__icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .map-empty {
+    position: absolute;
+    z-index: 2;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-card);
+    background: var(--bg-elevated);
+  }
+
+  .map-empty .body {
+    font-size: 14px;
+  }
+
+  /* --- ricerca ----------------------------------------------------- */
+  .search {
+    position: relative;
+  }
+
+  .search__input {
+    padding-right: 52px;
+    appearance: none;
+  }
+
+  .search__input::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  .search__clear {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+  }
+
+  /* --- campo / lobby ----------------------------------------------- */
+  .court-head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .court-head .chips {
+    margin-top: 4px;
+  }
+
+  .row--wrap {
+    flex-wrap: wrap;
+  }
+
+  .empty-lobby {
+    align-items: flex-start;
+    gap: 8px;
+    text-align: left;
+  }
+
+  .empty-lobby__icon {
+    width: 28px;
+    height: 28px;
+    color: var(--text-muted);
+  }
+
+  .empty-lobby .btn {
+    margin-top: 4px;
+  }
+
+  /* --- offline totale ---------------------------------------------- */
+  .offline-total {
+    justify-content: center;
+    gap: 14px;
+  }
+
+  .brand {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .check-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .check-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .check-list .icon {
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+    color: var(--success-dark);
+  }
+
+  .check-list--off .icon {
+    color: var(--text-muted);
+  }
+
+  /* --- loading ----------------------------------------------------- */
+  .sk--map {
+    flex: 1 1 240px;
+    min-height: 200px;
+    max-height: 340px;
+  }
+
+  .sk--input {
+    height: 48px;
+  }
+
+  .sk--row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .sk--dot {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+  }
+
+  .sk--lines {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sk--line {
+    height: 12px;
+  }
+
+  .sk--short {
+    width: 60%;
+  }
+
+  .sk--chip {
+    width: 96px;
+    height: 32px;
+    border-radius: var(--radius-chip);
+  }
+
+  /* Con reduced motion lo spinner resta un anello fermo: il testo
+     "Sto riprovando" è l'informazione, non l'animazione. */
+  @media (prefers-reduced-motion: reduce) {
+    .spinner {
+      animation: none;
+      border-top-color: currentColor;
+      opacity: 0.6;
+    }
+  }
+</style>
+</head>
+
+<body data-state-group data-initial="offline-cache">
+
+<svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-ball" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></symbol>
+  <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/><path d="M5 12.9a10 10 0 0 1 5.2-2.7"/><path d="M19 12.9a10 10 0 0 0-2-1.5"/><path d="M2 8.8a15 15 0 0 1 4.2-2.6"/><path d="M22 8.8a15 15 0 0 0-11.3-3.8"/><path d="m2 2 20 20"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+</svg>
+
+<header class="proto-head">
+  <h1 class="proto-head__title">Offline, errore, stati vuoti</h1>
+  <p class="proto-head__meta">d16 · 13 stati · prototipo statico, nessuna rete</p>
+</header>
+
+<div class="proto-toolbar">
+  <label class="proto-toolbar__label" for="frame">Stato</label>
+  <select id="frame" class="frame-select">
+    <option value="offline-cache" selected>02 · Offline con cache</option>
+    <option value="offline-action">03 · Offline su azione (check-in)</option>
+    <option value="retry-progress">04 · Retry in corso</option>
+    <option value="retry-failed">05 · Retry fallito</option>
+    <option value="reconnect">06 · Di nuovo online</option>
+    <option value="error-route">07 · Errore di rete (500)</option>
+    <option value="error-critical">08 · Errore critico (global)</option>
+    <option value="empty-map">09 · Vuoto mappa</option>
+    <option value="empty-search">10 · Vuoto ricerca</option>
+    <option value="empty-lobby">11 · Vuoto lobby</option>
+    <option value="empty-notifications">12 · Vuoto notifiche</option>
+    <option value="offline-total">13 · Offline totale</option>
+    <option value="loading">01 · Caricamento (skeleton)</option>
+  </select>
+  <p class="frame-hint">Tutti gli stati si cambiano da qui. Con la tastiera: frecce su e giù.</p>
+  <div hidden>
+    <button class="proto-switch" data-show="offline-cache">02 · Offline con cache</button>
+    <button class="proto-switch" data-show="offline-action">03 · Offline su azione</button>
+    <button class="proto-switch" data-show="retry-progress">04 · Retry in corso</button>
+    <button class="proto-switch" data-show="retry-failed">05 · Retry fallito</button>
+    <button class="proto-switch" data-show="reconnect">06 · Di nuovo online</button>
+    <button class="proto-switch" data-show="error-route">07 · Errore di rete</button>
+    <button class="proto-switch" data-show="error-critical">08 · Errore critico</button>
+    <button class="proto-switch" data-show="empty-map">09 · Vuoto mappa</button>
+    <button class="proto-switch" data-show="empty-search">10 · Vuoto ricerca</button>
+    <button class="proto-switch" data-show="empty-lobby">11 · Vuoto lobby</button>
+    <button class="proto-switch" data-show="empty-notifications">12 · Vuoto notifiche</button>
+    <button class="proto-switch" data-show="offline-total">13 · Offline totale</button>
+    <button class="proto-switch" data-show="loading">01 · Caricamento</button>
+  </div>
+</div>
+
+<div class="phone phone--tall">
+
+  <!-- 02 · Offline con cache -------------------------------------- -->
+  <section class="screen" data-state="offline-cache">
+    <header class="appbar">
+      <h1 class="appbar__title">Mappa</h1>
+      <span class="badge badge--warning appbar__action">Offline</span>
+    </header>
+
+    <div class="offline-wrap">
+      <div class="banner banner--warning banner--stack" role="status" aria-atomic="true">
+        <div class="banner__top">
+          <svg class="icon banner__icon" aria-hidden="true"><use href="#i-wifi-off"/></svg>
+          <div class="banner__body">
+            <p class="banner__title">Sei offline · dati di 12 min fa</p>
+            <p class="banner__meta">I campi qui sotto sono salvati sul telefono.</p>
+          </div>
+        </div>
+        <button type="button" class="btn btn--sm btn--primary btn--block">Riprova</button>
+      </div>
+    </div>
+
+    <div class="map map--fit" role="img" aria-label="Mappa di Roma salvata sul telefono, con due campi già visitati">
+      <div class="map__water" aria-hidden="true"></div>
+      <span class="pin" style="left: 30%; top: 34%" aria-hidden="true"><svg class="icon"><use href="#i-ball"/></svg></span>
+      <span class="pin" style="left: 64%; top: 58%" aria-hidden="true"><svg class="icon"><use href="#i-ball"/></svg></span>
+      <span class="map-note"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-wifi-off"/></svg> Mappa salvata · non si aggiorna</span>
+    </div>
+
+    <div class="cache">
+      <div class="cache__head">
+        <h2 class="label">Campi salvati</h2>
+        <span class="cache__count">2</span>
+      </div>
+      <ul class="cache__list">
+        <li class="cache-row">
+          <span class="cache-dot" aria-hidden="true"></span>
+          <div class="cache-row__body">
+            <p class="cache-row__name">Campetto Piazza Vittorio</p>
+            <p class="cache-row__meta">0,8 km · 2 check-in</p>
+          </div>
+          <span class="cache-row__time"><span class="sr-only">Salvato alle </span>18:42</span>
+        </li>
+        <li class="cache-row">
+          <span class="cache-dot" aria-hidden="true"></span>
+          <div class="cache-row__body">
+            <p class="cache-row__name">Campo Trastevere</p>
+            <p class="cache-row__meta">1,4 km · 1 check-in</p>
+          </div>
+          <span class="cache-row__time"><span class="sr-only">Salvato alle </span>18:42</span>
+        </li>
+      </ul>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <span class="bottom-nav__item" aria-current="page">
+        <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+        <span>Mappa</span>
+      </span>
+      <span class="bottom-nav__item">
+        <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+        <span>Profilo</span>
+      </span>
+    </nav>
+  </section>
+
+  <!-- 03 · Offline su azione che richiede rete (check-in) ---------- -->
+  <section class="screen" data-state="offline-action" hidden>
+    <h1 class="sr-only">Mappa</h1>
+    <div class="map map--behind" aria-hidden="true">
+      <div class="map__water"></div>
+      <span class="pin" style="left: 34%; top: 30%"><svg class="icon"><use href="#i-ball"/></svg></span>
+      <span class="pin" style="left: 68%; top: 46%"><svg class="icon"><use href="#i-ball"/></svg></span>
+    </div>
+
+    <div class="sheet">
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <div class="sheet__head">
+          <p class="label">Check-in</p>
+          <button type="button" class="icon-btn" aria-label="Chiudi">×</button>
+        </div>
+        <h2 class="sheet__title">Campetto Piazza Vittorio</h2>
+        <p class="muted">0,8 km · 2 check-in adesso</p>
+
+        <div class="banner banner--warning" role="status" aria-atomic="true">
+          <svg class="icon banner__icon" aria-hidden="true"><use href="#i-wifi-off"/></svg>
+          <div class="banner__body">
+            <p class="banner__title">Serve la connessione per il check-in</p>
+            <p class="banner__meta">Il check-in dice chi c'è sul campo adesso: senza rete non possiamo registrarlo.</p>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn--primary btn--block" aria-disabled="true" aria-describedby="checkin-why">Fai il check-in</button>
+        <p id="checkin-why" class="field__hint">Il pulsante si attiva appena torni online. Non registriamo un check-in che non possiamo confermare.</p>
+
+        <hr class="divider" />
+        <p class="muted">I check-in che vedi possono essere vecchi di 12 minuti.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 · Retry in corso ----------------------------------------- -->
+  <section class="screen" data-state="retry-progress" hidden>
+    <header class="appbar">
+      <h1 class="appbar__title">Mappa</h1>
+      <span class="badge badge--warning appbar__action">Offline</span>
+    </header>
+
+    <div class="offline-wrap">
+      <div class="banner banner--warning banner--stack" role="status" aria-atomic="true">
+        <div class="banner__top">
+          <svg class="icon banner__icon" aria-hidden="true"><use href="#i-wifi-off"/></svg>
+          <div class="banner__body">
+            <p class="banner__title">Sei offline · dati di 12 min fa</p>
+            <p class="banner__meta">Sto riprovando a collegarmi. I campi salvati restano disponibili.</p>
+          </div>
+        </div>
+        <button type="button" class="btn btn--sm btn--primary btn--block" aria-disabled="true" aria-busy="true">
+          <span class="spinner" aria-hidden="true"></span>
+          Riprova…
+        </button>
+      </div>
+    </div>
+
+    <div class="map map--fit" role="img" aria-label="Mappa di Roma salvata sul telefono, con due campi già visitati">
+      <div class="map__water" aria-hidden="true"></div>
+      <span class="pin" style="left: 30%; top: 34%" aria-hidden="true"><svg class="icon"><use href="#i-ball"/></svg></span>
+      <span class="pin" style="left: 64%; top: 58%" aria-hidden="true"><svg class="icon"><use href="#i-ball"/></svg></span>
+      <span class="map-note"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-wifi-off"/></svg> Mappa salvata · non si aggiorna</span>
+    </div>
+
+    <div class="cache">
+      <div class="cache__head">
+        <h2 class="label">Campi salvati</h2>
+        <span class="cache__count">2</span>
+      </div>
+      <ul class="cache__list">
+        <li class="cache-row">
+          <span class="cache-dot" aria-hidden="true"></span>
+          <div class="cache-row__body">
+            <p class="cache-row__name">Campetto Piazza Vittorio</p>
+            <p class="cache-row__meta">0,8 km · 2 check-in</p>
+          </div>
+          <span class="cache-row__time"><span class="sr-only">Salvato alle </span>18:42</span>
+        </li>
+        <li class="cache-row">
+          <span class="cache-dot" aria-hidden="true"></span>
+          <div class="cache-row__body">
+            <p class="cache-row__name">Campo Trastevere</p>
+            <p class="cache-row__meta">1,4 km · 1 check-in</p>
+          </div>
+          <span class="cache-row__time"><span class="sr-only">Salvato alle </span>18:42</span>
+        </li>
+      </ul>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <span class="bottom-nav__item" aria-current="page">
+        <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+        <span>Mappa</span>
+      </span>
+      <span class="bottom-nav__item">
+        <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+        <span>Profilo</span>
+      </span>
+    </nav>
+  </section>
+
+  <!-- 05 · Retry fallito ------------------------------------------ -->
+  <section class="screen" data-state="retry-failed" hidden>
+    <header class="appbar">
+      <h1 class="appbar__title">Mappa</h1>
+      <span class="badge badge--warning appbar__action">Offline</span>
+    </header>
+
+    <div class="offline-wrap">
+      <div class="banner banner--warning banner--stack" role="alert" aria-atomic="true">
+        <div class="banner__top">
+          <svg class="icon banner__icon" aria-hidden="true"><use href="#i-alert"/></svg>
+          <div class="banner__body">
+            <p class="banner__title">Non siamo riusciti a riconnetterci</p>
+            <p class="banner__meta">Controlla il Wi-Fi o i dati mobili. I campi salvati restano disponibili.</p>
+          </div>
+        </div>
+        <button type="button" class="btn btn--sm btn--primary btn--block">Riprova</button>
+      </div>
+      <p class="muted">Ultimo tentativo: 18:47</p>
+    </div>
+
+    <div class="map map--fit" role="img" aria-label="Mappa di Roma salvata sul telefono, con due campi già visitati">
+      <div class="map__water" aria-hidden="true"></div>
+      <span class="pin" style="left: 30%; top: 34%" aria-hidden="true"><svg class="icon"><use href="#i-ball"/></svg></span>
+      <span class="pin" style="left: 64%; top: 58%" aria-hidden="true"><svg class="icon"><use href="#i-ball"/></svg></span>
+      <span class="map-note"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-wifi-off"/></svg> Mappa salvata · non si aggiorna</span>
+    </div>
+
+    <div class="cache">
+      <div class="cache__head">
+        <h2 class="label">Campi salvati</h2>
+        <span class="cache__count">2</span>
+      </div>
+      <ul class="cache__list">
+        <li class="cache-row">
+          <span class="cache-dot" aria-hidden="true"></span>
+          <div class="cache-row__body">
+            <p class="cache-row__name">Campetto Piazza Vittorio</p>
+            <p class="cache-row__meta">0,8 km · 2 check-in</p>
+          </div>
+          <span class="cache-row__time"><span class="sr-only">Salvato alle </span>18:42</span>
+        </li>
+        <li class="cache-row">
+          <span class="cache-dot" aria-hidden="true"></span>
+          <div class="cache-row__body">
+            <p class="cache-row__name">Campo Trastevere</p>
+            <p class="cache-row__meta">1,4 km · 1 check-in</p>
+          </div>
+          <span class="cache-row__time"><span class="sr-only">Salvato alle </span>18:42</span>
+        </li>
+      </ul>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <span class="bottom-nav__item" aria-current="page">
+        <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+        <span>Mappa</span>
+      </span>
+      <span class="bottom-nav__item">
+        <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+        <span>Profilo</span>
+      </span>
+    </nav>
+  </section>
+
+  <!-- 06 · Riconnessione (il banner sparisce dopo 3s) -------------- -->
+  <section class="screen" data-state="reconnect" hidden>
+    <header class="appbar">
+      <h1 class="appbar__title">Mappa</h1>
+      <span class="badge badge--success appbar__action">Online</span>
+    </header>
+
+    <div class="reconnect-wrap">
+      <div id="reconnect-banner" class="banner banner--success banner--action" role="status" aria-atomic="true">
+        <svg class="icon banner__icon" aria-hidden="true"><use href="#i-check"/></svg>
+        <div class="banner__body">
+          <p class="banner__title">Di nuovo online</p>
+          <p class="banner__meta">Aggiorniamo campi e lobby.</p>
+        </div>
+        <button type="button" class="btn btn--sm btn--primary">Aggiorna</button>
+      </div>
+      <p id="reconnect-after" class="reconnect-after" role="status" hidden>
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"/></svg>
+        Aggiornato ora · 3 campi vicini
+      </p>
+    </div>
+
+    <div class="map map--fit" role="img" aria-label="Mappa di Roma aggiornata, con tre campi nell'area">
+      <div class="map__water" aria-hidden="true"></div>
+      <span class="pin" style="left: 26%; top: 32%" aria-hidden="true"><svg class="icon"><use href="#i-ball"/></svg></span>
+      <span class="pin" style="left: 54%; top: 48%" aria-hidden="true"><svg class="icon"><use href="#i-ball"/></svg></span>
+      <span class="pin" style="left: 74%; top: 66%" aria-hidden="true"><svg class="icon"><use href="#i-ball"/></svg></span>
+      <span class="map-note"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check"/></svg> Dati aggiornati</span>
+    </div>
+
+    <div class="cache">
+      <div class="cache__head">
+        <h2 class="label">Campi vicino a te</h2>
+        <span class="cache__count">3</span>
+      </div>
+      <ul class="cache__list">
+        <li class="cache-row">
+          <span class="cache-dot" aria-hidden="true"></span>
+          <div class="cache-row__body">
+            <p class="cache-row__name">Campetto Piazza Vittorio</p>
+            <p class="cache-row__meta">0,8 km · 3 check-in adesso</p>
+          </div>
+          <span class="cache-row__time">ora</span>
+        </li>
+        <li class="cache-row">
+          <span class="cache-dot" aria-hidden="true"></span>
+          <div class="cache-row__body">
+            <p class="cache-row__name">Campo Trastevere</p>
+            <p class="cache-row__meta">1,4 km · lobby alle 19:30</p>
+          </div>
+          <span class="cache-row__time">ora</span>
+        </li>
+      </ul>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <span class="bottom-nav__item" aria-current="page">
+        <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+        <span>Mappa</span>
+      </span>
+      <span class="bottom-nav__item">
+        <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+        <span>Profilo</span>
+      </span>
+    </nav>
+  </section>
+
+  <!-- 07 · Errore di rete (route) --------------------------------- -->
+  <section class="screen" data-state="error-route" hidden>
+    <div class="content error-screen" role="alert">
+      <span class="error-mark" aria-hidden="true">!</span>
+      <h1 class="display-sm">Non riusciamo a caricare questa pagina.</h1>
+      <p class="body">La connessione è caduta mentre caricavamo i campi. Quelli che hai già aperto restano sul telefono.</p>
+      <button type="button" class="btn btn--primary btn--block">Riprova</button>
+      <button type="button" class="btn btn--secondary btn--block">Torna alla mappa</button>
+      <p class="error-code">Errore 500 · riferimento 7C2A-91</p>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <span class="bottom-nav__item">
+        <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+        <span>Mappa</span>
+      </span>
+      <span class="bottom-nav__item">
+        <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+        <span>Profilo</span>
+      </span>
+    </nav>
+  </section>
+
+  <!-- 08 · Errore critico (global-error) --------------------------
+       Stile volutamente fuori dai token: colori e font di sistema.
+       In produzione questa pagina deve leggersi anche se il CSS
+       dell'app non è disponibile. -->
+  <section class="screen boot" data-state="error-critical" hidden>
+    <div class="boot__inner" role="alert">
+      <p class="boot__brand">Drop-In</p>
+      <h1 class="boot__title">Qualcosa si è rotto.</h1>
+      <p class="boot__text">Drop-In non è riuscito ad avviarsi. Ricarica la pagina; se succede ancora, riapri l'app tra qualche minuto.</p>
+      <button type="button" class="boot__primary">Riprova</button>
+      <button type="button" class="boot__secondary">Torna alla mappa</button>
+      <p class="boot__code">Errore critico · riferimento 3E8B-04</p>
+    </div>
+  </section>
+
+  <!-- 09 · Vuoto mappa -------------------------------------------- -->
+  <section class="screen" data-state="empty-map" hidden>
+    <header class="appbar">
+      <h1 class="appbar__title">Mappa</h1>
+      <span class="badge appbar__action">Roma</span>
+    </header>
+
+    <div class="map map--full">
+      <div class="map__water" aria-hidden="true"></div>
+      <div class="map-empty">
+        <h2 class="h2">Nessun campo da basket in quest'area</h2>
+        <p class="body">Sposta la mappa o allarga la zona: i campi compaiono quando entrano nel raggio.</p>
+        <button type="button" class="btn btn--primary btn--block">Aggiungi il primo campo</button>
+      </div>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <span class="bottom-nav__item" aria-current="page">
+        <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+        <span>Mappa</span>
+      </span>
+      <span class="bottom-nav__item">
+        <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+        <span>Profilo</span>
+      </span>
+    </nav>
+  </section>
+
+  <!-- 10 · Vuoto ricerca ------------------------------------------ -->
+  <section class="screen" data-state="empty-search" hidden>
+    <header class="appbar">
+      <button type="button" class="appbar__back" aria-label="Indietro">←</button>
+      <h1 class="appbar__title">Cerca</h1>
+    </header>
+
+    <div class="content content--tight">
+      <div class="search">
+        <label class="sr-only" for="q">Cerca un campo per nome o quartiere</label>
+        <input class="input search__input" id="q" type="search" value="parco" autocomplete="off" aria-describedby="search-count" />
+        <button type="button" class="icon-btn search__clear" aria-label="Cancella ricerca">×</button>
+      </div>
+      <p class="muted" id="search-count">0 campi per «parco»</p>
+
+      <div class="empty empty--fill">
+        <svg class="icon empty__icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <h2 class="h2">Nessun campo per «parco»</h2>
+        <p class="body">Prova con il nome del quartiere o cancella la ricerca: i campi vicini restano sulla mappa.</p>
+      </div>
+
+      <button type="button" class="btn btn--primary btn--block">Cancella ricerca</button>
+      <div class="chips" role="group" aria-label="Ricerche suggerite">
+        <button type="button" class="chip">Trastevere</button>
+        <button type="button" class="chip">Piazza Vittorio</button>
+      </div>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <span class="bottom-nav__item" aria-current="page">
+        <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+        <span>Mappa</span>
+      </span>
+      <span class="bottom-nav__item">
+        <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+        <span>Profilo</span>
+      </span>
+    </nav>
+  </section>
+
+  <!-- 11 · Vuoto lobby -------------------------------------------- -->
+  <section class="screen" data-state="empty-lobby" hidden>
+    <div class="content">
+      <div class="court-head">
+        <p class="label">Campo</p>
+        <h1 class="display-sm">Campetto Piazza Vittorio</h1>
+        <p class="muted">Via dello Statuto · 0,8 km</p>
+        <div class="chips">
+          <span class="badge">Cemento</span>
+          <span class="badge">2 canestri</span>
+          <span class="badge badge--accent">2 check-in adesso</span>
+        </div>
+      </div>
+
+      <div class="row row--wrap">
+        <button type="button" class="btn btn--secondary btn--sm">Fai il check-in</button>
+        <button type="button" class="btn btn--secondary btn--sm">Segnala</button>
+      </div>
+
+      <div class="stack">
+        <div class="row row--between">
+          <h2 class="h2">Lobby attive</h2>
+          <span class="badge">0</span>
+        </div>
+        <div class="card card--elevated empty-lobby">
+          <svg class="icon empty-lobby__icon" aria-hidden="true"><use href="#i-users"/></svg>
+          <h3 class="h3">Nessuna lobby qui intorno. Sii il primo.</h3>
+          <p class="body">Una lobby è un appuntamento: scegli orario e quanti siete, gli altri si uniscono dalla mappa.</p>
+          <button type="button" class="btn btn--primary btn--block">Crea una lobby</button>
+        </div>
+      </div>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <span class="bottom-nav__item" aria-current="page">
+        <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+        <span>Mappa</span>
+      </span>
+      <span class="bottom-nav__item">
+        <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+        <span>Profilo</span>
+      </span>
+    </nav>
+  </section>
+
+  <!-- 12 · Vuoto notifiche ---------------------------------------- -->
+  <section class="screen" data-state="empty-notifications" hidden>
+    <div class="content">
+      <h1 class="display-sm">Notifiche</h1>
+
+      <div class="empty empty--fill">
+        <svg class="icon empty__icon" aria-hidden="true"><use href="#i-bell"/></svg>
+        <h2 class="h2">Nessuna notifica</h2>
+        <p class="body">Ti avvisiamo qui quando cambia qualcosa.</p>
+        <p class="muted">Nuove lobby, campi approvati, check-in sui campi che segui.</p>
+      </div>
+
+      <div class="stack">
+        <button type="button" class="btn btn--secondary btn--block">Attiva le notifiche</button>
+        <p class="field__hint">Puoi spegnerle quando vuoi dalle impostazioni.</p>
+      </div>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <span class="bottom-nav__item">
+        <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+        <span>Mappa</span>
+      </span>
+      <span class="bottom-nav__item">
+        <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+        <span>Profilo</span>
+      </span>
+    </nav>
+  </section>
+
+  <!-- 13 · Offline totale (/~offline) ----------------------------- -->
+  <section class="screen" data-state="offline-total" hidden>
+    <div class="content offline-total">
+      <div class="row row--between">
+        <p class="brand">Drop-In</p>
+        <span class="badge badge--warning">Offline</span>
+      </div>
+
+      <h1 class="display">Sei offline.</h1>
+      <p class="body">Drop-In non raggiunge la rete. Quello che hai già aperto resta sul telefono; il resto aspetta.</p>
+
+      <div class="card">
+        <h2 class="h3">Resta disponibile</h2>
+        <ul class="check-list">
+          <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg> La mappa che hai già visto</li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg> I campi che hai aperto</li>
+        </ul>
+        <p class="muted">Se non hai ancora aperto nessun campo, la mappa resta vuota finché non torni online.</p>
+      </div>
+
+      <div class="card">
+        <h2 class="h3">Non disponibile</h2>
+        <ul class="check-list check-list--off">
+          <li><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg> Check-in</li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg> Lobby</li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg> Segnalazioni</li>
+        </ul>
+      </div>
+
+      <button type="button" class="btn btn--primary btn--block">Riprova</button>
+      <p class="muted">Ultimo aggiornamento: 18:42, 12 minuti fa.</p>
+    </div>
+  </section>
+
+  <!-- 01 · Caricamento (skeleton, mai un vuoto) -------------------- -->
+  <section class="screen" data-state="loading" hidden>
+    <header class="appbar">
+      <h1 class="appbar__title">Mappa</h1>
+      <span class="badge appbar__action">Roma</span>
+    </header>
+
+    <div class="content content--tight" aria-busy="true">
+      <span class="sr-only" role="status">Caricamento campi e lobby…</span>
+      <div class="skeleton sk--input" aria-hidden="true"></div>
+      <div class="chips" aria-hidden="true">
+        <div class="skeleton sk--chip"></div>
+        <div class="skeleton sk--chip"></div>
+      </div>
+      <div class="skeleton sk--map" aria-hidden="true"></div>
+      <div class="sk--row" aria-hidden="true">
+        <div class="skeleton sk--dot"></div>
+        <div class="sk--lines">
+          <div class="skeleton sk--line"></div>
+          <div class="skeleton sk--line sk--short"></div>
+        </div>
+      </div>
+      <div class="sk--row" aria-hidden="true">
+        <div class="skeleton sk--dot"></div>
+        <div class="sk--lines">
+          <div class="skeleton sk--line"></div>
+          <div class="skeleton sk--line sk--short"></div>
+        </div>
+      </div>
+      <div class="sk--row" aria-hidden="true">
+        <div class="skeleton sk--dot"></div>
+        <div class="sk--lines">
+          <div class="skeleton sk--line"></div>
+          <div class="skeleton sk--line sk--short"></div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <span class="bottom-nav__item" aria-current="page">
+        <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+        <span>Mappa</span>
+      </span>
+      <span class="bottom-nav__item">
+        <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+        <span>Profilo</span>
+      </span>
+    </nav>
+  </section>
+
+</div>
+
+<p class="note">
+  Stati 01–13, tutti raggiungibili dalla toolbar. Token e motion vengono da proto.css;
+  nessuna rete, nessun dato reale, nessun import dall'app.
+  L'offline non è un errore: --warning per lo stato di rete, --danger per l'errore.
+  Lo stato 08 (errore critico) usa di proposito colori e font di sistema: deve leggersi
+  anche se il CSS e i font dell'app non sono disponibili.
+</p>
+
+<script src="proto.js"></script>
+<script>
+  /* Il selettore della toolbar pilota i .proto-switch nascosti: proto.js resta
+     l'unica macchina a stati. In più, il banner "Di nuovo online" sparisce
+     dopo 3 secondi e lascia il posto alla riga "Aggiornato ora". */
+  (function () {
+    "use strict";
+
+    var group = document.querySelector("[data-state-group]");
+    var select = document.getElementById("frame");
+    if (!group || !select) return;
+
+    var timer = null;
+
+    function startReconnect() {
+      var banner = document.getElementById("reconnect-banner");
+      var after = document.getElementById("reconnect-after");
+      if (!banner || !after) return;
+      if (timer) clearTimeout(timer);
+      banner.hidden = false;
+      after.hidden = true;
+      timer = setTimeout(function () {
+        banner.hidden = true;
+        after.hidden = false;
+      }, 3000);
+    }
+
+    select.addEventListener("change", function () {
+      var button = group.querySelector('[data-show="' + select.value + '"]');
+      if (!button) return;
+      button.click();
+      if (select.value === "reconnect") startReconnect();
+    });
+  })();
+</script>
+</body>
+</html>

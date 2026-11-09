@@ -25,17 +25,19 @@ npx playwright screenshot --viewport-size="360,780" \
 
 | File | Schermata | Ticket proto | Stato |
 |---|---|---|---|
-| `onboarding.html` | Primo avvio (3 passi sopra la mappa) | d9 | da fare |
-| `settings.html` | Impostazioni | d10 | da fare |
-| `profile.html` | Profilo e modifica nickname | d11 | da fare |
-| `lobby.html` | Lobby: lista, crea, dettaglio, join | d12 | da fare |
-| `checkin.html` | Check-in: permessi, fuori raggio, successo | d13 | da fare |
-| `notifications.html` | Centro notifiche e permesso push | d14 | da fare |
-| `report.html` | Segnala un campo | d15 | da fare |
-| `offline.html` | Offline, errore, stati vuoti | d16 | da fare |
+| `onboarding.html` | Primo avvio (3 passi sopra la mappa) | d9 | in review |
+| `settings.html` | Impostazioni | d10 | in review |
+| `profile.html` | Profilo e modifica nickname | d11 | in review |
+| `lobby.html` | Lobby: lista, crea, dettaglio, join | d12 | in review |
+| `checkin.html` | Check-in: permessi, fuori raggio, successo | d13 | in review |
+| `notifications.html` | Centro notifiche e permesso push | d14 | in review |
+| `report.html` | Segnala un campo | d15 | in review |
+| `offline.html` | Offline, errore, stati vuoti | d16 | in review |
 
 `proto.css` e `proto.js` sono la base condivisa: **non si duplicano** dentro i
-singoli file. Ogni prototipo aggiunge solo il proprio `<style>` per ciò che è
+singoli file. I due `.woff2` self-hosted di `app/fonts/` sono incorporati una volta
+sola in `proto.css` (data URI): i prototipi caricano Syne e Source Sans 3 anche da
+`file://`, senza `@font-face` duplicati. Ogni prototipo aggiunge solo il proprio `<style>` per ciò che è
 specifico della schermata.
 
 ## Regole

@@ -32,7 +32,7 @@ combobox, tabs, accordion, tooltip, switch, slider, toast, motion e form.
 - **`@base-ui/react`** è headless: comportamento e accessibilità (focus trap, ESC,
   scroll lock, `aria-*`) senza stile imposto. È la scelta di default nel 2026 e
   sostituisce l'uso diretto di Radix. Copre già drawer e tooltip, i due controlli
-  che oggi gestiamo a mano dentro `BottomSheet`.
+  che prima gestivamo a mano dentro `BottomSheet` (ora `components/ui/drawer.tsx`).
 - **`sonner`** è l'unico toast che non porta dietro un design system: 9 kB, zero
   dipendenze, code con swipe su mobile. Un solo punto per gli esiti non bloccanti;
   l'errore di campo resta inline.
@@ -51,7 +51,7 @@ combobox, tabs, accordion, tooltip, switch, slider, toast, motion e form.
 
 | Scelta | Motivo |
 |---|---|
-| Vaul | Sheet non mantenuto: ci teniamo il nostro `BottomSheet`. |
+| Vaul | Non serve: Base UI `Drawer` copre il ruolo (d5). |
 | Tremor | Fermo al 2025, trascina il suo stile sui grafici. |
 | Park UI | Fermo al 2024. |
 | Heroicons | Fermo al 2024; le icone sono già lucide. |
@@ -113,7 +113,7 @@ testo per coprire il punto 2.
 
 Decisione: Drawer e Sonner si adottano (nessun blocco funzionale osservato, nessuna
 differenza tra motori), con due riserve scritte: (a) il test su iPhone reale va
-fatto prima della release, non prima di `d5`; (b) il punto 1b va chiuso in `d5`.
+fatto prima della release, non prima di `d5`; (b) il punto 1b va chiuso in `d5` (chiuso: `tests/e2e/drawer.spec.ts` verifica il ciclo del focus).
 
 ## Collegamenti
 

@@ -2,7 +2,7 @@
 id: d12
 type: design
 hitl: true
-claimed: false
+claimed: true
 blocked_by: []
 ---
 ## Question
@@ -74,4 +74,60 @@ grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/lobby.html
 
 ## Resolution
 
-(TBD — esito review, decisione dettaglio pagina vs drawer, stati approvati, screenshot.)
+**Stato: in review HITL.** Prototipo pronto, non ancora approvato.
+
+**File:** `docs/design/prototypes/lobby.html` (unico file creato; `proto.css` e `proto.js` non toccati). La riga `lobby.html` in `prototypes/README.md` **non** è stata aggiornata: il vincolo di lane di questo lavoro vieta di modificare la tabella; va aggiornata al merge.
+
+### Cosa è implementato
+
+- **12 stati, tutti dalla toolbar:** `lista`, `lista-vuota`, `lista-loading`, `dettaglio-aperta`, `dettaglio-piena`, `dettaglio-in-corso`, `dettaglio-chiusa`, `crea`, `crea-errore`, `join`, `join-ottimistico`, `join-pieno`.
+- **Contenitori:** lista e dettaglio sono pagine; crea e join sono drawer sopra la pagina. Nessun drawer dentro un drawer: "Crea la tua lobby" da `join-pieno` passa allo stato `crea`, sostituendo il pannello.
+- **Lista:** tab "Le tue" / "Vicine" con `role="tablist"`, `aria-selected` e frecce; tab contano 3/3. Card con campo, sport, orario, `n/5`, badge Aperta / In corso / Chiusa, "Sei dentro" per le tue, "Unisciti" solo per le aperte non piene. Due vuoti distinti, raggiungibili dalle tab, con "Trova un campo". Loading con 3 skeleton e `role="status"`.
+- **Dettaglio:** nome campo e sport, orario grande, avatar iniziali + `3/5`, stato, karma richiesto, "Apri il campo". CTA unica: "Unisciti" (aperta), "Crea lobby" (piena); assente in corso/chiusa, dove lo stato è scritto in testo.
+- **Crea:** `datetime-local`, giocatori 2–30 con stepper numerico, riepilogo "La lobby scade 30 minuti dopo l'orario" con orario di chiusura calcolato, CTA "Crea lobby".
+- **Crea errore:** orario passato, max fuori range, sospensione con motivo e data di fine, karma 46; CTA disabilitata con spiegazione. I quattro errori sono nello stesso caso coerente (vedi decisioni).
+- **Join:** riepilogo campo / orario / posti liberi / karma, CTA "Entra". Ottimistico: drawer chiuso, dettaglio "Sei dentro" 4/5, "Esci" secondaria. "Posti esauriti": drawer aperto con spiegazione e CTA "Crea la tua lobby".
+- **Accessibilità:** card = un solo link con nome accessibile completo; drawer con `role="dialog"`, `aria-modal`, focus trap, Esc, backdrop e restore focus; target ≥ 44px; focus visibile su tutti i controlli; icone decorative `aria-hidden`; stato piena/chiusa anche in testo; `prefers-reduced-motion` ereditato da `proto.css`.
+- **Copy e dati:** italiano definitivo, Roma/basket/orari/karma plausibili. Font Syne/Source Sans 3 dalla base `proto.css` (nessuna dipendenza esterna). Nessun import dall'app, nessuna fetch, nessun dato reale.
+
+### Decisioni da validare
+
+1. **"Unisciti" sulla card.** La card è un unico focus stop (link al dettaglio); "Unisciti" è l'affordance visiva e il join parte dal dettaglio. Un bottone reale dentro la card aggiungerebbe un secondo focus stop per card, contro il requisito a11y del ticket. Se HITL vuole il join diretto dalla lista, la deroga va scelta esplicitamente.
+2. **Ottimistico sul dettaglio.** `join-ottimistico` mostra il dettaglio con "Sei dentro", 4/5 ed "Esci"; la card "Sei dentro" è visibile in `lista` (Pineto 4/5). In un solo frame da 360 non stanno entrambe.
+3. **`crea-errore`** combina i quattro errori in un caso coerente: orario 19:00 già passato, max 1, sospensione fino a lunedì 16 novembre (due check-in non rispettati), karma 46. Un solo pannello, CTA disabilitata.
+4. **`datetime-local`:** il formato del valore segue la lingua del browser. Chromium headless (en-US) mostra `09:00 PM`; su browser italiano mostra `21:00`. Il riepilogo sotto il campo è sempre `toLocaleTimeString("it-IT")`.
+5. **Base `proto.js`:** nasconde con l'attributo `hidden`, ma `.screen`/`.stack` di `proto.css` hanno `display:flex`, che batte lo stile UA. Nel file ci sono una regola locale `[hidden]{display:none!important}` e la toolbar dentro `[data-state-group]`. `proto.css` non è stato modificato: se il pattern regge, va promosso lì.
+6. **Font:** Syne e Source Sans 3 arrivano da `proto.css` (la base condivisa li incorpora come data URI): `lobby.html` non ha dipendenze né rete, e resta corretto anche da `file://`.
+
+### Checklist `prototypes/README.md`
+
+- [x] Pipeline, passo e prossimo passo dichiarati nel commento HTML e nella testata.
+- [x] Tutti i 12 stati del ticket presenti e raggiungibili dalla toolbar.
+- [x] Copy italiano, concreto, senza gergo.
+- [x] Una sola CTA primaria per stato (le "Unisciti" delle card sono affordance, non bottoni).
+- [x] Touch target ≥ 44px e focus visibile; drawer con focus trap.
+- [x] Contrasto AA sui token di `proto.css`.
+- [x] `prefers-reduced-motion`: nessuna informazione affidata al movimento.
+- [x] Screenshot 360/768 allegati.
+- [x] Nessun colore fuori da `proto.css`; solo Syne / Source Sans 3.
+
+### Verifica eseguita
+
+- `grep -L 'proto.css' docs/design/prototypes/lobby.html` → nessun output.
+- `grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/lobby.html` → nessun output.
+- `python3 -m http.server 4177 --directory docs/design/prototypes` + `npx playwright screenshot --viewport-size="360,780"` e `"768,900"` → screenshot sotto.
+- Playwright su 360×780 e 768×900: un solo stato visibile per volta, nessuno scroll orizzontale (pagina e `.phone`), max 1 CTA primaria, tutti i target ≥ 44px, nessun errore console; tab e vuoti funzionanti; Esc, backdrop, focus trap e restore focus verificati; nessun drawer impilato.
+- Apertura `file://` verificata: font caricati, `proto.css` applicato, nessun errore.
+
+**Screenshot:**
+- `/tmp/opencode/lobby-360.png` (viewport 360×780)
+- `/tmp/opencode/lobby-768.png` (viewport 768×900)
+- `/tmp/opencode/lobby-360-full.png` e `/tmp/opencode/lobby-768-full.png` (full page, schermata intera)
+- `/tmp/opencode/lobby-states/` (12 PNG per stato, 328px reali dentro `.phone` a 360)
+
+### Aperto per HITL
+
+- Approvare la deroga card/"Unisciti" o chiedere il join diretto dalla lista.
+- Dettaglio confermato come pagina (non drawer), come da ticket.
+- Aggiornare la riga `lobby.html` in `prototypes/README.md`.
+
