@@ -76,3 +76,21 @@ Verifiche: `npm run build` OK, `grep fonts.g .next/static` = 0 hit,
 i 2 `.woff2` in `.next/static/media` sono bit-identici ai sorgenti
 (self-hosting confermato); `tsc` OK; `lint` OK (1 warning preesistente
 in `scripts/check-design.mjs`); `lint:design` OK; `vitest` 34/34.
+
+## Resolution — correzione post-merge (2026-11-09)
+
+Dopo `d5`/`d6` la visual regression è diventata rossa su tutte le viewport.
+Causa: le baseline erano state catturate in una run in cui `next/font/local`
+non applicava i font (il `body` ricadeva sul system sans: family
+`ui-sans-serif`/niente `sourceSans`), quindi il "verde due volte" di `d3` era
+un falso positivo che fissava il rendering sbagliato.
+
+Fix (commit `5288b31`):
+
+- `tests/e2e/styleguide-visual.spec.ts` asserisce che il `body` usi davvero il
+  font del progetto (`/source\s?sans/`) dopo `document.fonts.ready`: senza
+  questo controllo una baseline col font di sistema resta verde per sempre.
+- Baseline rigenerate **una volta** con i font applicati (6 file: `colori` e
+  `scale` a 360/768/1280) e verificate con due run consecutive verdi.
+- Nessun token, palette o dimensione toccata: il diff era uno shift di sub-pixel
+  dovuto alle metriche reali del font rispetto al fallback.
