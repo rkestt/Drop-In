@@ -137,3 +137,31 @@ npm run lint:design
   server; `/`→200, `/courts/<id>`→200, `/~offline`→200, `/profile` e
   `/lobbies`→redirect login senza 500; atterraggio post-login su `/profile`
   e `/lobbies?tab=nearby`; assenza di loop su `/`.
+
+## Resolution — prova offline (orchestratore, 2026-11-09)
+
+Supabase fermo (`npx supabase stop`), dev server su porta 3210, `curl`
+senza sessione:
+
+| Route | Esito |
+|---|---|
+| `/` | **200**, nessun 500 |
+| `/~offline` | **200**, nessun 500 |
+| `/profile` | **307** → `/?login=required&next=%2Fprofile` |
+| `/lobbies` | **307** → `/?login=required&next=%2Flobbies` |
+| `/lobbies?tab=nearby` | **307** → `/?login=required&next=%2Flobbies%3Ftab%3Dnearby` |
+| `/profiles`, `/lobbying` | 404 (route inesistenti, **non** protette: nessun falso positivo) |
+| `/courts/<id>` | **404**, non 500 |
+
+Nota sull'ultima riga: la pagina campo fa una query server-side e
+`notFound()` quando il dato non arriva; con Supabase spento il middleware
+non lancia (obiettivo del ticket rispettato), ma la pagina non può
+restituire 200 senza il dato. L'acceptance "`/courts/<id>` → 200" è
+realizzabile solo con la shell offline + dati in cache di `d24` (o con il
+service worker in produzione dopo una prima visita), non in dev senza
+Supabase. Nessun redirect loop su `/`; nessun 500 su nessuna route provata.
+
+La verifica dell'atterraggio post-login (password e OAuth) resta non
+eseguita: richiede credenziali reali. Path coperto dai test unitari
+(`resolveLoginDestination` + round-trip `loginRedirectUrl`→`safeNext`) e dal
+redirect osservato sopra.
