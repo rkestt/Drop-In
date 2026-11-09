@@ -284,3 +284,19 @@ p {
   color: var(--text-secondary) !important;
 }
 
+/* Sonner — i token del progetto vincono sui default della libreria.
+   Sonner inietta il suo CSS a runtime (foglio non ordinato in cascade
+   layer): la specificità qui è più alta dei selettori della libreria,
+   quindi i token valgono a prescindere dall'ordine di iniezione. */
+body [data-sonner-toaster][data-sonner-theme="dark"] {
+  --normal-bg: var(--bg-elevated);
+  --normal-border: var(--border);
+  --normal-text: var(--text-primary);
+  --border-radius: var(--radius-card);
+  font-family: var(--font-source-sans);
+}
+
+body [data-sonner-toaster][data-sonner-theme="dark"] [data-description] {
+  color: var(--text-secondary);
+}
+

@@ -12,7 +12,7 @@ import { Accordion } from "@base-ui/react/accordion";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { Switch } from "@base-ui/react/switch";
 import { Slider } from "@base-ui/react/slider";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -301,17 +301,16 @@ function SliderExample() {
 }
 
 function ToastExample() {
+  // Il <Toaster /> globale è montato una sola volta nel root layout:
+  // qui si usa solo `toast` per generare l'esito.
   return (
-    <>
-      <Toaster theme="dark" position="top-center" />
-      <button
-        type="button"
-        className={trigger}
-        onClick={() => toast.success("Campo aggiunto", { description: "In attesa di moderazione." })}
-      >
-        Mostra toast
-      </button>
-    </>
+    <button
+      type="button"
+      className={trigger}
+      onClick={() => toast.success("Campo aggiunto", { description: "In attesa di moderazione." })}
+    >
+      Mostra toast
+    </button>
   );
 }
 

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { ToastProvider } from "@/components/notifications/toast-provider";
+import { Toaster } from "@/components/notifications/toaster";
+import { KarmaListener } from "@/components/notifications/karma-listener";
 import { SportProvider } from "@/lib/sport/sport-context";
 import "./globals.css";
 
@@ -53,7 +54,8 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-[var(--bg-base)] text-[var(--text-primary)] font-[family-name:var(--font-source-sans)]">
         <SportProvider>
           {children}
-          <ToastProvider />
+          <Toaster />
+          <KarmaListener />
         </SportProvider>
       </body>
     </html>
