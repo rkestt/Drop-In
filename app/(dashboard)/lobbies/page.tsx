@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { loginRedirectUrl } from "@/lib/auth/routes";
 import { LobbyTabs } from "@/components/lobby/lobby-tabs";
 
 export const dynamic = "force-dynamic";
@@ -11,14 +12,26 @@ type Lobby = {
   courts?: { name: string } | null;
 };
 
-export default async function LobbiesPage() {
+export default async function LobbiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string | string[] }>;
+}) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Fail open like the middleware: a network error means "unknown session",
+  // so bounce to login (with next) instead of 500ing.
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    user = null;
+  }
 
   if (!user) {
-    redirect("/?login=required");
+    const params = await searchParams;
+    const tab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
+    redirect(loginRedirectUrl("/lobbies", tab ? `?tab=${tab}` : ""));
   }
 
   // Le tue lobby: dove l'utente è creatore o partecipante
