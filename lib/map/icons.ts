@@ -13,11 +13,9 @@ import type maplibregl from "maplibre-gl";
 export const GATE_ICON_ID = "gate";
 export const BOLLARD_ICON_ID = "bollard";
 
-export const BARRIER_ICON_IDS = [GATE_ICON_ID, BOLLARD_ICON_ID] as const;
-
-// Classi di barrier_line mappate su ciascuna icona.
-export const GATE_CLASSES = ["gate", "lift_gate"] as const;
-export const BOLLARD_CLASSES = ["bollard", "cycle_barrier", "block"] as const;
+// Classi barriera dal layer `poi` servite da ciascuna icona: `gate` e
+// `lift_gate` usano l'icona gate; `bollard`, `cycle_barrier` e `block`
+// usano l'icona bollard.
 
 const warned = new Set<string>();
 

@@ -1,37 +1,10 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 // Unico host remoto consentito per la mappa.
 const ALLOWED_REMOTE_HOSTS = new Set(["tiles.openfreemap.org"]);
 
-interface BarrierLayerInfo {
-  type: unknown;
-  source: unknown;
-  sourceLayer: unknown;
-  minzoom: unknown;
-  iconImage: unknown;
-  iconSize: unknown;
-  iconAllowOverlap: unknown;
-}
-
-async function readBarrierLayer(page: Page): Promise<BarrierLayerInfo> {
-  return page.evaluate(() => {
-    const map = window.__dropinMap;
-    if (!map) throw new Error("__dropinMap not set");
-    const layer = map.getLayer("dropin-barriers") as unknown as Record<string, unknown>;
-    return {
-      type: layer["type"],
-      source: layer["source"],
-      sourceLayer: layer["sourceLayer"],
-      minzoom: layer["minzoom"],
-      iconImage: map.getLayoutProperty("dropin-barriers", "icon-image"),
-      iconSize: map.getLayoutProperty("dropin-barriers", "icon-size"),
-      iconAllowOverlap: map.getLayoutProperty("dropin-barriers", "icon-allow-overlap"),
-    } satisfies BarrierLayerInfo;
-  });
-}
-
-test("barrier sprites register and dropin-barriers layer is configured", async ({
+test("barrier icons register with no new gate/bollard warnings", async ({
   page,
 }) => {
   const consoleErrors: string[] = [];
@@ -70,59 +43,15 @@ test("barrier sprites register and dropin-barriers layer is configured", async (
     () =>
       !!window.__dropinMap &&
       window.__dropinMap.hasImage("gate") &&
-      window.__dropinMap.hasImage("bollard") &&
-      !!window.__dropinMap.getLayer("dropin-barriers"),
+      window.__dropinMap.hasImage("bollard"),
     { timeout: 30_000 },
   );
   const setupAt = Date.now();
 
-  const layer = await readBarrierLayer(page);
-  expect(layer.type).toBe("symbol");
-  expect(layer.source).toBe("openmaptiles");
-  expect(layer.sourceLayer).toBe("barrier_line");
-  expect(layer.minzoom).toBe(16);
-  expect(layer.iconSize).toBe(0.8);
-  expect(layer.iconAllowOverlap).toBe(true);
-
-  const iconImage = layer.iconImage as unknown[];
-  expect(iconImage[0]).toBe("match");
-  const flat = JSON.stringify(iconImage);
-  for (const cls of ["gate", "lift_gate", "bollard", "cycle_barrier", "block"]) {
-    expect(flat).toContain(cls);
-  }
-
-  // Sotto minzoom il layer non disegna nulla.
-  await page.evaluate(() => {
-    window.__dropinMap?.setZoom(13);
-  });
-  await page.waitForTimeout(1_500);
-  const renderedBelow = await page.evaluate(
-    () =>
-      window.__dropinMap?.queryRenderedFeatures({
-        layers: ["dropin-barriers"],
-      }).length ?? -1,
-  );
-  expect(renderedBelow).toBe(0);
-
-  // A zoom >= 16 il layer interroga la sorgente senza errori (il conteggio
-  // dipende dai dati OSM reali in viewport, quindi non si asserisce).
-  await page.evaluate(() => {
-    window.__dropinMap?.setZoom(16);
-  });
-  await page.waitForTimeout(3_000);
-  const renderedAt16 = await page.evaluate(
-    () =>
-      window.__dropinMap?.queryRenderedFeatures({
-        layers: ["dropin-barriers"],
-      }).length ?? -1,
-  );
-  expect(renderedAt16).toBeGreaterThanOrEqual(0);
-  console.log(`dropin-barriers features at zoom 16: ${renderedAt16}`);
-
-  // Le icone sono registrate prima del layer, quindi dopo il setup non
-  // devono comparire nuovi warning per gate/bollard. Restano i warning
-  // pre-esistenti dei POI (office, sports_centre, ...) che lo stile liberty
-  // risolve per-class dallo sprite: fuori scope di questo ticket.
+  // Dopo la registrazione non devono comparire nuovi warning per
+  // gate/bollard (le icone inline risolvono i lookup dei POI). Restano i
+  // warning pre-esistenti dei POI (office, sports_centre, ...) che lo stile
+  // liberty risolve per-class dallo sprite: fuori scope di questo ticket.
   const lateBarrierWarnings = timedWarnings.filter(
     (w) =>
       w.at > setupAt &&
@@ -137,6 +66,12 @@ test("barrier sprites register and dropin-barriers layer is configured", async (
 test("barrier-class POIs are visible at zoom 16 in Villa Borghese", async ({
   page,
 }) => {
+  const timedWarnings: Array<{ at: number; text: string }> = [];
+  page.on("console", (msg) => {
+    if (msg.type() === "warning" && /Image "/.test(msg.text())) {
+      timedWarnings.push({ at: Date.now(), text: msg.text() });
+    }
+  });
   await page.goto("/");
   await expect(page.locator("canvas.maplibregl-canvas")).toBeVisible({
     timeout: 15_000,
@@ -144,9 +79,11 @@ test("barrier-class POIs are visible at zoom 16 in Villa Borghese", async ({
   await page.waitForFunction(
     () =>
       !!window.__dropinMap &&
-      !!window.__dropinMap.getLayer("dropin-barriers"),
+      window.__dropinMap.hasImage("gate") &&
+      window.__dropinMap.hasImage("bollard"),
     { timeout: 30_000 },
   );
+  const setupAt = Date.now();
 
   // Parco con cancelli/dissuasori mappati in OSM.
   await page.evaluate(() => {
@@ -157,9 +94,9 @@ test("barrier-class POIs are visible at zoom 16 in Villa Borghese", async ({
     });
   });
 
-  // Le classi barriera arrivano dal layer poi (barrier_line non e'
-  // distribuito dai tile OpenFreeMap, vedi ticket): poll finche' i tile
-  // non sono caricati.
+  // Le classi barriera arrivano dal layer poi (i tile OpenFreeMap non
+  // distribuiscono barrier_line, vedi ticket): poll finche' i tile non
+  // sono caricati.
   let hit = 0;
   let rendered = 0;
   for (let i = 0; i < 12; i++) {
@@ -189,6 +126,14 @@ test("barrier-class POIs are visible at zoom 16 in Villa Borghese", async ({
   }
   expect(hit).toBeGreaterThan(0);
   expect(rendered).toBeGreaterThan(0);
+  // I POI barriera sono renderizzati dallo stile con le icone inline:
+  // nessun warning gate/bollard dopo la registrazione.
+  const lateBarrierWarnings = timedWarnings.filter(
+    (w) =>
+      w.at > setupAt &&
+      (w.text.includes('Image "gate"') || w.text.includes('Image "bollard"')),
+  );
+  expect(lateBarrierWarnings).toEqual([]);
 });
 
 test("barrier icons load with zero network (inline data URIs)", async ({
