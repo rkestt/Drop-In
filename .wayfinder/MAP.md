@@ -35,7 +35,6 @@ Nessun codice finto in produzione.
 
 ### Frontier (sbloccati)
 
-- [d4-safari-ios-check](tickets/d4-safari-ios-check.md) — verify HITL: Drawer + Sonner su iPhone.
 - [d9-proto-onboarding](tickets/d9-proto-onboarding.md) — design HITL: primo avvio.
 - [d10-proto-settings](tickets/d10-proto-settings.md) — design HITL: impostazioni.
 - [d11-proto-profile](tickets/d11-proto-profile.md) — design HITL: profilo.
@@ -49,12 +48,13 @@ Nessun codice finto in produzione.
 
 - [d1-fix-auth-middleware](tickets/d1-fix-auth-middleware.md) ✅ 2026-11-09 — middleware fail-open su errore di rete (timeout 3s), `next` preservato fino al callback (password e OAuth), match per primo segmento (`/profiles` non protetto), `LoginModal` senza `next` resta sulla pagina; `/courts/<id>` con Supabase spento resta 404 del dato, shell offline a `d24`.
 - [d2-map-sprites](tickets/d2-map-sprites.md) ✅ 2026-11-09 — icone inline `gate`/`bollard` (niente sprite, offline-safe); OpenFreeMap non distribuisce `barrier_line`, quindi `dropin-barriers` è un gap-filler su `poi` da z16 (a Villa Borghese 91 icone nostre vs 0 stock, che rende le barriere solo da z17 per rank). Accoppiato ai rank Liberty: riverificare se lo stile cambia.
+- [d4-safari-ios-check](tickets/d4-safari-ios-check.md) ✅ 2026-11-09 — nessun iPhone disponibile: verifica per motore con Playwright WebKit 27.2 (immagine ufficiale) + profilo iPhone 13, confronto Chromium. PASS su apertura/focus iniziale/ESC/backdrop/drag/reduced motion/console/toast; **focus trap che cicla FAIL in entrambi i motori** → requisito di d5; verifica su device reale rimandata alla release (scritta in `stack.md`). Drawer e Sonner adottati con quelle riserve: d5/d6 sbloccati.
 - [d3-visual-ci-fonts](tickets/d3-visual-ci-fonts.md) ✅ 2026-11-09 — Syne e Source Sans 3 self-hosted (62 KB, OFL), `next/font/local`, `document.fonts.ready` prima degli screenshot, visual regression nel job CI.
 
 ### Blocked
 
-- [d5-drawer-migration](tickets/d5-drawer-migration.md) — blocked_by d4.
-- [d6-sonner-migration](tickets/d6-sonner-migration.md) — blocked_by d4.
+- [d5-drawer-migration](tickets/d5-drawer-migration.md) — sbloccato da d4: pronto per il prossimo giro.
+- [d6-sonner-migration](tickets/d6-sonner-migration.md) — sbloccato da d4: pronto per il prossimo giro.
 - [d7-motion-pipelines](tickets/d7-motion-pipelines.md) — blocked_by d5, d6.
 - [d8-form-rhf-zod](tickets/d8-form-rhf-zod.md) — blocked_by d5.
 - [d17-impl-onboarding](tickets/d17-impl-onboarding.md) — blocked_by d9, d5, d6.
@@ -76,7 +76,7 @@ Nessun codice finto in produzione.
 | [d1-fix-auth-middleware](tickets/d1-fix-auth-middleware.md) | bug | no | — | chiuso 2026-11-09 |
 | [d2-map-sprites](tickets/d2-map-sprites.md) | bug | no | — | chiuso 2026-11-09 |
 | [d3-visual-ci-fonts](tickets/d3-visual-ci-fonts.md) | infra | no | — | chiuso 2026-11-09 |
-| [d4-safari-ios-check](tickets/d4-safari-ios-check.md) | verify | sì | — | aperto |
+| [d4-safari-ios-check](tickets/d4-safari-ios-check.md) | verify | sì | — | chiuso 2026-11-09 (WebKit, device pendente) |
 | [d5-drawer-migration](tickets/d5-drawer-migration.md) | impl | no | d4 | aperto |
 | [d6-sonner-migration](tickets/d6-sonner-migration.md) | impl | no | d4 | aperto |
 | [d7-motion-pipelines](tickets/d7-motion-pipelines.md) | impl | no | d5, d6 | aperto |

@@ -12,8 +12,8 @@ i componenti scritti a mano in `components/ui/` restano quelli usati dall'app.
 
 | Pacchetto | Ruolo | Licenza | Stato |
 |---|---|---|---|
-| `@base-ui/react` | Headless per dialog, drawer, popover, menu, select, tabs, accordion, tooltip | MIT | installato, da valutare |
-| `sonner` | Toast: 9 kB, zero dipendenze | MIT | installato, da valutare |
+| `@base-ui/react` | Headless per dialog, drawer, popover, menu, select, tabs, accordion, tooltip | MIT | adottato (verifica iPhone reale pendente) |
+| `sonner` | Toast: 9 kB, zero dipendenze | MIT | adottato (verifica iPhone reale pendente) |
 | `react-hook-form` | Form non controllati | MIT | installato, da valutare |
 | `zod` | Validazione e schema condiviso client/server | MIT | installato, da valutare |
 | `@hookform/resolvers` | Ponte zod ↔ react-hook-form | MIT | installato, da valutare |
@@ -87,6 +87,33 @@ Base UI e Sonner si provano su **Safari iOS**, non su desktop:
 
 Se il test passa, si installa il pacchetto e si migra un componente per volta.
 Se non passa, si documenta qui il motivo e si resta sul componente scritto a mano.
+
+### Esito d4 (2026-11-09) — device fisico non disponibile
+
+Non c'è un iPhone: il test HITL su device **non è stato eseguito**. Al suo posto,
+evidenza equivalente per motore con Playwright **WebKit 27.2** (immagine ufficiale
+`mcr.microsoft.com/playwright:v1.65.0-noble`) e profilo `iPhone 13`
+(390×664, `isMobile`, `hasTouch`, UA Safari iOS), confrontata con Chromium.
+Script e screenshot: `/tmp/opencode/d4-webkit/` (fuori repo).
+
+| Punto | WebKit | Chromium |
+|---|---|---|
+| 1. apertura, focus iniziale nel dialog, ESC, tap sul backdrop, drag oltre soglia | PASS | PASS |
+| 1b. **focus trap che cicla dentro** | **FAIL** (Tab esce su `body`/nav dopo 2 tab) | **FAIL** (identico) |
+| 2. drawer con tastiera | N/A (il demo non ha campi di testo); nessun salto di `visualViewport` (0 px) | N/A |
+| 3. toast: 16 px dal bordo superiore, swipe verso l'alto chiude, nodo rimosso | PASS | PASS |
+| 4. `prefers-reduced-motion: reduce`: transizioni ~0 s, testo leggibile | PASS | PASS |
+| 5. console: 0 errori, 0 `pageerror` | PASS | PASS |
+
+Il focus trap non è un difetto di WebKit: il demo della styleguide apre
+`Drawer.Root` senza gestione del focus che cicla, e si comporta uguale nei due
+motori. **Requisito per `d5`**: il Drawer migrato deve ciclare il focus dentro il
+dialog (verifica con Tab in avanti e indietro) e il demo deve avere un campo di
+testo per coprire il punto 2.
+
+Decisione: Drawer e Sonner si adottano (nessun blocco funzionale osservato, nessuna
+differenza tra motori), con due riserve scritte: (a) il test su iPhone reale va
+fatto prima della release, non prima di `d5`; (b) il punto 1b va chiuso in `d5`.
 
 ## Collegamenti
 

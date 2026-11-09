@@ -2,8 +2,10 @@
 id: d4
 type: verify
 hitl: true
-claimed: false
+claimed: true
 blocked_by: []
+status: closed
+closed_at: 2026-11-09
 ---
 ## Question
 
@@ -55,4 +57,44 @@ npm run dev:https
 
 ## Resolution
 
-(TBD — device, iOS, Safari, esito 1–5, decisione su d5/d6, allegati.)
+**Device fisico: non disponibile.** Andrea non ha un iPhone e non può eseguire la
+checklist HITL: il ticket si chiude come "verificato per motore, device reale
+pendente", non come test su iPhone.
+
+**Evidenza raccolta.** Playwright **WebKit 27.2** nell'immagine ufficiale
+`mcr.microsoft.com/playwright:v1.65.0-noble` (l'host Arch non ha le dipendenze di
+sistema per WebKit) con profilo `iPhone 13` — 390×664, `isMobile`, `hasTouch`, UA
+Safari iOS — confrontato con Chromium sullo stesso profilo. Script, screenshot e
+`results.json` in `/tmp/opencode/d4-webkit/`.
+
+**Esiti per punto.**
+
+1. **Drawer da bottone — PASS (entrambi i motori).** Apre, il focus iniziale è nel
+   `[role="dialog"]`, `Escape` chiude, tap sul backdrop chiude (punto scelto fuori
+   dal dialog), drag verso il basso oltre soglia chiude, `body` va in
+   `overflow: hidden` e `window.scrollY` resta fermo.
+   **1b focus trap — FAIL in entrambi i motori**: dopo due Tab il focus esce dal
+   dialog (`span`/`body`/nav). Non è una differenza WebKit: il demo della
+   styleguide non fa ciclare il focus. Diventa requisito di `d5`.
+2. **Drawer con tastiera — N/A**: il demo della styleguide non contiene campi di
+   testo. Nessun salto di `visualViewport` (664 → 664, 0 px). `d5` deve aggiungere
+   un input al demo per coprire il punto.
+3. **Toast — PASS.** Compare a 16 px dal bordo superiore (configurazione
+   `top-center` della styleguide: il test su bottom-nav/safe-area va rifatto con
+   il Toaster definitivo), lo swipe verso l'alto lo chiude e il nodo è rimosso dal
+   DOM (1 → 0) in WebKit e Chromium.
+4. **Reduced motion — PASS.** `transition-duration`≈0,00001 s e
+   `animation-duration`≈0 s su drawer e toast, contenuto leggibile.
+5. **Console — PASS.** 0 voci `console`, 0 `pageerror` in entrambi i motori.
+
+**Decisione.** Drawer (Base UI) e Sonner si adottano: nessun blocco funzionale e
+nessuna differenza tra i motori. Riserve scritte in `docs/design/stack.md`:
+(a) verifica su iPhone reale prima della release, non prima di `d5`; (b) focus
+trap da chiudere in `d5`; (c) il punto 3 va ripetuto con il Toaster definitivo
+(safe-area e bottom nav reali).
+
+**Allegati.** `/tmp/opencode/d4-webkit/`: `drawer-open.png`, `diag-drawer-open.png`,
+`diag-backdrop.png`, `toast-open.png`, `toast-webkit-after-swipe-up.png`,
+`reduced-motion.png`, `results.json`, `diag.mjs`, `toast.mjs`, `run-webkit.mjs`.
+
+**Nessun file in `app/` o `components/` modificato.**
