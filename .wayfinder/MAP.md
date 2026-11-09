@@ -55,9 +55,9 @@ Nessun codice finto in produzione.
 
 - [d5-drawer-migration](tickets/d5-drawer-migration.md) — sbloccato da d4: pronto per il prossimo giro.
 - [d6-sonner-migration](tickets/d6-sonner-migration.md) — sbloccato da d4: pronto per il prossimo giro.
-- [d7-motion-pipelines](tickets/d7-motion-pipelines.md) — blocked_by d5, d6.
-- [d8-form-rhf-zod](tickets/d8-form-rhf-zod.md) — blocked_by d5.
-- [d17-impl-onboarding](tickets/d17-impl-onboarding.md) — blocked_by d9, d5, d6.
+- [d7-motion-pipelines](tickets/d7-motion-pipelines.md) — chiuso: primitive motion, hook reduced-motion SSR-safe.
+- [d8-form-rhf-zod](tickets/d8-form-rhf-zod.md) — chiuso: RHF+zod nei 4 form, schema unico.
+- [d17-impl-onboarding](tickets/d17-impl-onboarding.md) — blocked_by d9 (approvazione HITL del prototipo); d5/d6 già chiusi.
 - [d18-impl-settings](tickets/d18-impl-settings.md) — blocked_by d10, d5, d6.
 - [d19-impl-profile](tickets/d19-impl-profile.md) — blocked_by d11, d5, d6.
 - [d20-impl-lobby](tickets/d20-impl-lobby.md) — blocked_by d12, d5, d6.
@@ -79,8 +79,8 @@ Nessun codice finto in produzione.
 | [d4-safari-ios-check](tickets/d4-safari-ios-check.md) | verify | sì | — | chiuso 2026-11-09 (WebKit, device pendente) |
 | [d5-drawer-migration](tickets/d5-drawer-migration.md) | impl | no | d4 | chiuso 2026-11-09 |
 | [d6-sonner-migration](tickets/d6-sonner-migration.md) | impl | no | d4 | chiuso 2026-11-09 |
-| [d7-motion-pipelines](tickets/d7-motion-pipelines.md) | impl | no | d5, d6 | aperto |
-| [d8-form-rhf-zod](tickets/d8-form-rhf-zod.md) | impl | no | d5 | aperto |
+| [d7-motion-pipelines](tickets/d7-motion-pipelines.md) | impl | no | d5, d6 | chiuso 2026-11-09 |
+| [d8-form-rhf-zod](tickets/d8-form-rhf-zod.md) | impl | no | d5 | chiuso 2026-11-09 |
 | [d9-proto-onboarding](tickets/d9-proto-onboarding.md) | design | sì | — | in review HITL |
 | [d10-proto-settings](tickets/d10-proto-settings.md) | design | sì | — | in review HITL |
 | [d11-proto-profile](tickets/d11-proto-profile.md) | design | sì | — | in review HITL |

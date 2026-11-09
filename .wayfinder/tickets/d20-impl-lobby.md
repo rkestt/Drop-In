@@ -69,6 +69,11 @@ Assorbite da questo ticket (dedup del Phase 1 review, PR #49):
 - #48 `fix: "Partite vicine" mostra lobby di tutta Italia` — lo scope delle
   lobby vicine deve usare il raggio.
 
+**Nota da d7.** `components/lobby/lobby-card.tsx` ha già il badge "Sei dentro"
+con `NextHighlight` ma **non è montato**: la lista reale è resa inline in
+`components/lobby/lobby-list.tsx`. Quando si implementa la lista lobby (questo
+ticket) il wiring va fatto lì, oppure il componente va eliminato se resta morto.
+
 ## Resolution
 
 (TBD — chiudere con: route, stati verificati, esito realtime, trigger capacità, screenshot, spec.)
