@@ -75,7 +75,12 @@ export const submitCourtSchema = z
 
 export type SubmitCourtValues = z.infer<typeof submitCourtSchema>;
 
-/** Regole esistenti: orario futuro, 2–30 giocatori (stesso range dell'UI). */
+/**
+ * Cambio di prodotto consapevole (d8): il DB non ha vincoli su orario e
+ * numero giocatori — una lobby con orario passato è inutilizzabile, quindi
+ * ora il client la blocca. Il DB resta invariato (trigger/RLS ultima difesa).
+ * Range 2–30 = stesso range dell'UI precedente.
+ */
 export const createLobbySchema = z.object({
   startTime: z
     .string()
@@ -108,10 +113,10 @@ export const editProfileSchema = z.object({
 
 export type EditProfileValues = z.infer<typeof editProfileSchema>;
 
-/** Categorie = CHECK del DB (001_initial_schema); descrizione libera. */
+/** Categorie = CHECK del DB (001_initial_schema); descrizione trimmata nello schema. */
 export const reportSchema = z.object({
   category: z.enum(REPORT_CATEGORY_VALUES, { error: "Seleziona una categoria." }),
-  description: z.string(),
+  description: z.string().trim(),
 });
 
 export type ReportValues = z.infer<typeof reportSchema>;

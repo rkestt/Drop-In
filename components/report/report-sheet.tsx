@@ -86,7 +86,7 @@ export function ReportSheet({ open, onClose, courtId, courtName }: ReportSheetPr
         court_id: courtId,
         user_id: user.id,
         category: values.category,
-        description: values.description.trim() || null,
+        description: values.description || null,
         expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
       });
 

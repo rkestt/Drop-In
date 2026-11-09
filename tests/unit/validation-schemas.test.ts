@@ -37,6 +37,20 @@ describe("createLobbySchema", () => {
     }
   });
 
+  it("bordo: -2 minuti → errore, +2 minuti → ok", () => {
+    const fmt = (d: Date) => {
+      const p = (n: number) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+    };
+    const justPast = fmt(new Date(Date.now() - 2 * 60 * 1000));
+    const justFuture = fmt(new Date(Date.now() + 2 * 60 * 1000));
+    expect(
+      createLobbySchema.safeParse({ startTime: justPast, maxPlayers: 10 }).success
+    ).toBe(false);
+    const r = createLobbySchema.safeParse({ startTime: justFuture, maxPlayers: 10 });
+    expect(r.success).toBe(true);
+  });
+
   it("rifiuta l'orario mancante", () => {
     const r = createLobbySchema.safeParse({ startTime: "", maxPlayers: 10 });
     expect(r.success).toBe(false);
@@ -80,6 +94,12 @@ describe("reportSchema", () => {
     for (const category of ["broken_hoop", "wet_court", "lighting", "occupied", "other"]) {
       expect(reportSchema.safeParse({ category, description: "" }).success).toBe(true);
     }
+  });
+
+  it("trimma la descrizione: solo spazi → stringa vuota (payload: null)", () => {
+    const r = reportSchema.safeParse({ category: "other", description: "   " });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.description).toBe("");
   });
 });
 
