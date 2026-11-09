@@ -51,6 +51,15 @@ Nessun codice finto in produzione.
 - [d4-safari-ios-check](tickets/d4-safari-ios-check.md) ✅ 2026-11-09 — nessun iPhone disponibile: verifica per motore con Playwright WebKit 27.2 (immagine ufficiale) + profilo iPhone 13, confronto Chromium. PASS su apertura/focus iniziale/ESC/backdrop/drag/reduced motion/console/toast; **focus trap che cicla FAIL in entrambi i motori** → requisito di d5; verifica su device reale rimandata alla release (scritta in `stack.md`). Drawer e Sonner adottati con quelle riserve: d5/d6 sbloccati.
 - [d3-visual-ci-fonts](tickets/d3-visual-ci-fonts.md) ✅ 2026-11-09 — Syne e Source Sans 3 self-hosted (62 KB, OFL), `next/font/local`, `document.fonts.ready` prima degli screenshot, visual regression nel job CI.
 
+- [d5-drawer-migration](tickets/d5-drawer-migration.md) ✅ 2026-11-09 — `components/ui/drawer.tsx` su Base UI `Drawer`, `bottom-sheet.tsx` eliminato, 6 call site migrati; focus trap ciclante + restore focus + scroll lock verificati da `tests/e2e/drawer.spec.ts` (6 casi, incluso reduced motion). Nota: il demo grezzo di d4 non intrappolava il focus perché non usava `modal`/focus manager del wrapper.
+- [d6-sonner-migration](tickets/d6-sonner-migration.md) ✅ 2026-11-09 — `<Toaster/>` unico nel root layout, listener karma che chiama solo `toast()`, id stabile anti-duplicato, ordine per severità (il ban resta visibile con `visibleToasts={1}`). Migration `015`: `profiles` REPLICA IDENTITY FULL + in pubblicazione realtime (senza, `payload.old` era vuoto e i testi karma mentivano).
+- [d7-motion-pipelines](tickets/d7-motion-pipelines.md) ✅ 2026-11-09 — `lib/motion/tokens.ts` + `StepTransition`, `SuccessPop`, `NextHighlight`; hook proprio `useStableReducedMotion` perché `useReducedMotion()` di Motion è statico con SSR e la sua query è `(prefers-reduced-motion)` senza `: reduce`. Applicato a check-in, crea lobby, lobby card (quest'ultima non ancora montata: wiring in d20).
+- [d8-form-rhf-zod](tickets/d8-form-rhf-zod.md) ✅ 2026-11-09 — `lib/validation/schemas.ts` unica fonte per 4 form (submit-court, create lobby, edit profile, report), errori inline `aria-invalid`/`aria-describedby` con focus sul primo errore, `sessionStorage` intatto. Unica regola nuova dichiarata: orario lobby nel futuro (il DB non la impone).
+
+### Verifica live F1 (2026-11-09)
+
+`@tester` su `design/1.5` a 360 e 1280: drawer (focus trap, ESC, backdrop, restore, scroll lock), toast (1 nodo, top-center 16px, swipe), pipeline motion con reduced, `/submit-court` (errore + focus + bozza), redirect `/profile`/`/lobbies` con `next` → **PASS, zero difetti**. Non verificabili live i flussi autenticati (nessuna email confermata): crea lobby e segnala restano coperti da unit/e2e ma non da una sessione reale.
+
 ### Blocked
 
 - [d5-drawer-migration](tickets/d5-drawer-migration.md) — sbloccato da d4: pronto per il prossimo giro.
