@@ -1,19 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Syne, Source_Sans_3 } from "next/font/google";
+import localFont from "next/font/local";
 import { ToastProvider } from "@/components/notifications/toast-provider";
 import { SportProvider } from "@/lib/sport/sport-context";
 import "./globals.css";
 
-const syne = Syne({
+const syne = localFont({
+  src: "./fonts/Syne-variable.woff2",
   variable: "--font-syne",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: "400 800",
+  display: "swap",
+  adjustFontFallback: false,
 });
 
-const sourceSans = Source_Sans_3({
+const sourceSans = localFont({
+  src: "./fonts/SourceSans3-variable.woff2",
   variable: "--font-source-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: "400 700",
+  display: "swap",
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {

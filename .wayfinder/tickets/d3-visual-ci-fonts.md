@@ -45,4 +45,32 @@ grep -rn "fonts.g" .next/static 2>/dev/null | head
 
 ## Resolution
 
-(TBD — chiudere con: peso dei font, sezioni coperte, esito CI, eventuali baseline rigenerate.)
+Font locali committati in `app/fonts/`: 2 file variabili subset latin da
+Google Fonts (stessi file che serviva `next/font/google`), magic `wOF2`
+verificato, licenze OFL incluse (`OFL-syne.txt`, `OFL-sourcesans3.txt`).
+
+- `Syne-variable.woff2` — 34.608 byte, weight `400 800` (copre tutti i pesi usati: 400–800).
+- `SourceSans3-variable.woff2` — 28.872 byte, weight `400 700` (copre tutti i pesi usati: 400–700).
+- Peso totale: **63.480 byte (~62 KB)**.
+
+`app/layout.tsx`: `next/font/google` → `next/font/local`, stesse variabili
+(`--font-syne`, `--font-source-sans`), `display: "swap"`,
+`adjustFontFallback: false`.
+
+Sezioni coperte dal visual: `colori`, `scale` × viewport 360/768/1280
+(6 screenshot, `document.fonts.ready` al posto di `waitForTimeout(300)`;
+nessuna attesa arbitraria residua).
+
+Esito doppio run: `npm run test:visual` verde **2 volte di fila**
+(3/3 in entrambi i run). Baseline: rigenerate una volta con
+`--update-snapshots` ma risultate **byte-identiche** alle precedenti
+(il file locale è lo stesso che serviva `next/font/google`), quindi nessun
+file baseline modificato nel commit.
+
+CI: step `styleguide-visual.spec.ts` aggiunto dopo `a11y.spec.ts`;
+`docs/design/workflow.md` e `checklist.md` aggiornati (via il "non gira in CI").
+
+Verifiche: `npm run build` OK, `grep fonts.g .next/static` = 0 hit,
+i 2 `.woff2` in `.next/static/media` sono bit-identici ai sorgenti
+(self-hosting confermato); `tsc` OK; `lint` OK (1 warning preesistente
+in `scripts/check-design.mjs`); `lint:design` OK; `vitest` 34/34.
