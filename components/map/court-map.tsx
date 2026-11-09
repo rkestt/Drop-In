@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MAP_PROVIDER, MAP_STYLE_URL, MAP_ATTRIBUTION } from "@/lib/map/provider";
-import { getTheme } from "@/lib/theme";
 
 interface CourtMapProps {
   courts?: Array<{ id: string; name: string; lat: number; lng: number; address?: string | null }>;
@@ -39,10 +38,9 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     if (map.current) return;
     setMapError(null);
 
-    const initialTheme = getTheme();
     const style =
       MAP_PROVIDER === "openfreemap"
-        ? MAP_STYLE_URL[initialTheme]
+        ? MAP_STYLE_URL.light
         : {
             version: 8 as const,
             sources: {
@@ -96,15 +94,6 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     instance.on("moveend", fireBounds);
     instance.on("zoomend", fireBounds);
 
-    // Segue il tema: cambia stile senza ricreare la mappa.
-    const themeObserver = new MutationObserver(() => {
-      if (MAP_PROVIDER !== "openfreemap") return;
-      const t = getTheme();
-      loadedRef.current = true;
-      instance.setStyle(MAP_STYLE_URL[t]);
-    });
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-
     const resizeHandler = () => instance.resize();
     window.addEventListener("resize", resizeHandler);
 
@@ -123,7 +112,6 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     instance.on("remove", () => {
       window.removeEventListener("resize", resizeHandler);
       resizeObserver.disconnect();
-      themeObserver.disconnect();
       canvas.removeEventListener("webglcontextlost", onContextLost);
       canvas.removeEventListener("webglcontextrestored", onContextRestored);
     });
