@@ -50,7 +50,7 @@ export function CourtSearch({
           )
         ) : (
           <span>
-            {totalCount !== undefined ? `${totalCount} campi nell&apos;area visibile` : ""}
+            {totalCount !== undefined ? `${totalCount} campi nell’area visibile` : ""}
           </span>
         )}
       </div>

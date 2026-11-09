@@ -175,13 +175,13 @@ export function LobbyList() {
                   {lobby.participants.slice(0, 5).map((p) => (
                     <span
                       key={p.user_id}
-                      className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent)]"
+                      className="text-label px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--text-primary)]"
                     >
                       {p.nickname || "Anonimo"}
                     </span>
                   ))}
                   {lobby.participants.length > 5 && (
-                    <span className="text-[11px] text-[var(--text-muted)]">
+                    <span className="text-label text-[var(--text-muted)]">
                       +{lobby.participants.length - 5}
                     </span>
                   )}
@@ -193,7 +193,7 @@ export function LobbyList() {
                 {lobby.status === "open" ? "Aperta" : "Chiusa"}
               </Badge>
               {lobby.is_joined && (
-                <span className="text-[10px] uppercase tracking-wider text-[var(--accent)] font-medium">
+                <span className="text-label uppercase tracking-wider text-[var(--accent)] font-medium">
                   Iscritto
                 </span>
               )}

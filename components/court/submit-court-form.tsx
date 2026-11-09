@@ -403,7 +403,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
         <Link
           href="/"
-          className="inline-flex items-center justify-center w-full px-6 py-3.5 rounded-[10px] font-semibold bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
+          className="inline-flex items-center justify-center w-full px-6 py-3.5 rounded-control font-semibold bg-[var(--accent)] text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
         >
           Torna alla mappa
         </Link>
@@ -431,7 +431,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       )}
 
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Posizione</h3>
+        <h2 className="text-sm font-semibold text-[var(--text-primary)]">Posizione</h2>
 
         {!location ? (
           <Button
@@ -504,9 +504,9 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
       {dedupCandidates && dedupCandidates.length > 0 && (
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
             Campi simili nelle vicinanze
-          </h3>
+          </h2>
           <p className="text-sm text-[var(--text-secondary)]">
             Se il campo che vuoi aggiungere è già presente, selezionalo per evitare duplicati.
           </p>
@@ -579,7 +579,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
             id={sportId}
             value={selectedSport}
             onChange={(e) => setSelectedSport(e.target.value as Sport)}
-            className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-[10px] px-4 py-3.5 text-base border border-transparent transition-colors focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
+            className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-control px-4 py-3.5 text-base border border-transparent transition-colors focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
           >
             {SPORTS.map((s) => (
               <option key={s.value} value={s.value}>
@@ -597,7 +597,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
             id={surfaceId}
             value={surface}
             onChange={(e) => setSurface(e.target.value)}
-            className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-[10px] px-4 py-3.5 text-base border border-transparent transition-colors focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
+            className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-control px-4 py-3.5 text-base border border-transparent transition-colors focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
           >
             {SURFACE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -628,7 +628,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
             />
             <label
               htmlFor={photoId}
-              className="flex flex-col items-center justify-center gap-2 w-full rounded-[10px] border-2 border-dashed border-[var(--cool-muted)]/30 bg-[var(--bg-surface)] px-4 py-6 text-[var(--text-secondary)] transition-colors active:bg-[var(--bg-elevated)] min-h-[120px]"
+              className="flex flex-col items-center justify-center gap-2 w-full rounded-control border-2 border-dashed border-[var(--cool-muted)]/30 bg-[var(--bg-surface)] px-4 py-6 text-[var(--text-secondary)] transition-colors active:bg-[var(--bg-elevated)] min-h-[120px]"
             >
               <Camera className="w-6 h-6" aria-hidden="true" />
               <span className="text-sm font-medium">Tocca per scattare o selezionare</span>
@@ -638,7 +638,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
             </label>
           </div>
         ) : (
-          <div className="relative rounded-[10px] overflow-hidden bg-[var(--bg-surface)] aspect-video">
+          <div className="relative rounded-control overflow-hidden bg-[var(--bg-surface)] aspect-video">
             {photoLoading ? (
               <div className="absolute inset-0 flex items-center justify-center">
                 <Loader2 className="w-6 h-6 animate-spin text-[var(--text-muted)]" aria-hidden="true" />

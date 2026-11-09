@@ -73,6 +73,8 @@ npx supabase db execute --file scripts/seed_courts.sql
 | Mappa | MapLibre GL JS |
 | PWA | Serwist (Service Worker, offline cache) |
 
+Librerie UI ammesse, licenze e stato (nessuna installata): [docs/design/stack.md](docs/design/stack.md).
+
 ---
 
 ## Script utili

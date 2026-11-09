@@ -78,13 +78,13 @@ export function ReportSheet({ open, onClose, courtId, courtName }: ReportSheetPr
         </p>
 
         {error && (
-          <div className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm animate-scale-in" role="alert" aria-live="assertive">
+          <div className="p-3 rounded-control-sm bg-[var(--danger)]/10 text-[var(--danger)] text-sm animate-scale-in" role="alert" aria-live="assertive">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="p-3 rounded-lg bg-[var(--success)]/10 text-[var(--success)] text-sm animate-scale-in" role="status" aria-live="polite">
+          <div className="p-3 rounded-control-sm bg-[var(--success)]/10 text-[var(--success)] text-sm animate-scale-in" role="status" aria-live="polite">
             Segnalazione inviata!
           </div>
         )}
@@ -100,9 +100,9 @@ export function ReportSheet({ open, onClose, courtId, courtName }: ReportSheetPr
                   key={cat.value}
                   type="button"
                   onClick={() => setCategory(cat.value)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 ${
+                  className={`px-3 py-2 rounded-control-sm text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 ${
                     category === cat.value
-                      ? "bg-[var(--accent)] text-white"
+                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                       : "bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   }`}
                 >
@@ -123,7 +123,7 @@ export function ReportSheet({ open, onClose, courtId, courtName }: ReportSheetPr
               id="report-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-[10px] px-4 py-3.5 text-base border border-transparent transition-colors placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[100px] resize-none"
+              className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-control px-4 py-3.5 text-base border border-transparent transition-colors placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[100px] resize-none"
               placeholder="Aggiungi dettagli..."
             />
           </div>
