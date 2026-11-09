@@ -218,6 +218,14 @@ export default function HomePage() {
 
   // Initial load once.
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const login = params.get("login");
+    if (login === "required" || login === "1") {
+      setShowLogin(true);
+      params.delete("login");
+      const next = params.toString();
+      history.replaceState(null, "", window.location.pathname + (next ? `?${next}` : ""));
+    }
     fetchCourtsForBBox({ n: 41.95, s: 41.83, e: 12.62, w: 12.4 });
     fetchLobbies();
     supabase.auth.getUser().then(({ data }) => {
