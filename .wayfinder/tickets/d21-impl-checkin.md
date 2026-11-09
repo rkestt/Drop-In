@@ -68,6 +68,13 @@ grep -r "ALLOW_MOCK_GPS" .next/static 2>/dev/null | head
 
 **Riferimenti.** `docs/design/patterns/onboarding.md` (Check-in), `supabase/migrations/001_initial_schema.sql` (`enforce_check_in_distance`), `docs/design/prototypes/checkin.html`.
 
+## Issue GitHub collegate
+
+Assorbite da questo ticket (dedup del Phase 1 review, PR #49):
+
+- #57 `fix(rls): prevent court_id swap to pending courts in lobbies/check_ins
+  UPDATE` (parte check_ins) — nessun `court_id` verso campi non approvati.
+
 ## Resolution
 
 (TBD — chiudere con: stati verificati, gestione mock, esito build, screenshot, spec.)

@@ -51,6 +51,19 @@ npm run lint && npx tsc --noEmit && npm run lint:design
 
 **Riferimenti.** `app/styleguide/library-showcase.tsx` (esempio form RHF+zod), `docs/design/patterns/onboarding.md` (Step, Conferma), `docs/design/stack.md`.
 
+## Issue GitHub collegate
+
+Assorbite da questo ticket (dedup del Phase 1 review, PR #49):
+
+- #54 `fix(dedup): mask lat/lng/distance/status for non-owned pending courts` —
+  i candidati dedup non posseduti non espongono coordinate, distanza e stato.
+- #55 `fix(submit): handle masked dedup candidates (null id) in form` — il form
+  gestisce i candidati mascherati senza id (niente chiavi `null`).
+- #58 `feat(submit): owner retract/edit pending submission path` — il
+  proponente può ritirare o modificare una proposta in attesa.
+- #59 `docs(moderation): update stale migration 012 status and NULL-opaque notes`
+  — allineare la documentazione di moderazione allo stato reale delle migration.
+
 ## Resolution
 
 (TBD — chiudere con: schemi creati, form migrati, casi di test, esito live, eventuali regole lasciate al DB.)

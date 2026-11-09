@@ -60,6 +60,15 @@ npx playwright test tests/e2e/loop.spec.ts   # se t11 è già in main
 
 **Riferimenti.** `docs/design/patterns/onboarding.md` (Crea lobby, Join lobby), `supabase/migrations/001_initial_schema.sql` (`lobbies`, `lobby_participants`), `docs/design/prototypes/lobby.html`.
 
+## Issue GitHub collegate
+
+Assorbite da questo ticket (dedup del Phase 1 review, PR #49):
+
+- #57 `fix(rls): prevent court_id swap to pending courts in lobbies/check_ins
+  UPDATE` (parte lobbies) — nessun `court_id` verso campi non approvati.
+- #48 `fix: "Partite vicine" mostra lobby di tutta Italia` — lo scope delle
+  lobby vicine deve usare il raggio.
+
 ## Resolution
 
 (TBD — chiudere con: route, stati verificati, esito realtime, trigger capacità, screenshot, spec.)

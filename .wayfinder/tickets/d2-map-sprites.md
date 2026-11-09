@@ -47,6 +47,18 @@ npx tsc --noEmit
 
 **Riferimenti.** `lib/map/provider.ts`, `docs/design/patterns/map.md`, `docs/research/map-tile-provider.md`.
 
+## Issue GitHub collegate
+
+Assorbite da questo ticket (dedup del Phase 1 review, PR #49):
+
+- #56 `fix(map): sport change must not rebuild map / reset viewport` — il
+  cambio sport non deve ricreare la mappa né perdere il viewport.
+- #60 `fix(search): wire p_query RPC or downgrade roadmap claim; escape % and _`
+  — ricerca campi: usare `p_query` o correggere la claim di roadmap, escape di
+  `%`/`_`.
+- #61 `fix(courts): consistent column exposure between courts_in_viewport and
+  nearby_courts` — stesse colonne esposte dalle due RPC usate da mappa/browse.
+
 ## Resolution
 
-(TBD — chiudere con: classi mappate, screenshot a zoom 16, esito offline, eventuale nota su `patterns/map.md`.)
+(TBD — chiudere con: classi mappate, screenshot a zoom 16, esito offline, eventuale nota su `patterns/map.md`; esito di #56, #60, #61 con i test che li coprono.)
