@@ -14,6 +14,7 @@ Se un file di codice diverge dalla documentazione, la documentazione vince: apri
 
 ## Indice
 
+- [Piano design system e schermate](1.5.md)
 - [Principi](principles.md)
 - [Token](tokens.md)
 - [Stack librerie UI](stack.md)
@@ -28,6 +29,7 @@ Se un file di codice diverge dalla documentazione, la documentazione vince: apri
 - [Inventario contratti (COMPONENTS.md)](COMPONENTS.md)
 - [Eccezioni e buchi (gaps.md)](gaps.md)
 - [Spec schermate](specs/)
+- [Prototipi statici](prototypes/README.md)
 - [Riferimenti esterni](references/)
 - [Pattern](patterns/)
   - [Onboarding](patterns/onboarding.md)
