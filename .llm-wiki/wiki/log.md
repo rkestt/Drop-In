@@ -7,3 +7,7 @@
 - **retro**: {"category":"devops","slug":"wayfinder-subsession-orchestration","title":"Wayfinder map execution via parallel subsessions"}
 - **observe**: {"relevance":"high","slug":"obs-2026-08-23-tooling-setup-ponytail-impeccable-installate-wiki-project-lo","title":"Tooling setup: ponytail+impeccable installate, wiki project-local creata"}
 - **bootstrap**: {"mode":"personal","topic":"Drop-In"}
+
+## 2026-11-09
+
+- **retro**: {"slug":"visual-regression-falso-verde-font-non-applicati","title":"Visual regression: falso verde quando next/font non applica i font"}
