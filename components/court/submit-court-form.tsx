@@ -44,6 +44,20 @@ const SURFACE_OPTIONS = [
 ];
 
 const LOCATION_ACCURACY_THRESHOLD = 100; // meters
+const MAX_PHOTO_BYTES = 25 * 1024 * 1024; // rifiuto esplicito pre-elaborazione
+
+// Bozza del form in sessionStorage: aprire la fotocamera su Android può far
+// ricaricare la pagina (pressione di memoria). La foto NON viene salvata:
+// dopo un reload l'utente riseleziona solo quella.
+const DRAFT_STORAGE_KEY = "submit-court-draft-v1";
+
+interface SubmitCourtDraft {
+  name: string;
+  selectedSport: Sport;
+  surface: string;
+  location: { lat: number; lng: number; accuracy: number } | null;
+  dedupConfirmed: boolean;
+}
 
 export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
   const router = useRouter();
@@ -73,6 +87,9 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Dettaglio tecnico (name: message) visibile solo in sviluppo: da telefono
+  // non si apre la console, e senza questo l'errore reale resta mascherato.
+  const [debugDetail, setDebugDetail] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [submittedName, setSubmittedName] = useState<string | null>(null);
 
@@ -96,6 +113,56 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       setSelectedSport(sport);
     }
   }, [sport]);
+
+  // Ripristino bozza dopo un reload (es. fotocamera su Android). Dichiarato
+  // DOPO la sincronizzazione con lo sport globale così al mount vince la
+  // bozza; i cambi successivi di sport continuano a sincronizzarsi.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as Partial<SubmitCourtDraft>;
+      if (typeof draft.name === "string") setName(draft.name);
+      if (
+        typeof draft.selectedSport === "string" &&
+        SPORTS.some((s) => s.value === draft.selectedSport)
+      ) {
+        setSelectedSport(draft.selectedSport as Sport);
+      }
+      if (typeof draft.surface === "string") setSurface(draft.surface);
+      const loc = draft.location;
+      if (
+        loc &&
+        typeof loc.lat === "number" &&
+        typeof loc.lng === "number" &&
+        typeof loc.accuracy === "number"
+      ) {
+        setLocation({ lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy });
+      }
+      // Nota: il ripristino della posizione riattiva il controllo duplicati,
+      // che azzera dedupConfirmed. Una conferma pre-reload va quindi
+      // riconfermata: comportamento voluto (meglio che inviare alla cieca).
+      if (typeof draft.dedupConfirmed === "boolean") setDedupConfirmed(draft.dedupConfirmed);
+    } catch {
+      // Bozza corrotta o storage non disponibile: si parte da form vuoto.
+    }
+  }, []);
+
+  // Salvataggio bozza a ogni modifica (solo testo + posizione, mai la foto).
+  useEffect(() => {
+    try {
+      const draft: SubmitCourtDraft = {
+        name,
+        selectedSport,
+        surface,
+        location,
+        dedupConfirmed,
+      };
+      sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch {
+      // Storage pieno o non disponibile: il form resta comunque usabile.
+    }
+  }, [name, selectedSport, surface, location, dedupConfirmed]);
 
   useEffect(() => {
     return () => {
@@ -190,16 +257,32 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
+    // Reset sempre: senza questo, riselezionare lo STESSO file non fa
+    // scattare onChange e il tentativo sembra ignorato ("4 tentativi").
+    e.target.value = "";
     if (!file) return;
 
+    if (file.size > MAX_PHOTO_BYTES) {
+      setError(
+        "La foto supera i 25 MB: scegli un file più piccolo o scatta a una risoluzione inferiore."
+      );
+      return;
+    }
+
+    // `file.type` vuoto (foto scattata al momento su alcuni Android) NON è
+    // un rifiuto: il contenuto viene comunque ricodificato in JPEG.
     if (photoPreview) {
       URL.revokeObjectURL(photoPreview);
     }
 
     setPhotoLoading(true);
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
-    setPhotoLoading(false);
+    try {
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+      setDebugDetail(null);
+    } finally {
+      setPhotoLoading(false);
+    }
   };
 
   const removePhoto = () => {
@@ -216,6 +299,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setDebugDetail(null);
 
     if (!user) {
       onLoginRequired();
@@ -273,9 +357,20 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
       setSubmittedName(trimmedName || "Campo senza nome");
       setSuccess(true);
+      try {
+        sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      } catch {
+        // Bozza già persa o storage non disponibile: nessun impatto.
+      }
     } catch (err) {
       if (uploadedPath) {
         await deleteCourtPhoto(supabase, uploadedPath);
+      }
+      // L'errore foto deve arrivare all'utente, non restare in console.
+      // `uploadedPath` valorizzato = upload riuscito ed errore RPC
+      // successivo: in quel caso il dettaglio foto non c'entra.
+      if (photoFile && !uploadedPath) {
+        setDebugDetail(err instanceof Error ? `${err.name}: ${err.message}` : String(err));
       }
       setError(err instanceof Error ? err.message : "Errore durante l'invio. Riprova più tardi.");
     } finally {
@@ -327,6 +422,11 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
           aria-live="assertive"
         >
           {error}
+          {debugDetail && process.env.NODE_ENV !== "production" && (
+            <p className="mt-2 font-mono text-xs opacity-80 break-all">
+              Errore foto: {debugDetail}
+            </p>
+          )}
         </div>
       )}
 
