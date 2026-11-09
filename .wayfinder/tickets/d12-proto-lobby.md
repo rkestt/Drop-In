@@ -76,7 +76,7 @@ grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/lobby.html
 
 **Stato: in review HITL.** Prototipo pronto, non ancora approvato.
 
-**File:** `docs/design/prototypes/lobby.html` (unico file creato; `proto.css` e `proto.js` non toccati). La riga `lobby.html` in `prototypes/README.md` **non** è stata aggiornata: il vincolo di lane di questo lavoro vieta di modificare la tabella; va aggiornata al merge.
+**File:** `docs/design/prototypes/lobby.html` (unico file creato; `proto.css` e `proto.js` non toccati). La riga `lobby.html` in `prototypes/README.md` è aggiornata a `in review`.
 
 ### Cosa è implementato
 
@@ -123,11 +123,10 @@ grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/lobby.html
 - `/tmp/opencode/lobby-360.png` (viewport 360×780)
 - `/tmp/opencode/lobby-768.png` (viewport 768×900)
 - `/tmp/opencode/lobby-360-full.png` e `/tmp/opencode/lobby-768-full.png` (full page, schermata intera)
-- `/tmp/opencode/lobby-states/` (12 PNG per stato, 328px reali dentro `.phone` a 360)
+- `/tmp/opencode/lobby-states/` (PNG per i 12 stati, più le varianti "Vicine" e `crea-errore` scrollato; 328px reali dentro `.phone` a 360)
 
 ### Aperto per HITL
 
 - Approvare la deroga card/"Unisciti" o chiedere il join diretto dalla lista.
 - Dettaglio confermato come pagina (non drawer), come da ticket.
-- Aggiornare la riga `lobby.html` in `prototypes/README.md`.
 

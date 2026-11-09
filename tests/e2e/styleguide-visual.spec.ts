@@ -19,8 +19,16 @@ test.describe("styleguide visual regression", () => {
       await expect(
         page.getByRole("heading", { name: "Styleguide" }),
       ).toBeVisible();
-      // I font sono locali: attendere il caricamento prima dello screenshot
+      // I font sono locali: attendere il caricamento prima dello screenshot.
+      // L'asserzione sul font evita il falso verde visto in d3: se `next/font/local`
+      // non applica i font, il body ricade sul system sans e le baseline
+      // restano identiche tra loro pur non essendo il rendering vero.
       await page.evaluate(() => document.fonts.ready);
+      const bodyFont = await page.evaluate(() =>
+        getComputedStyle(document.body).fontFamily.toLowerCase(),
+      );
+      // next/font normalizza il nome della famiglia in `sourceSans`
+      expect(bodyFont).toMatch(/source\s?sans/);
 
       for (const id of SECTIONS) {
         const section = page.locator(`#${id}`);
