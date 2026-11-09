@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
 
+// Visual regression sulle sezioni stabili della styleguide.
+// Le sezioni "Componenti" e "Librerie" restano fuori: contengono controlli
+// interattivi e portal, che producono altezze diverse tra locale e CI.
+const SECTIONS = ["colori", "scale"] as const;
+
 test.describe("styleguide visual regression", () => {
   const viewports = [
     { width: 360, height: 900 },
@@ -8,7 +13,7 @@ test.describe("styleguide visual regression", () => {
   ];
 
   for (const { width, height } of viewports) {
-    test(`styleguide @ ${width}px matches baseline`, async ({ page }) => {
+    test(`styleguide @ ${width}px sections match baseline`, async ({ page }) => {
       await page.setViewportSize({ width, height });
       await page.goto("/styleguide");
       await expect(
@@ -16,11 +21,15 @@ test.describe("styleguide visual regression", () => {
       ).toBeVisible();
       // I token si leggono a runtime: lascia assestare font/layout
       await page.waitForTimeout(300);
-      await expect(page).toHaveScreenshot(`styleguide-${width}.png`, {
-        fullPage: true,
-        animations: "disabled",
-        maxDiffPixelRatio: 0.01,
-      });
+
+      for (const id of SECTIONS) {
+        const section = page.locator(`#${id}`);
+        await section.scrollIntoViewIfNeeded();
+        await expect(section).toHaveScreenshot(`styleguide-${width}-${id}.png`, {
+          animations: "disabled",
+          maxDiffPixelRatio: 0.01,
+        });
+      }
     });
   }
 });
