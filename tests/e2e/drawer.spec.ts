@@ -95,7 +95,32 @@ test.describe("drawer", () => {
       });
       await page.waitForTimeout(16);
     }
+    // Mid-drag: il popup segue il dito (il rilascio oltre soglia chiude).
+    const midDragTransform = await page.evaluate(() => {
+      const dlg = document.querySelector('[role="dialog"]');
+      return dlg ? getComputedStyle(dlg).transform : "missing";
+    });
+    expect(midDragTransform).not.toBe("none");
+    expect(midDragTransform).not.toBe("missing");
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await expect(page.getByRole("dialog")).toBeHidden({ timeout: 3000 });
+  });
+
+  test("reduced motion: nessuna animazione, contenuto leggibile", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await openComponentiDrawer(page);
+    const durations = await page.evaluate(() => {
+      const dlg = document.querySelector('[role="dialog"]') as HTMLElement;
+      const cs = getComputedStyle(dlg);
+      const toMs = (v: string) => {
+        const first = v.split(",")[0].trim();
+        return first.endsWith("ms") ? parseFloat(first) : parseFloat(first) * 1000;
+      };
+      return { transition: toMs(cs.transitionDuration), animation: toMs(cs.animationDuration) };
+    });
+    expect(durations.transition).toBeLessThanOrEqual(20);
+    expect(durations.animation).toBeLessThanOrEqual(20);
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.locator("#sg-drawer-nome")).toBeVisible();
   });
 });

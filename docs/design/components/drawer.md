@@ -2,24 +2,22 @@
 
 File sorgente: `components/ui/drawer.tsx` (wrapper del progetto su `Drawer` di Base UI, unica primitiva per dialog/drawer).
 
-## Anatomia
+## Anatomia (API pubblica del wrapper)
 
 ```tsx
-<Drawer.Root open={open} onOpenChange={...} modal swipeDirection="down">
-  <Drawer.Portal>
-    <Drawer.Backdrop className="fixed inset-0 z-50 bg-[var(--overlay)]" />
-    <Drawer.Viewport className="fixed inset-0 z-50 flex items-end justify-center">
-      <Drawer.Popup className="w-full max-w-[720px] rounded-t-sheet bg-[var(--bg-elevated)] shadow-lg pb-safe">
-        <div className="min-h-[44px] flex justify-center pt-3 pb-3" aria-hidden="true">
-          <div className="w-10 h-1.5 rounded-full bg-[var(--text-muted)]/30" />
-        </div>
-        {title && <Drawer.Title className="font-syne text-xl ...">{title}</Drawer.Title>}
-        <div className="px-5 pb-6">{children}</div>
-      </Drawer.Popup>
-    </Drawer.Viewport>
-  </Drawer.Portal>
-</Drawer.Root>
+<Drawer open={open} onClose={() => setOpen(false)} title="Crea lobby">
+  <div className="space-y-4">
+    <Input placeholder="Cerca campo" />
+    <Button className="w-full">Applica</Button>
+  </div>
+</Drawer>
 ```
+
+Il wrapper accetta solo `open`, `onClose`, `title?`, `description?`, `children`,
+`className?`. Dentro rende le parti Base UI (`Drawer.Root` controllato con `modal`
+e `swipeDirection="down"` → `Portal` → `Backdrop` + `Viewport` → `Popup` con handle
+visivo 44px, `Drawer.Title`/`Drawer.Description`, body `px-5 pb-6`). Per i dettagli
+interni vedi `components/ui/drawer.tsx`.
 
 ## API del wrapper
 
@@ -39,6 +37,16 @@ File sorgente: `components/ui/drawer.tsx` (wrapper del progetto su `Drawer` di B
 - Chiude con swipe verso il basso, tasto `Escape`, tap sul backdrop.
 - Blocca lo scroll del body.
 - Al chiusura restituisce il focus all’elemento che ha aperto lo sheet.
+
+### Nota su `outline-none` e focus visibile
+
+Il Popup ha `outline-none`: serve al caso "drawer senza focusabili", dove
+`initialFocus` ripiega sul contenitore e un anello attorno a tutto lo sheet
+sarebbe rumore. Il focus visibile dei controlli interni resta garantito dai
+loro stili `focus-visible` (bottoni, input): ogni drawer deve quindi contenere
+almeno un controllo azionabile o un bottone esplicito di chiusura, mai solo
+testo. Nessun hack aggiunto: se un drawer nasce senza focusabili, la soluzione
+è aggiungere il bottone, non togliere `outline-none`.
 
 ## Varianti
 

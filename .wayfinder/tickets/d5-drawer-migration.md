@@ -79,8 +79,9 @@ Esito verifiche (Playwright Chromium, dev su :3100, `tests/e2e/drawer.spec.ts` 5
 - Focus iniziale dentro al dialog all'apertura.
 - Restore focus al trigger ("Apri drawer") sia con Escape che con tap sul backdrop.
 - `body.style.overflow = "hidden"` da aperto, ripristinato (`""`) da chiuso.
-- Drag oltre soglia chiude: swipe touch sintetico (CDP, 450px dalla handle) sposta
-  il popup (`translate3d(0px, 420px, 0px)` mid-drag) e al rilascio il drawer si chiude.
+- Drag oltre soglia chiude: swipe touch sintetico (CDP, 450px dalla handle);
+  mid-drag lo spec asserisce che il popup segue il dito
+  (`getComputedStyle(dialog).transform !== "none"`) e al rilascio il drawer si chiude.
 - Nessuna prop extra servita: `modal` di default + `initialFocus`/`finalFocus` di
   default di Base UI bastano; nessun codice di trap/scroll/restore scritto a mano.
 
@@ -94,4 +95,16 @@ NON toccati: `stack.md`, `COMPONENTS.md`, `README.md`, `MAP.md`, `1.5.md`.
 Comandi: `grep ui/bottom-sheet` e `grep BottomSheet` su app/components vuoti;
 `lint` 0 errori (1 warning pre-esistente in scripts/check-design.mjs),
 `tsc --noEmit` OK, `lint:design` OK (62 file), `vitest` 68/68, `test:a11y` 3/3,
-`drawer.spec.ts` 5/5.
+`drawer.spec.ts` 6/6.
+
+Follow-up review @oracle (APPROVE WITH NITS):
+- N1 (drift Resolution/spec): aggiunto allo spec l'assert mid-drag
+  (`getComputedStyle(dialog).transform !== "none"` prima del touchEnd) e
+  ammorbidita la frase in Resolution (niente più valore px hardcoded).
+- N3 (reduced motion): nuovo test `emulateMedia({ reducedMotion: "reduce" })`
+  — transition/animation sul popup ≤ 20ms (globals.css forza 0.01ms), dialog e
+  campo `#sg-drawer-nome` visibili. Senza dipendenze dal drag CDP.
+- N5: `drawer.md` → sezione "Anatomia" mostra l'API pubblica `<Drawer>`; gli
+  internals Base UI solo citati con rimando al sorgente.
+- N4: nota in `drawer.md` su `outline-none` (caso drawer senza focusabili,
+  focus visibile garantito dai controlli interni, nessun hack).
