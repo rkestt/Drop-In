@@ -14,9 +14,9 @@ i componenti scritti a mano in `components/ui/` restano quelli usati dall'app.
 |---|---|---|---|
 | `@base-ui/react` | Headless per dialog, drawer, popover, menu, select, tabs, accordion, tooltip | MIT | adottato (verifica iPhone reale pendente) |
 | `sonner` | Toast: 9 kB, zero dipendenze | MIT | adottato (verifica iPhone reale pendente) |
-| `react-hook-form` | Form non controllati | MIT | installato, da valutare |
-| `zod` | Validazione e schema condiviso client/server | MIT | installato, da valutare |
-| `@hookform/resolvers` | Ponte zod ↔ react-hook-form | MIT | installato, da valutare |
+| `react-hook-form` | Form non controllati | MIT | adottato (d8: 4 form reali) |
+| `zod` | Validazione e schema condiviso client/server | MIT | adottato (d8: `lib/validation/schemas.ts`) |
+| `@hookform/resolvers` | Ponte zod ↔ react-hook-form | MIT | adottato (d8) |
 | `motion` | Animazioni dove CSS non basta: drag del sheet, exit, layout | MIT | installato, da valutare |
 | `@tanstack/react-virtual` | Liste lunghe | MIT | opzionale |
 | `cmdk` | Command palette | MIT | opzionale |
