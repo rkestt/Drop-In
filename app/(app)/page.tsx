@@ -8,6 +8,7 @@ import { LoginModal } from "@/components/auth/login-modal";
 import { BanBanner } from "@/components/karma/ban-banner";
 import { Button } from "@/components/ui/button";
 import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
+import { FirstRun } from "@/components/onboarding/first-run";
 import { SportSelector } from "@/components/court/sport-selector";
 import { CourtSearch } from "@/components/court/court-search";
 import { MapPin, Users, Plus } from "lucide-react";
@@ -377,6 +378,8 @@ export default function HomePage() {
       </div>
 
       <LoginModal open={showLogin} onClose={() => setShowLogin(false)} next={loginNext} />
+      {/* Primo avvio: si apre da solo al primo render, non blocca i dati. */}
+      <FirstRun />
     </main>
   );
 }

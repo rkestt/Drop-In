@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { CheckInButton } from "@/components/check-in/check-in-button";
+import { CoachMark } from "@/components/onboarding/coach-mark";
 import { CreateLobbyButton } from "@/components/lobby/create-lobby-button";
 import { ReportButton } from "@/components/report/report-button";
 import { LoginPrompt } from "@/components/auth/login-prompt";
@@ -121,28 +122,33 @@ export default async function CourtPage({
       )}
 
       {/* Actions */}
-      <div className="flex flex-wrap gap-3">
-        {user ? (
-          <>
-            <CheckInButton
-              courtId={court.id}
-              courtName={court.name}
-              courtLat={court.lat}
-              courtLng={court.lng}
-            />
-            <CreateLobbyButton
-              courtId={court.id}
-              courtName={court.name}
-            />
-            <ReportButton
-              courtId={court.id}
-              courtName={court.name}
-            />
-          </>
-        ) : (
-          <LoginPrompt />
-        )}
-      </div>
+      {/* Coach mark sul blocco azioni (non solo sul CheckInButton): la scheda
+          campo si apre anche senza login e l'acceptance chiede il coach alla
+          prima apertura; da loggato punta comunque al bottone Check-in. */}
+      <CoachMark feature="check-in">
+        <div className="flex flex-wrap gap-3">
+          {user ? (
+            <>
+              <CheckInButton
+                courtId={court.id}
+                courtName={court.name}
+                courtLat={court.lat}
+                courtLng={court.lng}
+              />
+              <CreateLobbyButton
+                courtId={court.id}
+                courtName={court.name}
+              />
+              <ReportButton
+                courtId={court.id}
+                courtName={court.name}
+              />
+            </>
+          ) : (
+            <LoginPrompt />
+          )}
+        </div>
+      </CoachMark>
 
       {/* Ban/Karma Warning */}
       <BanBannerWrapper userId={user?.id ?? null} />
