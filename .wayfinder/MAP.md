@@ -33,17 +33,6 @@ Nessun codice finto in produzione.
   toccano da questa map. Se un ticket `d*` incontra un lavoro `t*` (es. trigger
   capacità lobby in t10), si ferma e apre un ticket separato, non duplica.
 
-### Frontier (sbloccati)
-
-- [d9-proto-onboarding](tickets/d9-proto-onboarding.md) — design HITL: **approvato** 2026-11-10, `prototypes/onboarding.html`).
-- [d10-proto-settings](tickets/d10-proto-settings.md) — design HITL: **approvato** 2026-11-10, `prototypes/settings.html`).
-- [d11-proto-profile](tickets/d11-proto-profile.md) — design HITL: **approvato** 2026-11-10, `prototypes/profile.html`).
-- [d12-proto-lobby](tickets/d12-proto-lobby.md) — design HITL: **approvato** 2026-11-10, `prototypes/lobby.html`).
-- [d13-proto-checkin](tickets/d13-proto-checkin.md) — design HITL: **approvato** 2026-11-10, `prototypes/checkin.html`).
-- [d14-proto-notifications](tickets/d14-proto-notifications.md) — design HITL: **approvato** 2026-11-10, `prototypes/notifications.html`).
-- [d15-proto-report](tickets/d15-proto-report.md) — design HITL: **approvato** 2026-11-10, `prototypes/report.html`).
-- [d16-proto-offline](tickets/d16-proto-offline.md) — design HITL: **approvato** 2026-11-10, `prototypes/offline.html`).
-
 ### Decisions so far (map design-system)
 
 - [d1-fix-auth-middleware](tickets/d1-fix-auth-middleware.md) ✅ 2026-11-09 — middleware fail-open su errore di rete (timeout 3s), `next` preservato fino al callback (password e OAuth), match per primo segmento (`/profiles` non protetto), `LoginModal` senza `next` resta sulla pagina; `/courts/<id>` con Supabase spento resta 404 del dato, shell offline a `d24`.
@@ -60,25 +49,6 @@ Nessun codice finto in produzione.
 
 `@tester` su `design/1.5` a 360 e 1280: drawer (focus trap, ESC, backdrop, restore, scroll lock), toast (1 nodo, top-center 16px, swipe), pipeline motion con reduced, `/submit-court` (errore + focus + bozza), redirect `/profile`/`/lobbies` con `next` → **PASS, zero difetti**. Non verificabili live i flussi autenticati (nessuna email confermata): crea lobby e segnala restano coperti da unit/e2e ma non da una sessione reale.
 
-
-### Pausa 2026-11-10 — punto di ripresa
-
-Stato: **F0, F1, F2 chiusi**; `d17` mergeato in `design/1.5` (commit base `18dae0e`), ma il suo commit di nit (`acc9519`) non è ancora mergeato. Gli altri cinque ticket F3 sono implementati, **review `@oracle` APPROVE WITH NITS e nit chiusi**, ma **non mergeati**:
-
-| Branch | Ultimo commit | Ticket |
-|---|---|---|
-| `fix/d17-f3` | `acc9519` | d17 onboarding (nits: login cablato, focus FAB) |
-| `fix/d18-f3` | `f270ed3` | d18 impostazioni |
-| `fix/d19-f3` | `e9d7a7f` | d19 profilo |
-| `fix/d22-f3` | `8fea4e1` | d22 centro notifiche |
-| `fix/d23-f3` | `2eb2b9a` | d23 segnala campo |
-| `fix/d24-f3` | `8db8243` | d24 offline |
-
-**Alla ripresa.** Merge in quest'ordine: d17 → d19 → d18 → d22 → d23 → d24. Conflitti attesi (tutti "entrambi aggiungono"): `app/(app)/page.tsx` (FirstRun, campanella, banner offline), `app/(app)/courts/[id]/page.tsx` (coach, report, shell offline), `app/(app)/layout.tsx` (aria-current, campanella), `app/globals.css` (text-wrap, keyframes flash), `components/ui/drawer.tsx` (`initialFocus` da d17 e d19: tenere una sola definizione). Dopo il merge: `npm run test:all` + `npm run build`, poi `@tester` live su onboarding/profilo/impostazioni/notifiche/segnala/offline, infine F4 (`d25` a11y, `d26` performance, `d27` visual completa).
-
-**Debito noto (non di questi ticket).** Con `NEXT_PUBLIC_SUPABASE_URL=/supabase` il browser scrive il cookie `sb-localhost-auth-token` ma il server cerca `sb-127-auth-token`: da `localhost` l'SSR non vede la sessione (fail-open → logged out). Da sistemare in `lib/supabase/url.ts` o nel middleware; le verifiche live sono state fatte su `127.0.0.1`.
-
-**Ambiente.** Dopo un riavvio: `sudo systemctl start docker` (docker è disabled al boot) e `npx supabase start`; `/tmp` è tmpfs e si svuota.
 
 ### F3 chiuso (2026-11-10)
 
