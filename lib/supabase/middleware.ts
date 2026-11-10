@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isProtectedPath, loginRedirectUrl } from "@/lib/auth/routes";
-import { supabaseUrl } from "@/lib/supabase/url";
+import { SUPABASE_COOKIE_NAME, supabaseUrl } from "@/lib/supabase/url";
 
 const GET_USER_TIMEOUT_MS = 3000;
 
@@ -26,6 +26,7 @@ export async function updateSession(
       supabaseUrl(),
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
+        cookieOptions: { name: SUPABASE_COOKIE_NAME },
         cookies: {
           getAll() {
             return request.cookies.getAll();

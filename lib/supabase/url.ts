@@ -22,3 +22,13 @@ export function supabaseUrl(): string {
 
   return process.env.SUPABASE_INTERNAL_URL ?? "http://127.0.0.1:54321";
 }
+
+/**
+ * Nome del cookie di sessione, esplicito e stabile.
+ *
+ * Senza, `@supabase/ssr` lo deriva dall'host dell'URL: in sviluppo il browser
+ * usa `/supabase` (quindi `localhost` → `sb-localhost-auth-token`) mentre il
+ * server cade su `127.0.0.1` (→ `sb-127-auth-token`) e non vede mai la
+ * sessione. Un nome fisso rende browser e server coerenti in ogni ambiente.
+ */
+export const SUPABASE_COOKIE_NAME = "sb-dropin-auth-token";
