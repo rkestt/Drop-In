@@ -102,7 +102,8 @@ Spec: `docs/design/specs/impostazioni.md`.
 - "Informativa privacy" / "Segnala un problema" omesse: il prototipo ne
   rimanda le destinazioni a d18 e non esiste alcuna destinazione reale
   (regola ticket: nessuna voce che non faccia nulla).
-- "Avvisi nell'app" → `/notifications` (rotta d22, 404 finché d22 non atterra).
+- "Avvisi nell'app" → `/notifications` (dead link temporaneo: diventa valido
+  al merge di d22, che crea `app/(dashboard)/notifications/page.tsx`).
 - Mai chiamato `Notification.requestPermission` (verificato via grep).
 - Nota env (non committata, solo verifica): con `NEXT_PUBLIC_SUPABASE_URL`
   relativo (`/supabase`) il cookie browser (`sb-localhost-auth-token`) non

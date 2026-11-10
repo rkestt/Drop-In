@@ -50,6 +50,14 @@ describe("updateSession fail-open", () => {
     expect(locationOf(lobbies)).toBe(
       "http://localhost:3000/?login=required&next=%2Flobbies%3Ftab%3Dnearby"
     );
+
+    const settings = await updateSession(requestFor("/settings"), {
+      timeoutMs: 5,
+    });
+    expect(settings.status).toBe(307);
+    expect(locationOf(settings)).toBe(
+      "http://localhost:3000/?login=required&next=%2Fsettings"
+    );
   });
 
   it("does not redirect lookalike prefixes on network error", async () => {
