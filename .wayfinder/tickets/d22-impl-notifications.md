@@ -2,8 +2,10 @@
 id: d22
 type: impl
 hitl: false
-claimed: false
+claimed: true
 blocked_by: [d14, d5, d6]
+status: closed
+closed_at: 2026-11-10
 ---
 ## Question
 

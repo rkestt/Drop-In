@@ -80,6 +80,12 @@ Stato: **F0, F1, F2 chiusi**; `d17` mergeato in `design/1.5` (commit base `18dae
 
 **Ambiente.** Dopo un riavvio: `sudo systemctl start docker` (docker è disabled al boot) e `npx supabase start`; `/tmp` è tmpfs e si svuota.
 
+### F3 chiuso (2026-11-10)
+
+`d17`–`d24` implementati, rivisti da `@oracle` e mergeati in `design/1.5`: onboarding, profilo, impostazioni, centro notifiche (migration `016` + trigger), segnala campo, offline (shell + cache), lobby e check-in. Gate finale: `test:all` verde (28 e2e), `build` verde. Verifica live `@tester` su tutte le schermate, autenticazione reale inclusa: **PASS, zero difetti**.
+
+Trovato e corretto in coda un bug di sviluppo che rendeva impossibile testare da browser: il cookie di sessione era derivato dall'host (`sb-localhost` vs `sb-127`), ora è fisso (`sb-dropin-auth-token`) e browser/server concordano.
+
 ### Blocked
 
 - [d5-drawer-migration](tickets/d5-drawer-migration.md) — sbloccato da d4: pronto per il prossimo giro.
@@ -87,13 +93,13 @@ Stato: **F0, F1, F2 chiusi**; `d17` mergeato in `design/1.5` (commit base `18dae
 - [d7-motion-pipelines](tickets/d7-motion-pipelines.md) — chiuso: primitive motion, hook reduced-motion SSR-safe.
 - [d8-form-rhf-zod](tickets/d8-form-rhf-zod.md) — chiuso: RHF+zod nei 4 form, schema unico.
 - [d17-impl-onboarding](tickets/d17-impl-onboarding.md) — **sbloccato**: d9 approvato, d5/d6 chiusi.
-- [d18-impl-settings](tickets/d18-impl-settings.md) — blocked_by d10, d5, d6.
-- [d19-impl-profile](tickets/d19-impl-profile.md) — blocked_by d11, d5, d6.
-- [d20-impl-lobby](tickets/d20-impl-lobby.md) — blocked_by d12, d5, d6.
-- [d21-impl-checkin](tickets/d21-impl-checkin.md) — blocked_by d13, d5, d6.
-- [d22-impl-notifications](tickets/d22-impl-notifications.md) — blocked_by d14, d5, d6.
-- [d23-impl-report](tickets/d23-impl-report.md) — blocked_by d15, d5, d6.
-- [d24-impl-offline](tickets/d24-impl-offline.md) — blocked_by d16, d5, d6.
+
+
+
+
+
+
+
 - [d25-a11y-sweep](tickets/d25-a11y-sweep.md) — blocked_by d17–d24.
 - [d26-pwa-performance](tickets/d26-pwa-performance.md) — blocked_by d24.
 - [d27-visual-full](tickets/d27-visual-full.md) — blocked_by d25, d26.
@@ -118,14 +124,14 @@ Stato: **F0, F1, F2 chiusi**; `d17` mergeato in `design/1.5` (commit base `18dae
 | [d14-proto-notifications](tickets/d14-proto-notifications.md) | design | sì | — | approvato 2026-11-10 |
 | [d15-proto-report](tickets/d15-proto-report.md) | design | sì | — | approvato 2026-11-10 |
 | [d16-proto-offline](tickets/d16-proto-offline.md) | design | sì | — | approvato 2026-11-10 |
-| [d17-impl-onboarding](tickets/d17-impl-onboarding.md) | impl | no | d9, d5, d6 | aperto |
-| [d18-impl-settings](tickets/d18-impl-settings.md) | impl | no | d10, d5, d6 | aperto |
-| [d19-impl-profile](tickets/d19-impl-profile.md) | impl | no | d11, d5, d6 | aperto |
-| [d20-impl-lobby](tickets/d20-impl-lobby.md) | impl | no | d12, d5, d6 | aperto |
-| [d21-impl-checkin](tickets/d21-impl-checkin.md) | impl | no | d13, d5, d6 | aperto |
-| [d22-impl-notifications](tickets/d22-impl-notifications.md) | impl | no | d14, d5, d6 | aperto |
-| [d23-impl-report](tickets/d23-impl-report.md) | impl | no | d15, d5, d6 | aperto |
-| [d24-impl-offline](tickets/d24-impl-offline.md) | impl | no | d16, d5, d6 | aperto |
+| [d17-impl-onboarding](tickets/d17-impl-onboarding.md) | impl | no | d9, d5, d6 | chiuso 2026-11-10|
+| [d18-impl-settings](tickets/d18-impl-settings.md) | impl | no | d10, d5, d6 | chiuso 2026-11-10|
+| [d19-impl-profile](tickets/d19-impl-profile.md) | impl | no | d11, d5, d6 | chiuso 2026-11-10|
+| [d20-impl-lobby](tickets/d20-impl-lobby.md) | impl | no | d12, d5, d6 | chiuso 2026-11-10|
+| [d21-impl-checkin](tickets/d21-impl-checkin.md) | impl | no | d13, d5, d6 | chiuso 2026-11-10|
+| [d22-impl-notifications](tickets/d22-impl-notifications.md) | impl | no | d14, d5, d6 | chiuso 2026-11-10|
+| [d23-impl-report](tickets/d23-impl-report.md) | impl | no | d15, d5, d6 | chiuso 2026-11-10|
+| [d24-impl-offline](tickets/d24-impl-offline.md) | impl | no | d16, d5, d6 | chiuso 2026-11-10|
 | [d25-a11y-sweep](tickets/d25-a11y-sweep.md) | task | no | d17–d24 | aperto |
 | [d26-pwa-performance](tickets/d26-pwa-performance.md) | task | no | d24 | aperto |
 | [d27-visual-full](tickets/d27-visual-full.md) | infra | no | d25, d26 | aperto |
