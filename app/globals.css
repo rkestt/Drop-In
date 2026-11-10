@@ -116,15 +116,21 @@ body {
   --tw-ring-offset-color: var(--bg-base);
 }
 
-/* Titoli e paragrafi: distribuzione del testo senza righe orfane. */
-h1,
-h2,
-h3 {
-  text-wrap: balance;
-}
+/* Titoli e paragrafi: distribuzione del testo senza righe orfane.
+   In `@layer base` (come il preflight): le utility (`truncate`,
+   `whitespace-nowrap`, ...) devono poterle sovrascrivere. Fuori da un
+   layer, `text-wrap` batterebbe sempre le utility che toccano gli stessi
+   longhand (`white-space: nowrap` espande `text-wrap-mode`). */
+@layer base {
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
 
-p {
-  text-wrap: pretty;
+  p {
+    text-wrap: pretty;
+  }
 }
 
 /* Typography utilities */

@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
+import { Pencil } from "lucide-react";
 import {
   editProfileSchema,
   type EditProfileValues,
@@ -11,21 +14,29 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 interface EditProfileSheetProps {
-  children: React.ReactNode;
-  currentNickname: string | null;
   userId: string;
+  currentNickname: string | null;
+  /** "create" = stato senza nickname: CTA "Imposta nickname". */
+  mode: "edit" | "create";
 }
 
+/**
+ * Drawer di modifica nickname (unica CTA primaria della pagina Profilo).
+ *
+ * Validazione: `editProfileSchema` (unica fonte, niente regole duplicate).
+ * Nota: lo schema ammette stringa vuota (azzera il nickname), quindi il caso
+ * "vuoto" del prototipo salva `null`; l'errore inline scatta oltre i 30
+ * caratteri e sugli errori di rete/DB.
+ */
 export function EditProfileSheet({
-  children,
-  currentNickname,
   userId,
+  currentNickname,
+  mode,
 }: EditProfileSheetProps) {
   const [open, setOpen] = useState(false);
-  // Nickname in react-hook-form (schema zod = unica fonte).
-  // Restano useState solo per: apertura, loading, errori di rete/DB, successo.
   const {
     register,
     handleSubmit,
@@ -41,10 +52,12 @@ export function EditProfileSheet({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   // Guardia anti-doppio-invio (il disabled non copre due submit ravvicinati).
   const submittingRef = useRef(false);
+  // Focus iniziale del Drawer (Base UI lo applica all'apertura, dopo il trap).
+  const nicknameRef = useRef<HTMLInputElement | null>(null);
   const supabase = createClient();
+  const router = useRouter();
 
   // A ogni apertura si riparte dal nickname corrente (dati conservati su
   // errore solo dentro la stessa apertura).
@@ -52,7 +65,6 @@ export function EditProfileSheet({
     if (open) {
       reset({ nickname: currentNickname ?? "" });
       setError(null);
-      setSuccess(false);
     }
   }, [open, currentNickname, reset]);
 
@@ -74,42 +86,51 @@ export function EditProfileSheet({
 
       if (updateError) throw updateError;
 
-      setSuccess(true);
-      setTimeout(() => {
-        setOpen(false);
-        window.location.reload();
-      }, 1000);
+      setOpen(false);
+      toast.success("Nickname salvato.");
+      router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Errore durante il salvataggio.");
+      setError(
+        err instanceof Error ? err.message : "Errore durante il salvataggio."
+      );
     } finally {
       submittingRef.current = false;
       setLoading(false);
     }
   };
 
+  const nicknameError = errors.nickname?.message;
+  // Ref del campo fuso con RHF: serve a `initialFocus` del Drawer.
+  const { ref: nicknameRhfRef, ...nicknameRegister } = register("nickname");
+
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="primary"
         onClick={() => setOpen(true)}
-        className="bg-transparent border-0 p-0 cursor-pointer"
+        className={cn("w-full min-h-[48px]", mode === "edit" && "gap-2")}
       >
-        {children}
-      </button>
-      <Drawer open={open} onClose={() => setOpen(false)} title="Modifica profilo">
-        <form onSubmit={handleSubmit(onValidSave, focusFirstError)} className="space-y-4" noValidate>
+        {mode === "edit" && <Pencil className="w-4 h-4" aria-hidden="true" />}
+        {mode === "edit" ? "Modifica" : "Imposta nickname"}
+      </Button>
+      <Drawer
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Modifica nickname"
+        initialFocus={nicknameRef}
+      >
+        <form
+          onSubmit={handleSubmit(onValidSave, focusFirstError)}
+          className="flex flex-col gap-4"
+          noValidate
+        >
           {error && (
             <div
-              className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm"
+              className="p-3 rounded-card bg-[var(--danger)]/10 text-[var(--danger)] text-sm"
               role="alert"
-              aria-live="assertive"
             >
               {error}
-            </div>
-          )}
-          {success && (
-            <div className="p-3 rounded-lg bg-[var(--success)]/10 text-[var(--success)] text-sm">
-              Profilo aggiornato!
             </div>
           )}
 
@@ -122,22 +143,57 @@ export function EditProfileSheet({
             </label>
             <Input
               id="profile-nickname"
-              {...register("nickname")}
+              {...nicknameRegister}
+              type="text"
               placeholder="Il tuo nickname"
               autoComplete="nickname"
-              aria-invalid={errors.nickname ? "true" : undefined}
-              aria-describedby={errors.nickname ? "profile-nickname-error" : undefined}
+              aria-invalid={nicknameError ? "true" : undefined}
+              aria-describedby={
+                nicknameError
+                  ? "profile-nickname-error profile-nickname-hint"
+                  : "profile-nickname-hint"
+              }
+              className={cn(nicknameError && "border-[var(--danger)]")}
+              ref={(el) => {
+                nicknameRhfRef(el);
+                nicknameRef.current = el;
+              }}
             />
-            {errors.nickname && (
-              <p id="profile-nickname-error" role="alert" className="mt-1.5 text-sm text-[var(--danger)]">
-                {errors.nickname.message}
+            {nicknameError && (
+              <p
+                id="profile-nickname-error"
+                role="alert"
+                className="mt-1.5 text-sm text-[var(--danger)]"
+              >
+                {nicknameError}
               </p>
             )}
+            <p
+              id="profile-nickname-hint"
+              className="mt-1.5 text-[13px] text-[var(--text-muted)]"
+            >
+              Massimo 30 caratteri. Lo vedono gli altri giocatori.
+            </p>
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Salvataggio..." : "Salva"}
-          </Button>
+          <div className="flex gap-2.5">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setOpen(false)}
+              className="flex-1 min-h-[48px]"
+            >
+              Annulla
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={loading}
+              className="flex-1 min-h-[48px]"
+            >
+              {loading ? "Salvataggio…" : "Salva"}
+            </Button>
+          </div>
         </form>
       </Drawer>
     </>
