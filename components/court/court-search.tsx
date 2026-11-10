@@ -41,7 +41,7 @@ export function CourtSearch({
         {hasQuery ? (
           empty ? (
             <span>
-              Nessun campo trovato nell&apos;area visibile. Sposta la mappa per cercare altrove.
+              Nessun campo per «{value.trim()}»
             </span>
           ) : (
             <span>
@@ -54,6 +54,15 @@ export function CourtSearch({
           </span>
         )}
       </div>
+      {empty && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          className="inline-flex min-h-[44px] items-center justify-center rounded-control bg-[var(--accent)] px-6 text-base font-semibold text-[var(--accent-foreground)]"
+        >
+          Cancella ricerca
+        </button>
+      )}
     </div>
   );
 }

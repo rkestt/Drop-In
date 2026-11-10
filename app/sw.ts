@@ -42,6 +42,16 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
+  // d24: navigazione offline → shell statica precached (stato 13).
+  // Non tocca tile (map-tiles-*) né font: solo il fallback document.
+  fallbacks: {
+    entries: [
+      {
+        url: "/~offline",
+        matcher: ({ request }) => request.destination === "document",
+      },
+    ],
+  },
   runtimeCaching: [
     {
       matcher: ({ url }) => isSupabase(url),

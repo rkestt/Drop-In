@@ -14,6 +14,16 @@ import { MapPin, Users, Plus } from "lucide-react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { bboxInside, type BBox } from "@/lib/geo";
+import {
+  COURTS_CACHE_KEY,
+  LOBBIES_CACHE_KEY,
+  cacheAge,
+  formatCacheAge,
+  readCache,
+  writeCache,
+} from "@/lib/offline/cache";
+import { ConnectionBanner } from "@/components/offline/connection-banner";
+import { StaleBadge } from "@/components/offline/stale-badge";
 import { useSport } from "@/lib/sport/sport-context";
 import { sportLabel } from "@/lib/sport/sports";
 import { safeNext } from "@/lib/auth/routes";
@@ -72,6 +82,13 @@ export default function HomePage() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [fieldsAnnouncement, setFieldsAnnouncement] = useState("");
+  // Offline (d24): dati in cache + età dell'ultimo salvataggio buono.
+  // stale = true quando ciò che si vede viene dalla cache, non dalla rete.
+  const [courtsStale, setCourtsStale] = useState(false);
+  const [lobbiesStale, setLobbiesStale] = useState(false);
+  const stale = courtsStale || lobbiesStale;
+  const [courtsSavedAt, setCourtsSavedAt] = useState<number | null>(null);
+  const [lobbiesSavedAt, setLobbiesSavedAt] = useState<number | null>(null);
   const announceRef = useRef(true);
   const supabase = useMemo(() => createClient(), []);
   const { sport, pSport } = useSport();
@@ -107,16 +124,23 @@ export default function HomePage() {
     async (bbox: BBox) => {
       const thisReq = ++reqId.current;
       try {
-        const { data } = await supabase.rpc("courts_in_viewport", {
+        // Nota: supabase-js non lancia su errore rete, ritorna { error }:
+        // va controllato esplicitamente o il fallback cache non scatta mai.
+        const { data, error } = await supabase.rpc("courts_in_viewport", {
           min_lng: bbox.w,
           min_lat: bbox.s,
           max_lng: bbox.e,
           max_lat: bbox.n,
           p_sport: pSport ?? undefined,
         });
+        if (error) throw error;
         if (thisReq !== reqId.current) return; // stale response dropped
         coveredBBox.current = bbox;
-        const list = (data as Court[] | null) ?? [];
+        const list = (data as unknown as Court[] | null) ?? [];
+        const now = Date.now();
+        writeCache(COURTS_CACHE_KEY, list, undefined, now);
+        setCourtsSavedAt(now);
+        setCourtsStale(false);
         setCourts(list);
         if (announceRef.current) {
           announceRef.current = false;
@@ -126,6 +150,14 @@ export default function HomePage() {
         if (thisReq !== reqId.current) return;
         coveredBBox.current = null;
         console.error("Error fetching courts in viewport:", err);
+        // Offline o fetch fallita: shell leggibile dai dati in cache.
+        const cached = readCache<Court[]>(COURTS_CACHE_KEY);
+        if (cached) {
+          setCourts(cached);
+          const age = cacheAge(COURTS_CACHE_KEY);
+          setCourtsSavedAt(age == null ? null : Date.now() - age);
+          setCourtsStale(true);
+        }
       }
     },
     [supabase, pSport]
@@ -133,10 +165,11 @@ export default function HomePage() {
 
   const fetchLobbies = useCallback(async () => {
     try {
-      const { data: lobbiesData } = await supabase.rpc("open_lobbies", {
+      const { data: lobbiesData, error } = await supabase.rpc("open_lobbies", {
         p_sport: pSportRef.current ?? undefined,
         p_limit: 20,
       });
+      if (error) throw error;
       const formatted: Lobby[] = (
         (lobbiesData as unknown as Array<{
           id: string;
@@ -159,10 +192,31 @@ export default function HomePage() {
         court_sport: l.court_sport ?? null,
       }));
       setLobbies(formatted);
+      const now = Date.now();
+      writeCache(LOBBIES_CACHE_KEY, formatted, undefined, now);
+      setLobbiesSavedAt(now);
+      setLobbiesStale(false);
     } catch (err) {
       console.error("Error fetching lobbies:", err);
+      // Offline o fetch fallita: shell leggibile dai dati in cache.
+      const cached = readCache<Lobby[]>(LOBBIES_CACHE_KEY);
+      if (cached) {
+        setLobbies(cached);
+        const age = cacheAge(LOBBIES_CACHE_KEY);
+        setLobbiesSavedAt(age == null ? null : Date.now() - age);
+        setLobbiesStale(true);
+      }
     }
   }, [supabase]);
+
+  // Riprova (d24, stato 04/05): rifà la fetch corrente; se fallisce,
+  // i catch sopra ricaricano la cache e mostrano lo stale badge.
+  const retry = useCallback(() => {
+    const b = lastBounds.current ?? { n: 41.95, s: 41.83, e: 12.62, w: 12.4 };
+    coveredBBox.current = null;
+    fetchCourtsForBBox(b);
+    fetchLobbies();
+  }, [fetchCourtsForBBox, fetchLobbies]);
 
   const handleBoundsChange = useCallback(
     (bounds: BBox, zoom: number) => {
@@ -262,9 +316,17 @@ export default function HomePage() {
 
   const noCourtsForSport = courts.length === 0 && query.trim() === "";
 
+  // Età dei dati in cache per il banner ("dati di N min fa", stato 02).
+  const courtsAgeLabel = stale
+    ? formatCacheAge(courtsSavedAt == null ? null : Date.now() - courtsSavedAt)
+    : null;
+
   return (
     <main className="flex-1 flex flex-col relative">
       {user && <BanBanner userId={user.id} />}
+      <div className="px-4 pt-3">
+        <ConnectionBanner ageLabel={courtsAgeLabel} onRetry={retry} />
+      </div>
       <div className="flex-1 relative min-h-[50dvh]">
         <CourtMap
           ariaLabel={`Mappa dei campi da ${sportLabel(sport)}`}
@@ -280,13 +342,25 @@ export default function HomePage() {
         <div className="absolute top-3 left-3 z-20">
           <SportSelector className="" />
         </div>
-        {noCourtsForSport && (
+        {noCourtsForSport && !courtsStale && (
           <div
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-[var(--bg-elevated)] rounded-xl px-4 py-2 shadow-lg text-sm text-[var(--text-secondary)]"
+            className="absolute bottom-4 left-4 right-4 z-20 rounded-card border border-[var(--border-strong)] bg-[var(--bg-elevated)] p-4"
             role="status"
             aria-live="polite"
           >
-            {sport === null ? "Nessun campo in quest'area" : `Nessun campo da ${sportLabel(sport).toLowerCase()} in quest'area`}
+            <h2 className="text-lg font-bold text-[var(--text-primary)]">
+              Nessun campo da basket in quest&apos;area
+            </h2>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Sposta la mappa o allarga la zona: i campi compaiono quando
+              entrano nel raggio.
+            </p>
+            <Link
+              href="/submit-court"
+              className="mt-3 inline-flex min-h-[44px] items-center justify-center rounded-control bg-[var(--accent)] px-6 text-base font-semibold text-[var(--accent-foreground)]"
+            >
+              Aggiungi il primo campo
+            </Link>
           </div>
         )}
         <ReportedCourtsIndicator onCourtsUpdate={setReportedCourtIds} />
@@ -305,9 +379,12 @@ export default function HomePage() {
           <h1 className="text-xl font-bold font-[family-name:var(--font-syne)] sr-only">
             Drop-In — Campi
           </h1>
-          <h2 className="text-xl font-bold font-[family-name:var(--font-syne)]">
-            Partite vicine
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold font-[family-name:var(--font-syne)]">
+              Partite vicine
+            </h2>
+            {lobbiesStale && <StaleBadge savedAt={lobbiesSavedAt} />}
+          </div>
           {!user && (
             <Button variant="ghost" size="sm" onClick={() => setShowLogin(true)}>
               Accedi
@@ -333,10 +410,7 @@ export default function HomePage() {
           <div className="text-center py-8">
             <MapPin className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
             <p className="text-[var(--text-muted)] text-sm">
-              Nessuna lobby attiva nelle vicinanze.
-            </p>
-            <p className="text-[var(--text-muted)] text-xs mt-1">
-              Sii il primo a creare una!
+              Nessuna lobby qui intorno. Sii il primo.
             </p>
           </div>
         ) : (
