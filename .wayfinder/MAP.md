@@ -58,7 +58,7 @@ Trovato e corretto in coda un bug di sviluppo che rendeva impossibile testare da
 
 ### Frontier (sbloccati)
 
-- [d27-visual-full](tickets/d27-visual-full.md) — in corso (ultimo ticket del piano).
+- [d27-visual-full](tickets/d27-visual-full.md) — **da rifare**: la lane è stata interrotta prima della verifica. Il WIP è sul branch `fix/d27-f4` (commit `e0fd918`): helper `tests/e2e/helpers/visual.ts`, `tests/e2e/screens-visual.spec.ts`, modifiche a `playwright.config.ts`/CI/`package.json`/`court-map.tsx`. Nessuna baseline generata, nessun test eseguito. Ripartire da lì rivedendo il diff, oppure scartarlo.
 
 ### Blocked
 
