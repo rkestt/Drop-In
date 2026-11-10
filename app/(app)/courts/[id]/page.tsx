@@ -139,7 +139,7 @@ export default async function CourtPage({
   );
 
   return (
-    <main className="flex-1 p-6 space-y-6">
+    <main id="contenuto" tabIndex={-1} className="flex-1 p-6 space-y-6">
       <CacheWriter
         storageKey={courtDetailKey(id)}
         value={{
@@ -188,7 +188,7 @@ export default async function CourtPage({
       {/* Active Reports */}
       {activeReportRows.length > 0 && (
         <div className="bg-[var(--danger)]/5 rounded-xl p-4 space-y-2">
-          <div className="flex items-center gap-2 text-[var(--danger)]">
+          <div className="flex items-center gap-2 text-[var(--danger-dark)]">
             <AlertTriangle className="w-5 h-5" aria-hidden="true" />
             <h2 className="font-semibold">Segnalazioni attive</h2>
           </div>

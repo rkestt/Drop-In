@@ -11,7 +11,7 @@ const UUID_RE =
 
 function RetryBox({ id }: { id: string }) {
   return (
-    <main className="mx-auto w-full max-w-[720px] flex-1 p-6">
+    <main id="contenuto" tabIndex={-1} className="mx-auto w-full max-w-[720px] flex-1 p-6">
       <div
         className="rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-4 text-center"
         role="alert"
@@ -121,7 +121,7 @@ export default async function LobbyDetailPage({
   }
 
   return (
-    <main className="mx-auto w-full max-w-[720px] flex-1 p-6">
+    <main id="contenuto" tabIndex={-1} className="mx-auto w-full max-w-[720px] flex-1 p-6">
       <LobbyDetail
         lobby={{ ...lobby, status: lobby.status ?? "open" }}
         court={

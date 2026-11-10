@@ -168,7 +168,7 @@ export function CreateLobbyDrawer({
 
             {error && (
               <div
-                className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm"
+                className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger-dark)] text-sm"
                 role="alert"
                 aria-live="assertive"
               >

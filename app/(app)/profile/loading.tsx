@@ -4,7 +4,7 @@
  */
 export default function ProfileLoading() {
   return (
-    <main className="flex-1 w-full max-w-[720px] mx-auto p-4 flex flex-col gap-3.5" aria-busy="true">
+    <main id="contenuto" tabIndex={-1} className="flex-1 w-full max-w-[720px] mx-auto p-4 flex flex-col gap-3.5" aria-busy="true">
       <p role="status" className="sr-only">
         Caricamento del profilo…
       </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -62,6 +62,14 @@ export function EditProfileSheet({
   const submittingRef = useRef(false);
   // Focus iniziale del Drawer (Base UI lo applica all'apertura, dopo il trap).
   const nicknameRef = useRef<HTMLInputElement | null>(null);
+  // Funzione, non ref diretto: Base UI legge `ref.current` troppo presto
+  // (popup appena montato, ref del campo ancora null) e il focus resta su
+  // body col trap disinserito. La funzione viene valutata all'apertura,
+  // a ref attaccato.
+  const focusNickname = useCallback(
+    () => nicknameRef.current,
+    []
+  );
   const supabase = createClient();
   const router = useRouter();
 
@@ -134,7 +142,7 @@ export function EditProfileSheet({
         open={open}
         onClose={() => setOpen(false)}
         title="Modifica nickname"
-        initialFocus={nicknameRef}
+        initialFocus={focusNickname}
       >
         <form
           onSubmit={handleSubmit(onValidSave, focusFirstError)}
@@ -143,7 +151,7 @@ export function EditProfileSheet({
         >
           {error && (
             <div
-              className="p-3 rounded-card bg-[var(--danger)]/10 text-[var(--danger)] text-sm"
+              className="p-3 rounded-card bg-[var(--danger)]/10 text-[var(--danger-dark)] text-sm"
               role="alert"
             >
               {error}

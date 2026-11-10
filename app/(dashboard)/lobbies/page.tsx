@@ -101,7 +101,7 @@ export default async function LobbiesPage({
   });
 
   return (
-    <main className="mx-auto w-full max-w-[720px] flex-1 p-6">
+    <main id="contenuto" tabIndex={-1} className="mx-auto w-full max-w-[720px] flex-1 p-6">
       <LobbyTabs mine={mine} userId={userId} />
     </main>
   );

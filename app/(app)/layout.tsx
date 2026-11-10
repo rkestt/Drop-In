@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MapPin, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SkipLink } from "@/components/a11y/skip-link";
 
 export default function AppLayout({
   children,
@@ -22,6 +23,7 @@ export default function AppLayout({
 
   return (
     <div className="flex flex-col min-h-full">
+      <SkipLink />
       {children}
       <nav className="sticky bottom-0 bg-[var(--bg-elevated)] border-t border-[var(--cool-muted)]/20 pb-safe" aria-label="Navigazione principale">
         <div className="max-w-[720px] mx-auto flex items-center justify-around h-14">

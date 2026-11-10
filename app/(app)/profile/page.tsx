@@ -74,7 +74,7 @@ export default async function ProfilePage() {
   const counts: Counts = { checkIns, created, played };
 
   return (
-    <main className="flex-1 w-full max-w-[720px] mx-auto p-4 flex flex-col gap-3.5">
+    <main id="contenuto" tabIndex={-1} className="flex-1 w-full max-w-[720px] mx-auto p-4 flex flex-col gap-3.5">
       <h1 className="font-display text-2xl font-bold m-0">Profilo</h1>
 
       <ProfileHeader userId={userId} nickname={nickname} email={user.email ?? null} />

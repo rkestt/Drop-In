@@ -272,7 +272,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
       const iconColor = isReported ? "#ffffff" : "white";
 
       const el = document.createElement("div");
-      el.className = "court-marker w-10 h-10 rounded-full flex items-center justify-center cursor-pointer shadow-md border-2 border-white transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2";
+      el.className = "court-marker w-11 h-11 rounded-full flex items-center justify-center cursor-pointer shadow-md border-2 border-white transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2";
       el.style.backgroundColor = bgColor;
       el.setAttribute("role", "button");
       el.setAttribute("tabindex", "0");

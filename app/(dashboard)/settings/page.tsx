@@ -35,7 +35,7 @@ export default async function SettingsPage() {
     .single();
 
   return (
-    <main className="mx-auto w-full max-w-[720px] flex-1 space-y-6 p-4 pb-8">
+    <main id="contenuto" tabIndex={-1} className="mx-auto w-full max-w-[720px] flex-1 space-y-6 p-4 pb-8">
       <h1 className="text-3xl font-bold font-[family-name:var(--font-syne)]">
         Impostazioni
       </h1>

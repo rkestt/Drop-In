@@ -93,7 +93,7 @@ export function LoginModal({ open, onClose, next }: LoginModalProps) {
     <Drawer open={open} onClose={onClose} title={isSignUp ? "Registrati" : "Accedi"}>
       <div className="space-y-4">
         {error && (
-          <div className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm animate-scale-in" role="alert" aria-live="assertive">
+          <div className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger-dark)] text-sm animate-scale-in" role="alert" aria-live="assertive">
             {error}
           </div>
         )}
