@@ -17,7 +17,14 @@ export function KarmaPanel({ score, banned }: KarmaPanelProps) {
   const clamped = Math.max(0, Math.min(KARMA_MAX, score));
 
   return (
-    <section aria-label="Karma" className="rounded-card bg-[var(--bg-surface)] p-5">
+    <section
+      aria-label="Karma"
+      className={
+        banned
+          ? "rounded-card border-t-[3px] border-t-[var(--danger)] bg-[var(--bg-surface)] p-5"
+          : "rounded-card border-t-[3px] border-t-[var(--accent)] bg-[var(--bg-surface)] p-5"
+      }
+    >
       <div className="flex flex-col gap-2.5">
         <p aria-hidden="true" className="text-label uppercase tracking-wider font-semibold text-[var(--text-muted)]">
           Karma

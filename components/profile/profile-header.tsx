@@ -1,23 +1,11 @@
 import { User } from "lucide-react";
 import { EditProfileSheet } from "@/components/profile/edit-profile-sheet";
-import { cn } from "@/lib/utils";
+import { getInitials } from "@/lib/profile/utils";
 
 interface ProfileHeaderProps {
   userId: string;
   nickname: string | null;
   email: string | null;
-}
-
-/** Iniziali avatar: prime lettere di nome e cognome ("Luca Bianchi" → "LB"). */
-function initials(nickname: string): string {
-  const parts = nickname.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "";
-  const first = parts[0]?.[0] ?? "";
-  const second =
-    parts.length > 1
-      ? (parts[parts.length - 1]?.[0] ?? "")
-      : (parts[0]?.[1] ?? "");
-  return (first + second).toUpperCase();
 }
 
 /**
@@ -34,7 +22,7 @@ export function ProfileHeader({ userId, nickname, email }: ProfileHeaderProps) {
           aria-hidden="true"
           className="flex items-center justify-center w-[72px] h-[72px] rounded-chip border border-[var(--accent)] bg-[var(--accent-subtle)] text-[var(--text-primary)] font-display text-2xl font-bold"
         >
-          {initials(nickname)}
+          {getInitials(nickname)}
         </div>
       ) : (
         <div
@@ -59,7 +47,7 @@ export function ProfileHeader({ userId, nickname, email }: ProfileHeaderProps) {
           </p>
         )}
       </div>
-      <div className={cn("col-span-full mt-1")}>
+      <div className="col-span-full mt-1">
         <EditProfileSheet
           userId={userId}
           currentNickname={nickname}

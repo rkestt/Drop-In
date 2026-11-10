@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
 import { loginRedirectUrl } from "@/lib/auth/routes";
+import { isBanActive } from "@/lib/profile/utils";
 import { ProfileHeader } from "@/components/profile/profile-header";
 import { KarmaPanel } from "@/components/profile/karma-panel";
 import { StatsRow } from "@/components/profile/stats-row";
@@ -68,8 +69,7 @@ export default async function ProfilePage() {
   const nickname = profile?.nickname ?? null;
   const karma = profile?.karma_score ?? 90;
   const bannedUntil = profile?.banned_until ?? null;
-  const banned =
-    bannedUntil !== null && new Date(bannedUntil).getTime() > Date.now();
+  const banned = isBanActive(bannedUntil);
 
   const counts: Counts = { checkIns, created, played };
 

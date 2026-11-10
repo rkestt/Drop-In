@@ -65,8 +65,9 @@ export async function updateSession(
     user = null;
   }
 
-  // Protect dashboard routes (route group (dashboard) maps to /lobbies, /profile at root).
-  // Exact first-segment match: /profile and /profile/x yes, /profiles no.
+  // Protegge i path protetti (`/profile`, `/lobbies`, …): match sul primo
+  // segmento, gruppi di route irrilevanti. Se non autenticato, redirect al
+  // login con `next`.
   if (isProtectedPath(request.nextUrl.pathname) && !user) {
     return NextResponse.redirect(
       new URL(

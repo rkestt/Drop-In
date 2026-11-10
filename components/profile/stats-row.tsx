@@ -18,7 +18,13 @@ function StatValue({ value, label }: { value: number | null; label: string }) {
     );
   }
   return (
-    <p className="m-0 font-display text-2xl font-bold tabular-nums">
+    <p
+      className={
+        value === 0
+          ? "m-0 font-display text-2xl font-bold tabular-nums text-[var(--text-secondary)]"
+          : "m-0 font-display text-2xl font-bold tabular-nums"
+      }
+    >
       {value}
     </p>
   );

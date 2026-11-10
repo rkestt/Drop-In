@@ -132,3 +132,20 @@ non esistono ancora: le scorciatoie puntano ai path previsti da d22/d18
 5. `test:rls` non eseguibile qui (container `supabase_db` non visibile al
    docker client di questo ambiente); nessuna migration toccata, le query
    usano policy SELECT esistenti già coperte da `assertions.sql`.
+
+**Follow-up oracle (APPROVE WITH NITS, chiusi il 2026-11-10).**
+1. `stats-row.tsx`: zeri reali attenuati con `text-[var(--text-secondary)]`
+   (come nel prototipo), solo quando `value === 0`; `null` resta "—".
+2. `karma-panel.tsx`: bordo superiore 3px accent/danger
+   (`border-t-[3px] border-t-[var(--…)]`) — scelto il bordo reale invece
+   dello scostamento, token-only.
+3. `lib/supabase/middleware.ts`: commento aggiornato (protezione per path,
+   gruppi di route irrilevanti).
+4. `profile-header.tsx`: `cn()` su stringa singola rimosso; `initials`
+   estratto in `lib/profile/utils.ts` come `getInitials`.
+5. `app/(app)/layout.tsx`: link bottom nav con `focus-visible` esplicito
+   (outline 2px `--focus-ring`, `rounded-control-sm`); verificato live con
+   tastiera: outline computato `2px solid rgb(36, 174, 86)`.
+6. Unit test nuovo `tests/unit/profile-utils.test.ts`: `getInitials`
+   (4 casi) + `isBanActive` (4 casi, soglia, stringa invalida); la pagina
+   usa `isBanActive`. Vitest: 12 file, 117 test verdi.
