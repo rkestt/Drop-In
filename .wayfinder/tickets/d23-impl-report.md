@@ -60,4 +60,60 @@ npm run test:a11y
 
 ## Resolution
 
-(TBD — chiudere con: categorie, stati verificati, esito doppio invio, screenshot, spec.)
+**Stato: implementato e verificato (2026-11-10, branch `fix/d23-f3`).**
+
+- **File.** `components/report/report-sheet.tsx` → `components/report/report-drawer.tsx`
+  (rename); `components/report/report-button.tsx` (gate login + props);
+  `app/(app)/courts/[id]/page.tsx` (scadenze reali, badge "Tua");
+  `lib/reports/active.ts` (nuovo, puro); `tests/unit/reports-active.test.ts`;
+  `docs/design/specs/segnala-campo.md` (il ticket chiedeva `segnalazioni.md`,
+  creato `segnala-campo.md` su istruzione orchestratore).
+- **Categorie.** Le 5 del CHECK DB, etichette dalla copy approvata; nessuna inventata.
+- **Già segnalato.** Come nel prototipo: due report attivi di utenti diversi
+  restano possibili; se l'utente ha una sua attiva, il drawer mostra la lista
+  (badge "Tua" sulla propria, scadenze reali) + notice e solo "Chiudi".
+  Blocco doppio invio su due livelli: ricontrollo pre-insert
+  (`court_id+user_id+expires_at>now`, il DB non ha vincolo di unicità) +
+  guardia anti-doppio-submit. Verificato: seconda apertura → stato
+  già-segnalato, nessuna riga duplicata per lo stesso utente.
+- **Scadenza.** `expires_at` = ora + 48h (`reportExpiryFromNow`, `REPORT_TTL_MS`);
+  toast "Segnalazione inviata / Resta attiva fino al 12 nov, 13:28." (data reale);
+  scheda campo "Scade il …". Riga DB verificata: `expires_at` a +48h (±5 min).
+- **Esiti.** Drawer chiuso al successo + Sonner; niente chiusura a tempo, niente
+  messaggio generico. Errore rete: banner inline + CTA "Riprova", valori conservati.
+  CTA "Invia" sempre attiva a form vuoto (scelta approvata 2026-11-10).
+  Non loggato: pulsante visibile, apre il LoginModal (gate d'ingresso),
+  hint sr-only "Accedi per segnalare".
+- **Verifiche.** `lint` 0 errori · `tsc` pulito · `lint:design` OK (71 file) ·
+  `vitest` 12 file/121 test · `a11y` 3/3 · journey Playwright live 360/768 verde
+  (login, form vuoto, errore inline, invio reale, già-segnalato, console pulita).
+- **Scostamenti dal prototipo (dichiarati).**
+  1. `lib/validation/schemas.ts`: aggiunti `REPORT_DESCRIPTION_MAX = 280` e
+     `.max()` (mancava: senza, l'errore >280 non poteva scattare; nessun'altra
+     regola toccata).
+  2. Messaggio categoria vuota = "Seleziona una categoria." (testo dello schema
+     d8, invariato perché il file è vincolato) invece di "Scegli cosa non va".
+  3. Nessun frame "Inviato" dentro il drawer: il ticket chiede drawer chiuso +
+     scheda aggiornata, l'esito con scadenza viaggia su Sonner (come da vincoli).
+- **Nota pre-esistente (non toccata, da valutare a parte).** Con
+  `NEXT_PUBLIC_SUPABASE_URL=/supabase`, la chiave cookie del browser è
+  `sb-localhost-auth-token` mentre il server cerca `sb-127-auth-token`
+  (fallback `127.0.0.1` in `lib/supabase/url.ts`): navigando da `localhost` il
+  SSR non vede mai la sessione (fail-open → logged-out). Verificato via
+  `127.0.0.1`, dove tutto funziona. Fix fuori scope d23.
+
+**Review oracle (APPROVE WITH NITS) — chiusi 2026-11-10.**
+
+1. Spec: tolta "Scegli cosa non va", resta solo "Seleziona una categoria."
+   (stringa reale dello schema).
+2. `existingError` del ricontrollo pre-insert ora rilanciato nel catch.
+3. Banner rete a copy fissa, senza `{error}`; il tecnico va in
+   `createLogger("report")` (mai inglese Supabase in UI).
+4. `useEffect` su `open`: anche `reset()` del form; i valori si conservano
+   solo dentro il ramo errore-rete (drawer mai chiuso lì).
+5. Query report: `select("id, category, expires_at, user_id")`, niente più
+   `*` (la `description` non esce dal DB); `user.id` senza `?.` nel ramo truthy.
+6. Ramo `signedIn=false` di `ReportButton`: difesa in profondità. In questa
+   pagina il bottone è reso solo nel ramo `user` e l'anonimo vede `LoginPrompt`
+   (gate invariato); il ramo serve se la sessione scade a drawer chiuso o il
+   bottone viene riusato altrove — apre il login invece di un form a metà.
