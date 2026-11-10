@@ -1,14 +1,51 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import dynamic from "next/dynamic";
 import { MapSkeleton } from "@/components/map/map-skeleton";
-import { LoginModal } from "@/components/auth/login-modal";
+// d26: modali fuori dal chunk iniziale E dal waterfall post-mount.
+// LoginModal: modulo caricato solo alla prima apertura (React.lazy + mount
+// condizionale, resta montato per conservare l'animazione di chiusura).
+const LoginModalLazy = lazy(() => import("@/components/auth/login-modal").then((m) => ({ default: m.LoginModal })));
+// FirstRun: apertura automatica al primo avvio -> chunk separato ma caricato
+// con la pagina (non blocca il first paint, il drawer si apre da solo).
+const FirstRun = dynamic(() => import("@/components/onboarding/first-run").then((m) => ({ default: m.FirstRun })), {
+  ssr: false,
+});
+// d26-nit: la prima apertura scarica il chunk login; il fallback mostra lo
+// sheet in caricamento (stessa sagoma del Drawer, token-only) invece di un
+// click apparentemente morto su rete lenta. Il tap sul backdrop chiude.
+function LoginLoadingFallback({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      role="status"
+      aria-label="Caricamento accesso"
+    >
+      <div className="absolute inset-0 bg-[var(--overlay)]" onClick={onClose} aria-hidden="true" />
+      <div className="relative w-full max-w-[720px] rounded-t-sheet bg-[var(--bg-elevated)] shadow-lg pb-safe">
+        <div className="flex justify-center pt-3 pb-3 min-h-[44px]" aria-hidden="true">
+          <div className="w-10 h-1.5 rounded-full bg-[var(--text-muted)]/30" />
+        </div>
+        <div className="px-5 pt-2 pb-6 space-y-3">
+          <p className="text-xl font-semibold font-[family-name:var(--font-syne)] text-[var(--text-primary)]">
+            Accedi
+          </p>
+          <div className="h-11 rounded-control bg-[var(--bg-surface)] animate-pulse" aria-hidden="true" />
+          <div className="h-11 rounded-control bg-[var(--bg-surface)] animate-pulse" aria-hidden="true" />
+          <Button className="w-full" disabled>
+            Caricamento…
+          </Button>
+          <span className="sr-only">Caricamento del modulo di accesso in corso</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 import { BanBanner } from "@/components/karma/ban-banner";
 import { Button } from "@/components/ui/button";
 import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
-import { FirstRun } from "@/components/onboarding/first-run";
 import { SportSelector } from "@/components/court/sport-selector";
 import { CourtSearch } from "@/components/court/court-search";
 import { NotificationBell } from "@/components/notifications/notification-bell";
@@ -78,6 +115,11 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
+  // d26: monta il modulo login solo dalla prima apertura in poi.
+  const [loginMounted, setLoginMounted] = useState(false);
+  useEffect(() => {
+    if (showLogin) setLoginMounted(true);
+  }, [showLogin]);
   const [loginNext, setLoginNext] = useState<string | undefined>(undefined);
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
@@ -462,7 +504,11 @@ export default function HomePage() {
         )}
       </div>
 
-      <LoginModal open={showLogin} onClose={() => setShowLogin(false)} next={loginNext} />
+      {loginMounted && (
+        <Suspense fallback={<LoginLoadingFallback onClose={() => setShowLogin(false)} />}>
+          <LoginModalLazy open={showLogin} onClose={() => setShowLogin(false)} next={loginNext} />
+        </Suspense>
+      )}
       {/* Primo avvio: si apre da solo al primo render, non blocca i dati.
           Il login del passo 3 riusa il LoginModal di pagina (nessun secondo
           flusso); alla chiusura il focus torna al FAB "Aggiungi un campo". */}

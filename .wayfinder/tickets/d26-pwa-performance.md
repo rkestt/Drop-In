@@ -77,4 +77,37 @@ node -e "const r=require('/tmp/opencode/lh.json');console.log(r.categories.perfo
 
 ## Resolution
 
-(TBD — baseline, after, budget rispettati/motivati, chunk mappa, offline, screenshot.)
+Tabella completa in `docs/research/pwa-offline.md` §9 (misure prima/dopo).
+
+**First Load JS gzip** (prima → dopo): `/` 278→**190 kB** ✅ (≤250);
+`/courts/[id]` 329→329, `/lobbies` 313→313, `/lobbies/[id]` 321→321,
+`/profile` 269→269, `/settings` 273→273, `/notifications` 195→195,
+`/submit-court` 265→265 — nessuna peggiora ✅.
+
+**Lighthouse mobile simulato** (con backend via proxy; senza: BP −4 per
+`console.error` su fetch fallite — artefatto env): prima 1 run → dopo 3 run.
+P 48→44, A11y 96→**100**, BP 100→100; LCP 5,2→~7 s (**peggiorato**, vedi §9.2:
+1 run prima non esclude varianza), CLS 0,052 ✅, TBT ~6–7 s.
+P/LCP/TBT **non raggiungibili**: chunk MapLibre `89831ab3` (~1 MB raw,
+~269 kB gzip) sul main thread vale da solo ~6,3 s di bootup simulato; la
+mappa è la home (differirla = cambiare il prodotto, vietato).
+
+**Interventi** (solo giustificati da misura): `optimizePackageImports`
+per `lucide-react` (`next.config.js`); `LoginModal` on-demand via
+`React.lazy` + mount condizionale, `FirstRun` in `dynamic(ssr:false)`
+(`app/(app)/page.tsx`) → Base UI/Drawer fuori dal chunk iniziale di `/`.
+Nit oracle: `Suspense fallback` non più `null` ma `LoginLoadingFallback`
+(sheet con stessa sagoma del Drawer, token-only, backdrop che chiude,
+bottone "Caricamento…" disabilitato + `role="status"`) così il click non è
+mai morto; `smoke.spec.ts` clicca "Accedi" e attende fallback-o-form e poi
+il campo email (chunk async verificato live).
+**Non toccati**: layout, copy, token, mappa, font, SW/cache (già conformi da
+d24), manifest, `playwright.config.ts`, `MAP.md`, `1.5.md` (nota di eccezione
+budget: la scrive l'orchestratore).
+
+**Verifiche**: `maplibre` solo in chunk async `89831ab3` (mai iniziale);
+`/styleguide` isolato (no leak); niente font esterni; offline reale (server
+spento): `/`, `/courts/<id>`, `/profile`, `/lobbies` mai bianchi (e2e tmp
+rimosso); `build` ✅ `tsc` ✅ `lint` ✅ (1 warning pre-esistente in
+`scripts/`) `lint:design` ✅ `vitest` 220 ✅; e2e `smoke`+`d24-offline` ✅,
+modale login lazy ✅.
