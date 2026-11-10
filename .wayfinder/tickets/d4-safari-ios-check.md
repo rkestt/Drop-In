@@ -93,8 +93,11 @@ nessuna differenza tra i motori. Riserve scritte in `docs/design/stack.md`:
 trap da chiudere in `d5`; (c) il punto 3 va ripetuto con il Toaster definitivo
 (safe-area e bottom nav reali).
 
-**Allegati.** `/tmp/opencode/d4-webkit/`: `drawer-open.png`, `diag-drawer-open.png`,
-`diag-backdrop.png`, `toast-open.png`, `toast-webkit-after-swipe-up.png`,
-`reduced-motion.png`, `results.json`, `diag.mjs`, `toast.mjs`, `run-webkit.mjs`.
+**Allegati (riproducibili, non in /tmp).** `scripts/verify/webkit-styleguide.mjs`
+nel repo: si esegue con il comando Docker documentato in `docs/design/stack.md`.
+Esito del 2026-11-10 su `design/1.5`: WebKit e Chromium, tutti i check PASS
+(drawer, focus, Escape, backdrop, scroll lock, toast singolo/posizione/swipe,
+reduced motion, console). Gli screenshot temporanei della prima run sono stati
+persi con il riavvio della macchina: lo script li rigenera.
 
 **Nessun file in `app/` o `components/` modificato.**

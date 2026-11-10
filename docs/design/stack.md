@@ -91,10 +91,25 @@ Se non passa, si documenta qui il motivo e si resta sul componente scritto a man
 ### Esito d4 (2026-11-09) — device fisico non disponibile
 
 Non c'è un iPhone: il test HITL su device **non è stato eseguito**. Al suo posto,
-evidenza equivalente per motore con Playwright **WebKit 27.2** (immagine ufficiale
+evidenza per motore con Playwright **WebKit 27.2** (immagine ufficiale
 `mcr.microsoft.com/playwright:v1.65.0-noble`) e profilo `iPhone 13`
 (390×664, `isMobile`, `hasTouch`, UA Safari iOS), confrontata con Chromium.
-Script e screenshot: `/tmp/opencode/d4-webkit/` (fuori repo).
+
+Riproducibile con lo script in repo (dev server attivo su 3100):
+
+```bash
+docker run --rm --network host --user "$(id -u):$(id -g)" \
+  -e HOME=/tmp -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+  -v "$PWD":"$PWD" -w "$PWD" \
+  mcr.microsoft.com/playwright:v1.65.0-noble \
+  node scripts/verify/webkit-styleguide.mjs
+```
+
+Esito 2026-11-10 (entrambi i motori, tutti PASS): drawer apre, focus iniziale nel
+dialog, `Escape` chiude, tap sul backdrop chiude, body con `overflow: hidden`,
+toast singolo a 16 px, swipe verso l'alto lo rimuove, reduced motion statico,
+console pulita. Il drag touch oltre soglia non è in questo script (mouse drag non
+è il gesto giusto): è coperto da `tests/e2e/drawer.spec.ts` con eventi touch reali.
 
 | Punto | WebKit | Chromium |
 |---|---|---|
