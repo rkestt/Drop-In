@@ -132,3 +132,18 @@ ticket) il wiring va fatto lì, oppure il componente va eliminato se resta morto
   `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`, nessuna modifica ai
   file; ③ `notFound()` lancia: non va mai messo dentro un try/catch che
   lo ingoia (bug trovato e corretto nel dettaglio).
+- **Round oracle (APPROVE WITH NITS, 2026-11-10).**
+  - NaN raggio: `lib/lobbies/nearby.ts` puro e testato
+    (`tests/unit/lobbies-nearby.test.ts`, 14 test: coordinate null/NaN →
+    escluse, mai distanza indefinita). `NearbyLobbies` lo riusa (niente
+    più haversine inline né `formatDistance` duplicato nella card).
+  - Spec vs codice: allineata la spec alla verità (campione 100 lobby
+    aperte + filtro raggio; RPC `nearby_courts` solo per la CTA di empty
+    state) con limite dichiarato; courts-first scartata con motivazione
+    (il cap del RPC tagliava le lobby vicine).
+  - Realtime Vicine: ora efficace — gli eventi di canale richiamano
+    `load()` con l'ultima posizione nota (non più `router.refresh()`
+    inutile su un componente senza props server).
+  - Minori: tablist con frecce + roving tabindex e `?tab=` riletto al
+    cambio; aria-label card con sport e distanza; "Le tue" include
+    `sport`.

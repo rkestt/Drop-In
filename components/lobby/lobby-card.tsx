@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { NextHighlight } from "@/components/motion/next-highlight";
 import { Users, Clock } from "lucide-react";
+import { formatDistanceM } from "@/lib/lobbies/nearby";
 import type { LobbySummary } from "./types";
 
 function formatTime(iso: string): string {
@@ -41,11 +42,22 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
     : isFull
       ? "al completo"
       : lobby.status;
+  // Nome accessibile completo: campo, sport, orario, posti, distanza, stato.
+  const ariaLabel = [
+    `Lobby al ${lobby.court_name}`,
+    lobby.court_sport ?? undefined,
+    `ore ${formatTime(lobby.start_time)}`,
+    `${lobby.participants_count} su ${lobby.max_players}`,
+    lobby.distance_m != null ? `a ${formatDistanceM(lobby.distance_m)}` : undefined,
+    stateLabel,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <Link
       href={`/lobbies/${lobby.id}`}
-      aria-label={`Lobby al ${lobby.court_name}, ore ${formatTime(lobby.start_time)}, ${lobby.participants_count} su ${lobby.max_players}, ${stateLabel}`}
+      aria-label={ariaLabel}
       className="block rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-4 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-elevated)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
     >
       <span className="flex items-start gap-2">
@@ -63,7 +75,7 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
               {lobby.participants_count}/{lobby.max_players}
             </span>
             {lobby.distance_m != null && (
-              <span className="whitespace-nowrap">{formatDistance(lobby.distance_m)}</span>
+              <span className="whitespace-nowrap">{formatDistanceM(lobby.distance_m)}</span>
             )}
           </span>
         </span>
@@ -89,10 +101,4 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
       </span>
     </Link>
   );
-}
-
-/** "400 m" sotto il km, "2,4 km" sopra (it-IT). */
-export function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)} m`;
-  return `${(meters / 1000).toLocaleString("it-IT", { maximumFractionDigits: 1 })} km`;
 }

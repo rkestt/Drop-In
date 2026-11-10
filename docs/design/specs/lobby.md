@@ -24,8 +24,9 @@ pagine, crea e join sono drawer. Mai drawer su drawer.
    mai tutta Italia) con distanza reale ("2,4 km", "400 m").
 2. **Card** (`lobby-card.tsx`, presentazionale): tutta la card è un link al
    dettaglio. Badge Aperta/Al completo/In corso/Chiusa, `n/max` it-IT,
-   "Sei dentro" (NextHighlight) o "Unisciti ›". Join ed esci vivono solo nel
-   dettaglio, mai nella card.
+   "Sei dentro" (NextHighlight) o "Unisciti ›". Nome accessibile completo
+   (campo, sport, orario, posti, distanza, stato). Join ed esci vivono solo
+   nel dettaglio, mai nella card.
 3. **Dettaglio** (`lobbies/[id]/page.tsx` + `lobby-detail.tsx`): data
    it-IT, nome campo, orario grande + "Si chiude alle" (+30 min), `n/max`,
    avatar con iniziali ("TU" per te), fact karma + iscrizioni, link "Apri
@@ -47,14 +48,23 @@ pagine, crea e join sono drawer. Mai drawer su drawer.
 - Lista "Le tue": `lobby_participants` per `user_id` → lobby dove creatore
   o partecipante (`or` su `creator_id`/`id.in`), poi partecipanti +
   nickname dai `profiles`.
-- "Vicine": `nearby_courts(p_lat, p_lng, 15000, 200)` → `lobbies` aperte su
-  quei `court_id` (max 50, ordinate per distanza) + nickname.
+- "Vicine": le prime 100 lobby aperte per orario (`OPEN_LOBBIES_LIMIT`, le
+  lobby sono effimere per auto-chiusura) con coordinate del campo, poi
+  filtro haversine client-side entro 15 km (`lib/lobbies/nearby.ts`, puro e
+  testato) + nickname; ordinate per distanza reale. **Limite dichiarato**:
+  oltre 100 lobby aperte, quelle vicine oltre le 100 più imminenti non
+  compaiono. Scelta consapevole: l'alternativa courts-first (RPC
+  `nearby_courts` con cap + lobby su quei court) perde lobby quando i campi
+  vicini superano il cap del RPC. Il RPC resta usato solo per la CTA di
+  empty state ("Crea una lobby" sul campo più vicino, `p_limit: 1`).
 - Dettaglio: `lobbies` per id (`notFound()` se PGRST116, UUID invalido →
   404), `courts(id,name,address,sport)`, partecipanti + nickname, profilo
   (`karma_score`, `banned_until`).
-- Realtime: canali su `lobbies` + `lobby_participants` (dettaglio con
-  `filter` per id) → `router.refresh()`; join/leave dall'altro browser
-  entro pochi secondi. Rete giù ≠ 404 (messaggio + Riprova).
+- Realtime: canali su `lobbies` + `lobby_participants` → `router.refresh()`
+  per "Le tue" (props dal server) e dettaglio (con `filter` per id),
+  ricarico dati (`NearbyLobbies.load` con l'ultima posizione nota) per le
+  "Vicine". Join/leave dall'altro browser entro pochi secondi. Rete giù ≠
+  404 (messaggio + Riprova).
 
 ## Stati
 

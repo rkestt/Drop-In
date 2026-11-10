@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -10,6 +10,7 @@ import { CalendarX } from "lucide-react";
 import type { LobbySummary } from "./types";
 
 type TabId = "mine" | "nearby";
+const TAB_IDS: TabId[] = ["mine", "nearby"];
 
 /**
  * Lista lobby (prototipo d12): tab "Le tue"/"Vicine" con `aria-selected` e
@@ -24,11 +25,18 @@ export function LobbyTabs({
   userId: string;
 }) {
   const searchParams = useSearchParams();
-  const initial: TabId = searchParams.get("tab") === "nearby" ? "nearby" : "mine";
-  const [tab, setTab] = useState<TabId>(initial);
+  const readTab = (): TabId => (searchParams.get("tab") === "nearby" ? "nearby" : "mine");
+  const [tab, setTab] = useState<TabId>(readTab);
   const [nearbyCount, setNearbyCount] = useState<number | null>(null);
   const router = useRouter();
   const supabase = createClient();
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  // ?tab= riletto quando cambia (back/forward o link con tab esplicito).
+  useEffect(() => {
+    setTab(readTab());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     const channel = supabase
@@ -54,13 +62,31 @@ export function LobbyTabs({
       <h1 className="mb-6 text-3xl font-bold font-[family-name:var(--font-syne)]">
         Lobby
       </h1>
-      <div className="mb-6 flex gap-2" role="tablist" aria-label="Lobby">
+      <div
+        className="mb-6 flex gap-2"
+        role="tablist"
+        aria-label="Lobby"
+        onKeyDown={(e) => {
+          // Roving tabindex: frecce spostano selezione e fuoco.
+          if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+          e.preventDefault();
+          const dir = e.key === "ArrowRight" ? 1 : -1;
+          const next =
+            TAB_IDS[(TAB_IDS.indexOf(tab) + dir + TAB_IDS.length) % TAB_IDS.length];
+          setTab(next);
+          tabRefs.current[TAB_IDS.indexOf(next)]?.focus();
+        }}
+      >
         <button
+          ref={(el) => {
+            tabRefs.current[0] = el;
+          }}
           type="button"
           role="tab"
           id="tab-mine"
           aria-controls="panel-mine"
           aria-selected={tab === "mine"}
+          tabIndex={tab === "mine" ? 0 : -1}
           onClick={() => setTab("mine")}
           className={`min-h-11 rounded-chip px-4 text-sm font-medium transition-colors ${
             tab === "mine"
@@ -71,11 +97,15 @@ export function LobbyTabs({
           Le tue <span className="tabular-nums">{mine.length}</span>
         </button>
         <button
+          ref={(el) => {
+            tabRefs.current[1] = el;
+          }}
           type="button"
           role="tab"
           id="tab-nearby"
           aria-controls="panel-nearby"
           aria-selected={tab === "nearby"}
+          tabIndex={tab === "nearby" ? 0 : -1}
           onClick={() => setTab("nearby")}
           className={`min-h-11 rounded-chip px-4 text-sm font-medium transition-colors ${
             tab === "nearby"

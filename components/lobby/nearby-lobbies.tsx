@@ -1,39 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LobbyCard } from "./lobby-card";
 import { CreateLobbyButton } from "./create-lobby-button";
+import {
+  courtDistanceM,
+  isWithinRadiusM,
+  NEARBY_RADIUS_M,
+  OPEN_LOBBIES_LIMIT,
+} from "@/lib/lobbies/nearby";
 import { MapPin } from "lucide-react";
 import type { LobbySummary } from "./types";
-
-/**
- * Raggio "Partite vicine" (bug #48): solo lobby entro questa distanza,
- * mai tutta Italia. Stesso default del RPC `nearby_courts`.
- */
-export const NEARBY_RADIUS_M = 15000;
-
-/** Max candidate aperte: le lobby sono effimere (auto-chiusura via cron). */
-const OPEN_LOBBIES_LIMIT = 100;
-
-/** Haversine in metri (nessuna dipendenza). */
-function distanceM(
-  aLat: number,
-  aLng: number,
-  bLat: number,
-  bLng: number
-): number {
-  const R = 6371000;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(bLat - aLat);
-  const dLng = toRad(bLng - aLng);
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(s));
-}
 
 type NearbyState =
   | { kind: "locating" }
@@ -47,11 +26,13 @@ type NearbyState =
     };
 
 /**
- * Tab "Vicine": chiede la posizione, carica le lobby aperte con le
- * coordinate del campo e tiene solo quelle entro il raggio (bug #48),
- * ordinate per distanza reale. Senza posizione: messaggio + CTA "Trova un
- * campo", mai dati inventati. Senza lobby ma con campi vicini: CTA "Crea
- * una lobby" sul campo più vicino.
+ * Tab "Vicine": chiede la posizione, carica le lobby aperte (campione di
+ * `OPEN_LOBBIES_LIMIT`, vedi spec) con le coordinate del campo e tiene solo
+ * quelle entro il raggio (bug #48), ordinate per distanza reale. Coordinate
+ * campo assenti/non numeriche → riga esclusa (`courtDistanceM` = null).
+ * Senza posizione: messaggio + CTA "Trova un campo", mai dati inventati.
+ * Senza lobby ma con campi vicini: CTA "Crea una lobby" sul campo più
+ * vicino (RPC solo per la CTA, vedi spec sui limiti).
  */
 export function NearbyLobbies({
   userId,
@@ -62,18 +43,21 @@ export function NearbyLobbies({
 }) {
   const [state, setState] = useState<NearbyState>({ kind: "locating" });
   const supabase = createClient();
-  const router = useRouter();
+  // Ultima posizione nota: gli eventi realtime ricaricano i DATI (load),
+  // non le props server (router.refresh qui non servirebbe a nulla).
+  const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const load = useCallback(
     (lat: number, lng: number) => {
       let cancelled = false;
+      coordsRef.current = { lat, lng };
       (async () => {
         setState({ kind: "loading" });
         try {
           const { data: lobbiesData, error: lobbiesError } = await supabase
             .from("lobbies")
             .select(
-              "id, court_id, start_time, max_players, status, courts(id, name, lat, lng), lobby_participants(user_id)"
+              "id, court_id, start_time, max_players, status, courts(id, name, sport, lat, lng), lobby_participants(user_id)"
             )
             .eq("status", "open")
             .order("start_time", { ascending: true })
@@ -85,7 +69,13 @@ export function NearbyLobbies({
             start_time: string;
             max_players: number;
             status: string;
-            courts: { id: string; name: string; lat: number; lng: number } | null;
+            courts: {
+              id: string;
+              name: string;
+              sport: string | null;
+              lat: number | null;
+              lng: number | null;
+            } | null;
             lobby_participants?: Array<{ user_id: string }>;
           }>;
 
@@ -109,8 +99,10 @@ export function NearbyLobbies({
           const lobbies: LobbySummary[] = [];
           for (const l of rows) {
             if (!l.courts) continue;
-            const d = distanceM(lat, lng, l.courts.lat, l.courts.lng);
-            if (d > NEARBY_RADIUS_M) continue;
+            const d = courtDistanceM(lat, lng, l.courts.lat, l.courts.lng);
+            // Null = coordinate inutilizzabili: esclusa, mai "distanza
+            // sconosciuta" in una tab "Vicine".
+            if (d === null || !isWithinRadiusM(lat, lng, l.courts.lat, l.courts.lng)) continue;
             const participants = (l.lobby_participants ?? []).map((p) => ({
               user_id: p.user_id,
               nickname: nicknameMap.get(p.user_id) ?? null,
@@ -122,6 +114,7 @@ export function NearbyLobbies({
               max_players: l.max_players,
               status: l.status,
               court_name: l.courts.name ?? "Campo",
+              court_sport: l.courts.sport,
               participants_count: participants.length,
               participants,
               is_joined: participants.some((p) => p.user_id === userId),
@@ -161,6 +154,9 @@ export function NearbyLobbies({
     [supabase, userId, onCount]
   );
 
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
   useEffect(() => {
     let cancelled = false;
     if (!("geolocation" in navigator)) {
@@ -181,21 +177,29 @@ export function NearbyLobbies({
     };
   }, [load]);
 
-  // Realtime: join/leave si riflettono senza reload (acceptance d20).
+  // Realtime efficace: join/leave ricaricano i dati con l'ultima posizione
+  // nota. router.refresh() qui non servirebbe: la pagina non passa props
+  // alle Vicine (i dati vivono in questo componente).
   useEffect(() => {
     const channel = supabase
       .channel("lobbies-nearby")
-      .on("postgres_changes", { event: "*", schema: "public", table: "lobbies" }, () =>
-        router.refresh()
-      )
-      .on("postgres_changes", { event: "*", schema: "public", table: "lobby_participants" }, () =>
-        router.refresh()
+      .on("postgres_changes", { event: "*", schema: "public", table: "lobbies" }, () => {
+        const c = coordsRef.current;
+        if (c) loadRef.current(c.lat, c.lng);
+      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "lobby_participants" },
+        () => {
+          const c = coordsRef.current;
+          if (c) loadRef.current(c.lat, c.lng);
+        }
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, router]);
+  }, [supabase]);
 
   if (state.kind === "locating" || state.kind === "loading") {
     return (
@@ -240,7 +244,10 @@ export function NearbyLobbies({
         </p>
         <button
           type="button"
-          onClick={() => router.refresh()}
+          onClick={() => {
+            const c = coordsRef.current;
+            if (c) load(c.lat, c.lng);
+          }}
           className="mx-auto mt-3 flex min-h-11 items-center justify-center rounded-control bg-[var(--bg-surface)] px-4 font-semibold text-[var(--text-primary)]"
         >
           Riprova
