@@ -8,7 +8,8 @@ scrivere codice di produzione, e restano come riferimento visivo dopo.
 
 ```bash
 python3 -m http.server 4173 --directory docs/design/prototypes
-# poi: http://localhost:4173/onboarding.html
+# poi: http://localhost:4173/            (indice di review)
+#      http://localhost:4173/onboarding.html
 ```
 
 In alternativa apri il file direttamente nel browser (`file://`): tutto è
@@ -25,6 +26,7 @@ npx playwright screenshot --viewport-size="360,780" \
 
 | File | Schermata | Ticket proto | Stato |
 |---|---|---|---|
+| `index.html` | Indice di review: le 8 schermate, cosa guardare | — | — |
 | `onboarding.html` | Primo avvio (3 passi sopra la mappa) | d9 | in review |
 | `settings.html` | Impostazioni | d10 | in review |
 | `profile.html` | Profilo e modifica nickname | d11 | in review |
