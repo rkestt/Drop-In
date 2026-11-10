@@ -119,7 +119,7 @@ export function CheckInSheet({
         })
       );
       setSuccess(true);
-      // Stesso pattern di create-lobby-sheet: il timer si cancella su
+      // Stesso pattern di create-lobby-drawer: il timer si cancella su
       // chiusura/unmount, così onClose scatta una volta sola.
       closeTimer.current = window.setTimeout(() => {
         onClose();

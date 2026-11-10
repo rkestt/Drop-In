@@ -26,7 +26,7 @@ function readData(data: unknown): Record<string, unknown> | null {
  *   (es. `karma_loss` di 002 porta `lobby_id`: non deve aprire la lobby);
  * - tipi lobby (`lobby_starting_soon`, `participant_joined`, `lobby`):
  *   `court_id` valido → `/courts/<uuid>`, altrimenti `lobby_id` valido →
- *   `/lobbies` (lista: non esiste una route `/lobbies/<id>`, lì darebbe 404);
+ *   `/lobbies/<uuid>` (dettaglio d20: funziona a freddo, 404 se assente);
  * - checkin/weather/neutral: `court_id` valido → `/courts/<uuid>`
  *   ("Apri campo"), altrimenti `null` (la riga resta e mostra il dettaglio).
  * UUID non validi o `data` malformato → `null`, senza eccezioni.
@@ -43,7 +43,7 @@ export function notificationHref(data: unknown): string | null {
 
   if (kind === "lobby") {
     const lobbyId = cleanUuid(record.lobby_id);
-    if (lobbyId) return "/lobbies";
+    if (lobbyId) return `/lobbies/${lobbyId}`;
   }
 
   return null;

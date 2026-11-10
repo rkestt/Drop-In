@@ -76,4 +76,59 @@ ticket) il wiring va fatto lì, oppure il componente va eliminato se resta morto
 
 ## Resolution
 
-(TBD — chiudere con: route, stati verificati, esito realtime, trigger capacità, screenshot, spec.)
+**Implementato il 2026-11-10 su `fix/d20-f3` (branch da HEAD di `design/1.5`).**
+
+- **Route**: `app/(dashboard)/lobbies/[id]/page.tsx` + `not-found.tsx`.
+  Dettaglio a freddo con dati reali; UUID invalido o lobby assente → 404
+  dedicata ("Lobby non trovata" + "Torna alle lobby"); rete giù → messaggio
+  + "Riprova" (mai 404 secco, regola d24). Anonimo → login con `next`.
+  Le righe "Lobby attive" di `app/(app)/courts/[id]/page.tsx` linkano al
+  dettaglio. `lib/notifications/link.ts`: le lobby ora puntano a
+  `/lobbies/<uuid>` (test aggiornato).
+- **LobbyCard**: CABLATA nella lista (scelta A). Riscritta presentazionale
+  (link al dettaglio, badge Aperta/Al completo/In corso/Chiusa, `n/max`
+  it-IT, "Sei dentro" con NextHighlight, "Unisciti ›"): niente più logica
+  join/supabase/reload dentro la card.
+- **Dettaglio**: drawer e non route? ROUTE creata (il ticket la chiedeva e
+  il deep link da notifiche lo richiede). Mai drawer su drawer: la pagina
+  apre un drawer alla volta (join oppure crea).
+- **Stati verificati live (360 + 768, console pulita, axe senza violazioni
+  sul dettaglio)**: lista tue/vicine con tab e conteggi, vuoto, loading,
+  dettaglio aperta/piena (banner + crea)/in corso/chiusa (nota, niente CTA),
+  crea con esito, join con conferma + ottimistico "Sei dentro" + uscita
+  diretta (aperta) — vedi `/tmp/opencode/d20-*.png`.
+- **Realtime**: canali su `lobbies` + `lobby_participants` in tab, vicine e
+  dettaglio (con `filter` per id) → `router.refresh()`, mai reload.
+  Zero `window.location.reload()` rimasti nell'area lobby.
+- **Trigger capacità**: `enforce_lobby_capacity` NON esiste nel DB
+  (verificato su `supabase_db_drop-in`). Come da ticket: nessuna
+  migrazione creata (lo copre `t10-core-loop-impl`), nessuna verifica
+  client sostitutiva. La UI disabilita il join a lobby piena (stato, non
+  enforcement) e gestisce il rifiuto server con rollback + recovery.
+  Gap noto: in caso di corsa, il DB accetta l'insert oltre capienza.
+- **"Vicine"**: raggio 15 km con haversine client-side su lobby aperte
+  (ordinate per distanza reale, bug #48 chiuso); senza posizione: messaggio
+  + "Trova un campo"; senza lobby ma con campi: "Crea una lobby" sul campo
+  più vicino (RPC `nearby_courts`, solo per la CTA).
+- **Create**: `create-lobby-sheet.tsx` → `create-lobby-drawer.tsx`
+  (stesso RHF + `createLobbySchema`, niente reload: `router.refresh()`).
+- **Morti eliminati**: `lobby-list.tsx` (mai montato, logica spostata in
+  `nearby-lobbies.tsx` con raggio), `leave-lobby-button.tsx` (logica in
+  `lobby-detail.tsx`, con conferma inline solo se in corso).
+- **Spec**: `docs/design/specs/lobby.md` (scostamenti: nessun requisito
+  karma nel DB → drawer/dettaglio mostrano solo il tuo karma + no-show;
+  stepper max giocatori non introdotto, resta l'Input RHF+schema).
+- **Comandi**: `npm run lint` (0 errori, 1 warning pre-esistente in
+  `scripts/check-design.mjs`), `tsc`, `lint:design`, `vitest` (188),
+  `test:a11y` repo (3/3 su config 3118), Playwright d20 dedicato 3/3
+  (lista/join/esci/404, redirect anonimo, crea-da-campo) con screenshot
+  360/768 in `/tmp/opencode/d20-*.png`.
+- **Scostamenti/ambientali** (per altri agenti): ① il DB locale è
+  condiviso: un reset parallelo ha cancellato corte+lobby seedate a metà
+  verifica — lo spec d20 è auto-provisioning (corte via RPC + lobby via
+  API a runtime); ② con `NEXT_PUBLIC_SUPABASE_URL=/supabase` il server
+  non vede la sessione browser (chiave cookie da `localhost` vs
+  `127.0.0.1`): verifica fatta con dev su 3118 +
+  `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`, nessuna modifica ai
+  file; ③ `notFound()` lancia: non va mai messo dentro un try/catch che
+  lo ingoia (bug trovato e corretto nel dettaglio).

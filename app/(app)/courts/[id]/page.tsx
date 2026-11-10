@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -238,32 +239,36 @@ export default async function CourtPage({
         {lobbies && lobbies.length > 0 ? (
           <div className="space-y-3">
             {lobbies.map((lobby: { id: string; start_time: string; max_players: number; lobby_participants?: { count: number }[] }) => (
-              <div
+              <Link
                 key={lobby.id}
-                className="bg-[var(--bg-surface)] rounded-xl p-4 flex items-center justify-between"
+                href={`/lobbies/${lobby.id}`}
+                aria-label={`Lobby delle ${new Date(lobby.start_time).toLocaleString("it-IT", { hour: "2-digit", minute: "2-digit" })}, ${(lobby.lobby_participants?.[0]?.count ?? 0)} su ${lobby.max_players}`}
+                className="block rounded-xl bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors"
               >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-[var(--text-muted)]" />
-                    <span className="font-medium text-[var(--text-primary)]">
-                      {new Date(lobby.start_time).toLocaleString("it-IT", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-[var(--text-muted)]" aria-hidden="true" />
+                      <span className="font-medium text-[var(--text-primary)]">
+                        {new Date(lobby.start_time).toLocaleString("it-IT", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 text-sm text-[var(--text-secondary)]">
+                      <Users className="w-4 h-4" aria-hidden="true" />
+                      <span>
+                        {(lobby.lobby_participants?.[0]?.count ?? 0)} /{" "}
+                        {lobby.max_players}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-1 text-sm text-[var(--text-secondary)]">
-                    <Users className="w-4 h-4" />
-                    <span>
-                      {(lobby.lobby_participants?.[0]?.count ?? 0)} /{" "}
-                      {lobby.max_players}
-                    </span>
-                  </div>
+                  <Badge variant="accent">Aperta</Badge>
                 </div>
-                <Badge variant="accent">Aperta</Badge>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (
