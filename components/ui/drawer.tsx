@@ -11,6 +11,17 @@ interface DrawerProps {
   description?: string;
   children: React.ReactNode;
   className?: string;
+  /** Id dell'elemento che nomina il dialog (senza `title`, si usa il titolo custom nei children). */
+  labelledBy?: string;
+  /** Id dell'elemento che descrive il dialog. */
+  describedBy?: string;
+  /** Elemento da focalizzare all'apertura (default: comportamento Base UI). */
+  initialFocus?: boolean | React.RefObject<HTMLElement | null>;
+  /**
+   * Elemento a cui restituire il focus alla chiusura (default: restore Base UI
+   * sull'elemento focalizzato prima dell'apertura).
+   */
+  finalFocus?: boolean | React.RefObject<HTMLElement | null>;
 }
 
 /**
@@ -28,6 +39,10 @@ export function Drawer({
   description,
   children,
   className,
+  labelledBy,
+  describedBy,
+  initialFocus,
+  finalFocus,
 }: DrawerProps) {
   return (
     <BaseDrawer.Root
@@ -42,6 +57,10 @@ export function Drawer({
         <BaseDrawer.Backdrop className="fixed inset-0 z-50 bg-[var(--overlay)]" />
         <BaseDrawer.Viewport className="fixed inset-0 z-50 flex items-end justify-center">
           <BaseDrawer.Popup
+            aria-labelledby={labelledBy}
+            aria-describedby={describedBy}
+            initialFocus={initialFocus}
+            finalFocus={finalFocus}
             className={cn(
               "w-full max-w-[720px] rounded-t-sheet bg-[var(--bg-elevated)] shadow-lg outline-none pb-safe",
               className

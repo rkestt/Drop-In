@@ -61,4 +61,66 @@ npm run test:a11y
 
 ## Resolution
 
-(TBD — chiudere con: chiavi localStorage, passi implementati, esito reduced motion, screenshot, spec.)
+**Implementato (2026-11-10, branch `fix/d17-f3`).** File creati:
+`lib/onboarding/storage.ts` (`ONBOARDED_KEY="dropin:onboarded:v1"`,
+`coachKey()`/`COACH_CHECKIN_KEY="dropin:coach:check-in"`, `hasSeen`/`markSeen`),
+`components/onboarding/first-run.tsx` (drawer Base UI a 3 passi, stepper
+testuale + `aria-current="step"`, skip/indietro 44px, nota login inline),
+`components/onboarding/coach-mark.tsx` (`role="note"`, nel flusso sopra il
+controllo, chiusura Ho capito/X/Esc con focus restore),
+`tests/unit/onboarding-storage.test.ts` (9 test),
+`docs/design/specs/onboarding.md`. Modificati: `components/ui/drawer.tsx`
+(passthrough `labelledBy`/`describedBy`/`initialFocus`), `app/(app)/page.tsx`
+(`<FirstRun />`), `app/(app)/courts/[id]/page.tsx` (coach sul blocco azioni).
+
+**Scostamento dal ticket (1):** il coach avvolge il blocco azioni invece del
+solo `CheckInButton` — la scheda campo si apre anche senza login (mostra
+`LoginPrompt`) e l'acceptance chiede il coach alla prima apertura; da loggato
+punta comunque al bottone Check-in. Copy, passi, stati invariati dal prototipo.
+
+**localStorage:** ogni accesso in try/catch + guard `typeof window`; se
+indisponibile (SSR/Safari privato) `hasSeen` → false, `markSeen` → no-op,
+chiusura valida per la sessione (`dismissedThisSession`), nessun crash.
+**Reduced motion:** cambio passo via `StepTransition` (ramo statico, nessun
+transform inline) + media query globale; verificato con
+`emulateMedia({reducedMotion:"reduce"})`, info in testo/focus invariati.
+
+**Esiti:** vitest 12 file/118 test OK · `lint` 0 errori (1 warning
+preesistente in `scripts/check-design.mjs`) · `tsc` OK · `lint:design` OK
+(73 file) · `a11y` 3/3 OK · Playwright live su 3111: drawer primo avvio 360,
+3 passi, skip/Esc, reload non riappare, coach una volta con focus restore,
+console pulita. Screenshot: `/tmp/opencode/d17-step-{1,2,3}-360.png`,
+`d17-step-1-768.png`, `d17-coach-360.png`.
+
+**Follow-up review oracle (APPROVE WITH NITS, 2026-11-10).**
+1. Login cablato: `FirstRun` accetta `onLogin`; il passo 3 chiama
+   `page.tsx → setShowLogin(true)` (riuso `LoginModal`, nota inline rimossa).
+   L'onboarding si chiude prima (segnato come visto: i 3 passi sono stati
+   letti) e il login apre in un microtask — niente modali a catena. Caso
+   login verificato live: passo 3 → «Accedi per salvare i progressi» → drawer
+   «Accedi» visibile, onboarding chiuso e non riapparso al reload.
+2. Focus di ritorno: `Drawer` ora passa anche `finalFocus`; `FirstRun`
+   accetta `returnFocusRef` e la pagina passa la regione mappa
+   (`tabIndex={-1}`, senza anello). Verificato live: dopo Esc/Salta il focus
+   è sulla `div` mappa, mai sul `body`. Nessun furto: il drawer è modale,
+   alla chiusura non c'è interazione altrove in corso.
+3. Coach: flag di sessione per feature come in `FirstRun`.
+4. Spec allineata (coach sul blocco azioni, focus di ritorno, login).
+
+**Nit review oracle (2026-11-10).**
+1. Login cablato (vedi sopra): passo 3 → `onLogin` → `LoginModal`; nota
+   inline rimossa; niente modali a catena (chiusura + microtask).
+2. Focus di ritorno al FAB «Aggiungi un campo» (`finalFocus`, foglia
+   stabile): il contenitore mappa è scartato perché Base UI lo risolve al
+   primo figlio tabbabile (canvas o select a seconda del caricamento: non
+   deterministico, verificato live). Verificato: Esc → focus sul FAB, mai
+   sul `body`. Nota: il dialog login non espone accessible name (wart
+   preesistente di `LoginModal`, fuori scope).
+3. Coach con flag di sessione per feature.
+4. Spec aggiornata. 5. (questo paragrafo).
+
+**Riverifica nit:** vitest 12/118 OK · lint 0 errori · tsc OK · lint:design
+OK · `test:a11y` 3/3 OK · Playwright 3111 (config in /tmp): login-flow OK
+(dialog «Continua con Google», onboarding chiuso, reload pulito, console
+pulita), focus-return OK (FAB focalizzato dopo Esc).
+
