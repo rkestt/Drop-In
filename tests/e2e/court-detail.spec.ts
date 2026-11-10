@@ -30,8 +30,10 @@ test("court detail renders with check-in and report actions", async ({ page }) =
   await expect(page.locator("h1")).not.toHaveText("");
 
   // Lobby section present
+  // Sezione lobby (h2): il regex largo prendeva anche i titoli degli stati
+  // vuoti aggiunti con d24 ("Nessuna lobby qui intorno").
   await expect(
-    page.getByRole("heading", { name: /lobby|partite/i })
+    page.getByRole("heading", { level: 2, name: /lobby|partite/i })
   ).toBeVisible();
 
   tracker.assertClean();

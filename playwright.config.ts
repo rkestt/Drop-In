@@ -29,6 +29,9 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3100",
     trace: "retain-on-failure",
+    // Utente "di ritorno": onboarding e coach già visti, altrimenti il drawer
+    // del primo avvio rende inert il contenuto e gli e2e non trovano le sezioni.
+    storageState: "tests/e2e/storage-state.json",
   },
   webServer: {
     command: "npm run dev -- -p 3100",
