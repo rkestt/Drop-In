@@ -392,3 +392,73 @@ and `app/~offline/page.tsx` (static).
   https://github.com/makinacorpus/maplibre-offline-pmtiles
 - Protomaps docs — https://docs.protomaps.com/pmtiles/
 - Measured headers: `curl -I https://tile.openstreetmap.org/14/8734/5952.png` (2026-10-30)
+
+---
+
+## 9. d26 — misure prima/dopo (2026-11-10, build prod + Lighthouse mobile simulato)
+
+Metodo: `npm run build` prima (HEAD `design/1.5`) e dopo gli interventi;
+Lighthouse `mobile --throttling-method=simulate` su `npm run start` via proxy
+locale `/supabase → 127.0.0.1:54321` (il rewrite gateway esiste solo in dev;
+senza backend le fetch falliscono e BP perde 4 punti per `console.error` —
+artefatto dell'ambiente, non dell'app).
+
+### 9.1 First Load JS gzip (da `next build`)
+
+| Route | Prima | Dopo | Δ |
+|---|---|---|---|
+| `/` | 278 kB | **190 kB** | −32 % ✅ (budget ≤250) |
+| `/courts/[id]` | 329 kB | 329 kB | 0 % ✅ (≤+5 %) |
+| `/lobbies` | 313 kB | 313 kB | 0 % ✅ |
+| `/lobbies/[id]` | 321 kB | 321 kB | 0 % ✅ |
+| `/profile` | 269 kB | 269 kB | 0 % ✅ |
+| `/settings` | 273 kB | 273 kB | 0 % ✅ |
+| `/notifications` | 195 kB | 195 kB | 0 % ✅ |
+| `/submit-court` | 265 kB | 265 kB | 0 % ✅ |
+
+Interventi che hanno mosso `/` 278→190 kB, entrambi misurati come giustificati:
+1. `experimental.optimizePackageImports: ['lucide-react']` (`next.config.js`) —
+   le icone della home escono dal chunk condiviso in micro-chunk per-icona.
+2. `app/(app)/page.tsx`: `LoginModal` caricato on-demand (`React.lazy` + mount
+   alla prima apertura, resta montato per l'animazione di chiusura), `FirstRun`
+   in `dynamic(ssr:false)` separato. Così Base UI/Drawer (~85 kB gzip in due
+   chunk) esce dal First Load di `/`. Verificato: il modale si apre al click
+   "Accedi" (e2e), `courts/[id]` e `submit-court` lo importano ancora
+   staticamente dove serve.
+
+### 9.2 Lighthouse `/` (P/A11y/BP, LCP/CLS/TBT)
+
+| | Prima | Dopo (3 run) |
+|---|---|---|
+| Performance | 48 | 44 / 44 / 44 |
+| Accessibility | 96 | **100** ×3 |
+| Best Practices | 100 | 100 ×3 |
+| LCP | 5,2 s | 7,0 / 7,0 / 7,5 s |
+| CLS | 0,052 | 0,052 ×3 ✅ (<0,1) |
+| TBT | 7 230 ms | 7 350 / 6 290 / 6 390 ms |
+
+Budget **raggiunti**: A11y 100, BP 100, CLS <0,1, niente font esterni
+(solo `localhost` + `tiles.openfreemap.org` nel waterfall), `maplibre-gl`
+solo nel chunk async `89831ab3` (mai nei chunk iniziali di nessuna route),
+`/styleguide` isolato nel suo chunk (nessuna altra route lo referenzia),
+offline reale (server spento post-SW): `/`, `/courts/<id>`, `/profile`,
+`/lobbies` servono shell/`/~offline`, mai bianco (e2e dedicato, poi rimosso).
+Cache: tile 600 voci/7 gg, stili 10 voci/7 gg, Supabase + `/profile` + `/lobbies`
+in `NetworkOnly` (invariato da d24, già conforme).
+
+Budget **non raggiunti** (documentati, non nascosti): P ≥85, LCP <2,5 s,
+TBT <200 ms. Causa misurata: `maplibre-gl` (~1 MB, 269 kB transfer) deve essere
+parsato ed eseguito sul main thread all'apertura della home — da solo vale
+~6,3 s di `bootup-time` simulato (4x CPU). La mappa *è* la home: differirla
+cambierebbe il prodotto, vietato dal ticket. Numeri osservati (non simulati)
+delle stesse run: LCP 0,5 s, load 165 ms. La varianza P 44↔48 e A11y 96↔100
+tra run identiche è rumore: il fail A11y del "prima" è un `target-size` su un
+court-marker a bordo viewport (posizione dipendente dai dati, non dal codice).
+
+### 9.3 Font
+
+2 file variabili self-hosted, 0 pesi inutilizzati, 0 host esterni:
+`Syne-variable.woff2` 34 608 B (range 400–800, display), 
+`SourceSans3-variable.woff2` 28 872 B (range 400–700, body). Totale ~63 kB.
+Entrambi in `preload` via `next/font/local` (usati entrambi nel first paint:
+body + heading "Partite vicine"). Nessun intervento: già ottimali.
