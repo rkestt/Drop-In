@@ -66,4 +66,86 @@ npm run test:a11y
 
 ## Resolution
 
-(TBD — chiudere con: query usate, stati verificati, screenshot, spec.)
+**Stato:** implementato e verificato live il 2026-11-10.
+
+**File.**
+- `app/(app)/profile/page.tsx` (nuovo; la pagina lascia il gruppo
+  `(dashboard)` per stare sotto la bottom nav — vedi scostamento 1):
+  auth guard, `profiles` per `user_id`, 3 conteggi `count exact head`
+  in parallelo, banner ban con data reale, fallback `null` → "—".
+- `app/(app)/profile/loading.tsx` (nuovo): skeleton con stesse altezze,
+  `aria-busy` + status sr-only.
+- `components/profile/profile-header.tsx`, `karma-panel.tsx`,
+  `stats-row.tsx`, `settings-links.tsx` (nuovi).
+- `components/profile/edit-profile-sheet.tsx`: trigger CTA propria
+  (niente più `children` annidati in un `<button>`), titolo
+  "Modifica nickname", RHF + `editProfileSchema` invariato, hint,
+  "Annulla"/"Salva", errore rete inline, successo con
+  `toast.success("Nickname salvato.")` + `router.refresh()` (niente reload).
+- `components/ui/drawer.tsx`: prop opzionale `initialFocus` (passata a
+  `DrawerPopup`, default invariato) per il focus sul campo all'apertura.
+- `app/(app)/layout.tsx`: `aria-current="page"` + accento sulla voce attiva.
+- `app/globals.css`: `h1-h3`/`p` `text-wrap` spostati in `@layer base`
+  (scostamento 3).
+- `docs/design/specs/profilo.md` (nuovo).
+
+**Query usate (nessun numero inventato).**
+- `profiles.select("nickname,karma_score,banned_until").eq("user_id")`.
+- `check_ins` count per `user_id`; `lobbies` count per `creator_id`;
+  `lobby_participants` count per `user_id` (UNIQUE su `(lobby_id,user_id)`
+  → già distinct per lobby).
+- Verifica diretta DB (utente `d19-normal-…`): nickname `LucaB2` (dopo il
+  save via drawer), karma 90, ban null, 0/0/0 — la pagina mostra gli stessi
+  valori. Utente `d19-banned-…`: karma 43, `banned_until` 2026-11-16
+  (banner "16 novembre 2026"). Utente `d19-nonick-…`: nickname null.
+
+**Stati verificati live (dati reali, niente mock):** default, banned,
+nickname-mancante, edit-drawer (focus sul campo, Esc/backdrop chiudono),
+edit-error (>30 caratteri, `aria-invalid`, focus), stats-vuote (0 reali +
+messaggio), toast-salvato (Sonner una volta + refresh). Screenshot 360/768:
+`/tmp/opencode/d19-default-360.png`, `d19-default-768.png`,
+`d19-nonick-360.png`, `d19-banned-360.png`, `d19-drawer-360/768.png`,
+`d19-drawer-error-360/768.png`. Axe su `/profile` loggato: 0 violazioni;
+suite `a11y`/`drawer`/`toast` esistenti: verdi.
+
+**Tagli.** Niente avatar upload (nessuno storage), niente storico karma
+(tabelle inesistenti), niente grafici. `/notifications` e `/settings`
+non esistono ancora: le scorciatoie puntano ai path previsti da d22/d18
+(oggi 404, funzionanti all'atterraggio di quei ticket).
+
+**Scostamenti dal ticket.**
+1. Pagina in `app/(app)/profile` invece di `app/(dashboard)/profile` (stesso
+   URL `/profile`): l'acceptance chiede la bottom nav sulla pagina, che vive
+   nel layout `(app)`. Il vecchio file è cancellato.
+2. Stringa vuota ammessa dallo schema = azzera il nickname (`editProfileSchema`
+   invariato per regola "non duplicare regole"): lo stato `edit-error` del
+   prototipo è coperto dal caso >30 caratteri; il caso vuoto salva `null`.
+   Il trigger del drawer nel vecchio sheet annidava un Button in un
+   `<button>` (HTML invalido): ora il trigger è interno allo sheet.
+3. `text-wrap: pretty/balance` su `p`/`h1-h3` in `globals.css` era fuori da
+   ogni layer e batteva `truncate`/`whitespace-nowrap` ovunque (trovato
+   perché l'email andava a capo a 360px): spostato in `@layer base`.
+   Sistema anche `lobby-card` e `submit-court-form`.
+4. Config Playwright per la 3112 tenuta fuori dal repo
+   (`/tmp/opencode/pw-d19.config.ts` + variante in-worktree cancellata a fine
+   lavoro); spec di verifica temporanei cancellati dopo il verde.
+5. `test:rls` non eseguibile qui (container `supabase_db` non visibile al
+   docker client di questo ambiente); nessuna migration toccata, le query
+   usano policy SELECT esistenti già coperte da `assertions.sql`.
+
+**Follow-up oracle (APPROVE WITH NITS, chiusi il 2026-11-10).**
+1. `stats-row.tsx`: zeri reali attenuati con `text-[var(--text-secondary)]`
+   (come nel prototipo), solo quando `value === 0`; `null` resta "—".
+2. `karma-panel.tsx`: bordo superiore 3px accent/danger
+   (`border-t-[3px] border-t-[var(--…)]`) — scelto il bordo reale invece
+   dello scostamento, token-only.
+3. `lib/supabase/middleware.ts`: commento aggiornato (protezione per path,
+   gruppi di route irrilevanti).
+4. `profile-header.tsx`: `cn()` su stringa singola rimosso; `initials`
+   estratto in `lib/profile/utils.ts` come `getInitials`.
+5. `app/(app)/layout.tsx`: link bottom nav con `focus-visible` esplicito
+   (outline 2px `--focus-ring`, `rounded-control-sm`); verificato live con
+   tastiera: outline computato `2px solid rgb(36, 174, 86)`.
+6. Unit test nuovo `tests/unit/profile-utils.test.ts`: `getInitials`
+   (4 casi) + `isBanActive` (4 casi, soglia, stringa invalida); la pagina
+   usa `isBanActive`. Vitest: 12 file, 117 test verdi.
