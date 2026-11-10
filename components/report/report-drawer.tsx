@@ -19,6 +19,7 @@ import {
   reportExpiryFromNow,
 } from "@/lib/reports/active";
 import { createClient } from "@/lib/supabase/client";
+import { createLogger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Drawer } from "@/components/ui/drawer";
@@ -79,13 +80,17 @@ export function ReportDrawer({
   // Guardia anti-doppio-invio (il disabled non copre due submit ravvicinati).
   const submittingRef = useRef(false);
   const supabase = createClient();
+  const log = createLogger("report");
 
   useEffect(() => {
     if (open) {
       setError(null);
       setConfirmedOwn(null);
+      // Bozza azzerata a ogni apertura: i valori si conservano solo
+      // dentro il ramo errore-rete (drawer mai chiuso).
+      reset({ category: "", description: "" } as unknown as ReportValues);
     }
-  }, [open ]);
+  }, [open, reset]);
 
   const visibleReports = activeReports(
     confirmedOwn && !reports.some((r) => r.id === confirmedOwn.id)
@@ -124,7 +129,7 @@ export function ReportDrawer({
 
       // Regola "una sola attiva per utente/campo": il DB non ha un vincolo
       // di unicità, quindi ricontrollo fresco prima dell'insert (anti-race).
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from("court_reports")
         .select("id, category, expires_at, user_id")
         .eq("court_id", courtId)
@@ -132,6 +137,8 @@ export function ReportDrawer({
         .gt("expires_at", new Date().toISOString())
         .limit(1)
         .maybeSingle();
+
+      if (existingError) throw existingError;
 
       if (existing) {
         setConfirmedOwn(existing);
@@ -156,9 +163,12 @@ export function ReportDrawer({
         description: `Resta attiva fino al ${formatReportExpiry(expiresAt)}.`,
       });
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Errore durante l'invio.",
-      );
+      // Il tecnico va nel log, mai in UI: i messaggi Supabase sono in inglese.
+      log.warn("invio segnalazione fallito", {
+        courtId,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      setError("network");
     } finally {
       submittingRef.current = false;
       setLoading(false);
@@ -232,7 +242,7 @@ export function ReportDrawer({
                   Non siamo riusciti a inviare la segnalazione.
                 </p>
                 <p className="mt-0.5 text-[13px] text-[var(--text-secondary)]">
-                  Categoria e dettagli sono ancora qui. {error}
+                  Categoria e dettagli sono ancora qui.
                 </p>
               </div>
             </div>

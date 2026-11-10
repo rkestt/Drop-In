@@ -12,7 +12,7 @@ in modo che resti visibile 48 ore e non sia confuso con una recensione.
   textarea "Dettagli (facoltativo)" con contatore N/280. CTA "Invia
   segnalazione" **sempre attiva anche a form vuoto** (scelta approvata
   2026-11-10); "Annulla" chiude. Drawer: backdrop, Esc, Annulla = chiudi.
-- **Errore di validazione.** Senza categoria: "Scegli cosa non va" (`role=alert`,
+- **Errore di validazione.** Senza categoria: "Seleziona una categoria." (`role=alert`,
   focus sul gruppo). Testo > 280: "Accorcia il testo a 280 caratteri."
   (`role=alert`). CTA resta attiva.
 - **Invio.** Chip disabilitate, textarea readonly, CTA disabilitata con spinner

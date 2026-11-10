@@ -43,7 +43,7 @@ export default async function CourtPage({
 
   const { data: reports } = await supabase
     .from("court_reports")
-    .select("*")
+    .select("id, category, expires_at, user_id")
     .eq("court_id", id)
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false })

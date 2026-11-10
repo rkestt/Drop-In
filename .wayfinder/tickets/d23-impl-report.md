@@ -101,3 +101,19 @@ npm run test:a11y
   (fallback `127.0.0.1` in `lib/supabase/url.ts`): navigando da `localhost` il
   SSR non vede mai la sessione (fail-open → logged-out). Verificato via
   `127.0.0.1`, dove tutto funziona. Fix fuori scope d23.
+
+**Review oracle (APPROVE WITH NITS) — chiusi 2026-11-10.**
+
+1. Spec: tolta "Scegli cosa non va", resta solo "Seleziona una categoria."
+   (stringa reale dello schema).
+2. `existingError` del ricontrollo pre-insert ora rilanciato nel catch.
+3. Banner rete a copy fissa, senza `{error}`; il tecnico va in
+   `createLogger("report")` (mai inglese Supabase in UI).
+4. `useEffect` su `open`: anche `reset()` del form; i valori si conservano
+   solo dentro il ramo errore-rete (drawer mai chiuso lì).
+5. Query report: `select("id, category, expires_at, user_id")`, niente più
+   `*` (la `description` non esce dal DB); `user.id` senza `?.` nel ramo truthy.
+6. Ramo `signedIn=false` di `ReportButton`: difesa in profondità. In questa
+   pagina il bottone è reso solo nel ramo `user` e l'anonimo vede `LoginPrompt`
+   (gate invariato); il ramo serve se la sessione scade a drawer chiuso o il
+   bottone viene riusato altrove — apre il login invece di un form a metà.
