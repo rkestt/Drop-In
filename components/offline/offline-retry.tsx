@@ -21,6 +21,7 @@ export function OfflineRetry() {
   }, []);
 
   const retry = async () => {
+    if (trying) return;
     setTrying(true);
     try {
       await fetch("/", { method: "HEAD", cache: "no-store" });

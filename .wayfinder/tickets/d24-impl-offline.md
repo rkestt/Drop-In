@@ -81,3 +81,9 @@ Implementato il 2026-11-10 su `fix/d24-f3` (prototipo d16 approvato da Andrea, c
 **Comandi**: `npm run lint` 0 errori · `tsc` verde · `lint:design` OK (76 file) · `vitest` 117+8 pass · `test:a11y` 3 pass · e2e `d24-offline.spec.ts` 1 pass · `npm run build` verde.
 
 **Scostamenti dal ticket**: `components/offline/cache-writer.tsx` aggiunto (la pagina campo è server e non tocca localStorage); `CourtOfflineShell` legge la cache post-mount per non rompere l'hydration; `/lobbies` e `/profile` non hanno shell dedicata — il fail-open esistente (redirect login) basta per "nessuna schermata bianca"; nessuna coda di mutazioni (fuori scope da ticket).
+
+**Follow-up @oracle (APPROVE WITH NITS, chiuso il 2026-11-10):**
+1. Banner anche quando il backend è ko ma il browser è online: nuova prop `forceStale` (passata da `stale` in home) — titolo "Dati di N min fa" + "Il server non risponde: vedi i dati salvati sul telefono." + Riprova; mai "Sei offline" se non è vero. Verificato con Supabase spento: banner visibile, resta dopo Riprova.
+2. `CourtOfflineShell`: durante `!ready` skeleton neutro (stesso output del server), errore "Non riusciamo…" solo a `ready && !cached` — niente flash d'errore a chi ha la cache.
+3. Vuoto-mappa: titolo di nuovo dinamico (`Nessun campo da ${sportLabel(sport).toLowerCase()} in quest'area`, o "Nessun campo in quest'area" se sport null); corpo + CTA "Aggiungi il primo campo" dal prototipo.
+4. Minori: `readCache` rimuove le entry scadute (test dedicato); `onRetry` via ref nelle deps del banner; guard `if (trying) return` in `OfflineRetry`. Spec e2e resa deterministica (`expect.poll` sul popolamento cache).

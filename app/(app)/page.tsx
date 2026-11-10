@@ -325,7 +325,11 @@ export default function HomePage() {
     <main className="flex-1 flex flex-col relative">
       {user && <BanBanner userId={user.id} />}
       <div className="px-4 pt-3">
-        <ConnectionBanner ageLabel={courtsAgeLabel} onRetry={retry} />
+        <ConnectionBanner
+          ageLabel={courtsAgeLabel}
+          onRetry={retry}
+          forceStale={stale}
+        />
       </div>
       <div className="flex-1 relative min-h-[50dvh]">
         <CourtMap
@@ -349,7 +353,7 @@ export default function HomePage() {
             aria-live="polite"
           >
             <h2 className="text-lg font-bold text-[var(--text-primary)]">
-              Nessun campo da basket in quest&apos;area
+              {sport === null ? "Nessun campo in quest'area" : `Nessun campo da ${sportLabel(sport).toLowerCase()} in quest'area`}
             </h2>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
               Sposta la mappa o allarga la zona: i campi compaiono quando

@@ -88,7 +88,15 @@ export function readCache<T>(
     }
     return null;
   }
-  if (now - parsed.savedAt > ttlMs) return null;
+  if (now - parsed.savedAt > ttlMs) {
+    // Scaduta: null + rimozione (niente entry marce che crescono nel tempo).
+    try {
+      store.removeItem(key);
+    } catch {
+      /* best effort */
+    }
+    return null;
+  }
   return parsed.value;
 }
 

@@ -37,7 +37,21 @@ export function CourtOfflineShell({ courtId }: { courtId: string }) {
     setReady(true);
   }, [courtId]);
 
-  if (!ready || !cached) {
+  if (!ready) {
+    // Stesso output del server (che non legge localStorage): attesa neutra,
+    // mai il messaggio d'errore prima di aver guardato la cache.
+    return (
+      <main className="flex flex-1 items-center justify-center" role="status" aria-label="Caricamento campo in corso">
+        <div className="animate-pulse space-y-3">
+          <div className="h-8 w-48 bg-[var(--bg-surface)] rounded-lg" />
+          <div className="h-4 w-64 bg-[var(--bg-surface)] rounded-lg" />
+        </div>
+        <span className="sr-only">Caricamento campo…</span>
+      </main>
+    );
+  }
+
+  if (!cached) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
         <div role="alert" className="flex max-w-md flex-col items-center gap-3">

@@ -31,10 +31,11 @@ describe("offline cache", () => {
     expect(readCache(COURTS_CACHE_KEY, store, 2000)).toEqual(courts);
   });
 
-  it("ritorna null oltre il TTL", () => {
+  it("ritorna null oltre il TTL e rimuove la chiave", () => {
     const store = memoryStore();
     writeCache(COURTS_CACHE_KEY, [1, 2], store, 0);
     expect(readCache(COURTS_CACHE_KEY, store, CACHE_TTL_MS + 1)).toBeNull();
+    expect(store.getItem(COURTS_CACHE_KEY)).toBeNull();
   });
 
   it("quota piena: scrittura fallita, lettura null", () => {

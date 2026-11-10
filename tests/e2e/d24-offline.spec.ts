@@ -8,6 +8,16 @@ test("supabase down: / mostra cache + stale badge", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Partite vicine" })).toBeVisible({
     timeout: 20000,
   });
+  // La home imposta loading=false prima che la fetch finisca: attendi la cache.
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() =>
+          window.localStorage.getItem("dropin:cache:lobbies:v1"),
+        ),
+      { timeout: 20000 },
+    )
+    .not.toBeNull();
 
   // 2. Supabase down.
   await page.route("**/rest/v1/**", (route) => route.abort());
