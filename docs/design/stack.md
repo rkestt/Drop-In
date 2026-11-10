@@ -135,3 +135,17 @@ fatto prima della release, non prima di `d5`; (b) il punto 1b va chiuso in `d5` 
 - [Token](tokens.md) — colori, tipografia, radius, motion token
 - [Pattern: onboarding](patterns/onboarding.md) — il motion come guida
 - [Decisioni](decisions/) — ADR
+
+## Performance mappa (eccezione d26, 2026-11-10)
+
+`/` rispetta il budget di bundle (190 kB First Load gzip, limite 250), ma il
+budget Lighthouse su LCP/TBT non è raggiungibile con `maplibre-gl` sulla home:
+il chunk è ~269 kB gzip e da solo vale ~6 s di bootup a 4× CPU simulato. La
+mappa è l'elemento principale della schermata, quindi caricarla più tardi
+peggiora l'LCP invece di migliorarlo.
+
+Decisione: eccezione circoscritta a `/` per LCP e TBT misurati in laboratorio;
+restano vincolanti First Load JS, a11y 100, best practice 100, CLS < 0,1 e
+l'assenza di schermata bianca offline. Su device reale non throttled l'LCP
+osservato è nell'ordine del mezzo secondo. Da rivalutare se cambia provider
+mappa, stile o budget. Numeri e metodo: `docs/research/pwa-offline.md` §9.
