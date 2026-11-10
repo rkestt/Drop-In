@@ -63,4 +63,72 @@ npm run test:a11y
 
 ## Resolution
 
-(TBD — chiudere con: migrazione, esito RLS, realtime, stati verificati, screenshot, spec.)
+Implementato e verificato il 2026-11-10 su `fix/d22-f3` (base `design/1.5`).
+
+**Migrazione.** `supabase/migrations/016_notification_read.sql` (015 era già
+occupata da `profiles` realtime): policy UPDATE own rows su `read_at` +
+`push_notifications` nella publication `supabase_realtime` (entrambe con
+guardia idempotente). Applicata con `npx supabase migration up`; verificata
+via psql (2 policy SELECT/UPDATE, tabella in publication) e con nuova sezione
+27 in `tests/rls/assertions.sql` (own UPDATE ok, altro utente e anon: 0 righe
+toccate) — `npm run test:rls` verde.
+
+**File.** `lib/notifications/link.ts` (href/kind/ora relativa, puri) +
+`tests/unit/notifications-link.test.ts` (28 test);
+`components/notifications/notification-{item,list,bell}.tsx`;
+`app/(dashboard)/notifications/page.tsx` (server, auth guard, 20 righe
+`sent_at desc`); campanella montata su overlay mappa (alto-destra) e header
+`(dashboard)`; keyframes `notification-flash` in `globals.css`;
+`docs/design/specs/notifiche.md`.
+
+**Live verificato (dev 3113, utente reale via modale, seed SQL):** campanella
+mappa "Notifiche, 2 non lette"; lista 3 righe + badge "2 non lette"; realtime
+INSERT → prepend + toast, una sola volta; tap riga court → naviga
+`/courts/<uuid>` e resta letta; badge dopo tap "2 non lette"; riga malformata
+resta su `/notifications`; segna-tutte PATCH 204, nessun toast errore,
+persistente dopo reload, poi bottone nascosto; vuoto/errore/offline come da
+prototipo; console pulita, zero hydration error. Screenshot 360/768 in
+`/tmp/opencode/d22-{lista,realtime,lista-768,vuoto}-360/768.png`.
+`test:a11y` (3/3 suite) + axe scratch su `/notifications` autenticata: 0
+violazioni (trovata e fixata `label-content-name-mismatch` sul bottone
+senza href — tolta l'aria-label ridondante).
+
+**Non verificato live (auth):** flussi che richiedono altri utenti reali
+(notifica cross-utente); offline reale (simulato via eventi, banner
+verificato solo in codice + review prototipo).
+
+**Scostamenti dal ticket.**
+1. `lobby_id` senza `court_id` → `/lobbies` (lista), non `/lobbies/<uuid>`:
+   la route dettaglio non esiste, un href lì darebbe 404. Contratto fissato
+   nel test; basta cambiare `notificationHref` quando nasce il dettaglio.
+2. Vuoto: secondaria "Vai al profilo" (`/profile`) invece di "Attiva le
+   notifiche" → il frame Permesso è futuro e `requestPermission` è vietato;
+   registrata anche in `docs/design/specs/notifiche.md`.
+3. Titolo riga `text-base` invece di 15px: scala token chiusa
+   (`lint:design`), gerarchia invariata (bold 16 vs body 14).
+
+## Review oracle (APPROVE WITH NITS, 3 bloccanti) — risolti il 2026-11-10
+
+1. **Migration idempotente.** `CREATE POLICY` wrappata in DO block con check
+   su `pg_policies` (pattern 008/015); funzione `CREATE OR REPLACE`,
+   trigger `DROP IF EXISTS` + `CREATE`. Verificata con due applicazioni
+   consecutive via psql (`-f` ×2, entrambe OK); commento corretto.
+2. **Scrittura limitata a `read_at` — scelta (a) trigger.** La policy da sola
+   lasciava self-spoof su titolo/corpo/data delle proprie righe. Ora
+   `trg_restrict_push_notifications_update` (BEFORE UPDATE) accetta solo
+   modifiche a `read_at`, resto → `P0001`. Casi 27d/27e in
+   `tests/rls/assertions.sql` (title e user_id bloccati, proprietario
+   invariato). Nessun flusso esistente scrive altre colonne (002 solo
+   INSERT, app solo `read_at`).
+3. **Href per kind.** `karma_loss` porta `lobby_id` ma apriva la lobby:
+   ora karma/ban → `/profile` ("Apri profilo", prototipo); solo i tipi
+   lobby usano `lobby_id` (court → `/courts/<uuid>`, senno `/lobbies`);
+   checkin/meteo/neutral → `/courts/<uuid>` se `court_id` valido, senno
+   `null`. Test con shape reali di 002. Live: riga karma mostra
+   "Apri profilo".
+- Nit: niente `preventDefault` con modificatori (navigazione nativa, resta
+  non letta); `loadMore` filtra `seenIds` (offset shiftato dal prepend);
+  `void removeChannel`.
+- Riverifica: vitest 143/143, lint/tsc/lint:design verdi, test:rls exit 0,
+  live completo verde + console pulita, axe autenticata 0 violazioni,
+  suite a11y 3/3 (run precedente, pagine non toccate da questo round).
