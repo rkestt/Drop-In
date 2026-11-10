@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
 import { SportSelector } from "@/components/court/sport-selector";
 import { CourtSearch } from "@/components/court/court-search";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MapPin, Users, Plus } from "lucide-react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
@@ -279,6 +280,9 @@ export default function HomePage() {
         />
         <div className="absolute top-3 left-3 z-20">
           <SportSelector className="" />
+        </div>
+        <div className="absolute top-3 right-3 z-20">
+          <NotificationBell />
         </div>
         {noCourtsForSport && (
           <div
