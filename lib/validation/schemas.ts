@@ -50,6 +50,7 @@ export const REPORT_CATEGORY_VALUES = [
 
 export const COURT_NAME_MAX = 120;
 export const NICKNAME_MAX = 30;
+export const REPORT_DESCRIPTION_MAX = 280;
 export const LOBBY_MIN_PLAYERS = 2;
 export const LOBBY_MAX_PLAYERS = 30;
 
@@ -116,7 +117,13 @@ export type EditProfileValues = z.infer<typeof editProfileSchema>;
 /** Categorie = CHECK del DB (001_initial_schema); descrizione trimmata nello schema. */
 export const reportSchema = z.object({
   category: z.enum(REPORT_CATEGORY_VALUES, { error: "Seleziona una categoria." }),
-  description: z.string().trim(),
+  description: z
+    .string()
+    .trim()
+    .max(
+      REPORT_DESCRIPTION_MAX,
+      `Accorcia il testo a ${REPORT_DESCRIPTION_MAX} caratteri.`
+    ),
 });
 
 export type ReportValues = z.infer<typeof reportSchema>;

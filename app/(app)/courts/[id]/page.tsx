@@ -4,6 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { CheckInButton } from "@/components/check-in/check-in-button";
 import { CreateLobbyButton } from "@/components/lobby/create-lobby-button";
 import { ReportButton } from "@/components/report/report-button";
+import type { ReportRow } from "@/components/report/report-drawer";
+import {
+  activeReports,
+  categoryLabel,
+  formatReportExpiry,
+} from "@/lib/reports/active";
 import { LoginPrompt } from "@/components/auth/login-prompt";
 import { BanBannerWrapper } from "@/components/karma/ban-banner-wrapper";
 import { MapPin, AlertTriangle, Clock, Users } from "lucide-react";
@@ -51,13 +57,14 @@ export default async function CourtPage({
     ? supabase.storage.from("court-photos").getPublicUrl(court.photo_path).data.publicUrl
     : null;
 
-  const reportCategories: Record<string, string> = {
-    broken_hoop: "Canestro rotto",
-    wet_court: "Campo bagnato",
-    lighting: "Illuminazione",
-    occupied: "Occupato",
-    other: "Altro",
-  };
+  const activeReportRows: ReportRow[] = activeReports(
+    (reports ?? []).map((r) => ({
+      id: r.id,
+      category: r.category,
+      expires_at: r.expires_at,
+      user_id: r.user_id,
+    })),
+  );
 
   return (
     <main className="flex-1 p-6 space-y-6">
@@ -94,25 +101,28 @@ export default async function CourtPage({
       </div>
 
       {/* Active Reports */}
-      {reports && reports.length > 0 && (
+      {activeReportRows.length > 0 && (
         <div className="bg-[var(--danger)]/5 rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-[var(--danger)]">
-            <AlertTriangle className="w-5 h-5" />
+            <AlertTriangle className="w-5 h-5" aria-hidden="true" />
             <h2 className="font-semibold">Segnalazioni attive</h2>
           </div>
           <ul className="space-y-2">
-            {reports.map((report) => (
+            {activeReportRows.map((report) => (
               <li
                 key={report.id}
-                className="flex items-center justify-between text-sm"
+                className="flex items-center justify-between gap-2 text-sm"
               >
-                <span className="text-[var(--text-primary)]">
-                  {reportCategories[report.category] || report.category}
+                <span className="flex items-center gap-2 text-[var(--text-primary)]">
+                  {categoryLabel(report.category)}
+                  {user && report.user_id === user.id && (
+                    <Badge variant="accent">Tua</Badge>
+                  )}
                 </span>
                 <span className="text-[var(--text-muted)] text-xs">
-                  {report.created_at
-                    ? new Date(report.created_at).toLocaleDateString("it-IT")
-                    : "—"}
+                  {report.expires_at
+                    ? `Scade il ${formatReportExpiry(report.expires_at)}`
+                    : "Senza scadenza"}
                 </span>
               </li>
             ))}
@@ -137,6 +147,9 @@ export default async function CourtPage({
             <ReportButton
               courtId={court.id}
               courtName={court.name}
+              reports={activeReportRows}
+              currentUserId={user?.id ?? null}
+              signedIn={!!user}
             />
           </>
         ) : (
