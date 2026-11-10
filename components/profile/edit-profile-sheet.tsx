@@ -21,6 +21,11 @@ interface EditProfileSheetProps {
   currentNickname: string | null;
   /** "create" = stato senza nickname: CTA "Imposta nickname". */
   mode: "edit" | "create";
+  /**
+   * Trigger custom (es. link testuale in Impostazioni). Se assente si usa la
+   * CTA primaria della pagina Profilo.
+   */
+  children?: React.ReactNode;
 }
 
 /**
@@ -35,6 +40,7 @@ export function EditProfileSheet({
   userId,
   currentNickname,
   mode,
+  children,
 }: EditProfileSheetProps) {
   const [open, setOpen] = useState(false);
   const {
@@ -105,15 +111,25 @@ export function EditProfileSheet({
 
   return (
     <>
-      <Button
-        type="button"
-        variant="primary"
-        onClick={() => setOpen(true)}
-        className={cn("w-full min-h-[48px]", mode === "edit" && "gap-2")}
-      >
-        {mode === "edit" && <Pencil className="w-4 h-4" aria-hidden="true" />}
-        {mode === "edit" ? "Modifica" : "Imposta nickname"}
-      </Button>
+      {children ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        >
+          {children}
+        </button>
+      ) : (
+        <Button
+          type="button"
+          variant="primary"
+          onClick={() => setOpen(true)}
+          className={cn("w-full min-h-[48px]", mode === "edit" && "gap-2")}
+        >
+          {mode === "edit" && <Pencil className="w-4 h-4" aria-hidden="true" />}
+          {mode === "edit" ? "Modifica" : "Imposta nickname"}
+        </Button>
+      )}
       <Drawer
         open={open}
         onClose={() => setOpen(false)}

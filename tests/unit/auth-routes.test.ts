@@ -105,6 +105,13 @@ describe("isProtectedPath", () => {
     expect(isProtectedPath("/lobbies/abc")).toBe(true);
   });
 
+  it("protects /settings and its subpaths", () => {
+    expect(isProtectedPath("/settings")).toBe(true);
+    expect(isProtectedPath("/settings/x")).toBe(true);
+    expect(isProtectedPath("/settingsx")).toBe(false);
+    expect(isProtectedPath("/settings?x=1")).toBe(true);
+  });
+
   it("does not protect /lobbying lookalikes", () => {
     expect(isProtectedPath("/lobbying")).toBe(false);
     expect(isProtectedPath("/lobbying/x")).toBe(false);
