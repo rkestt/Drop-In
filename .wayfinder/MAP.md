@@ -52,14 +52,12 @@ Nessun codice finto in produzione.
 
 ### F3 chiuso (2026-11-10)
 
-`d17`–`d24` implementati, rivisti da `@oracle` e mergeati in `design/1.5`: onboarding, profilo, impostazioni, centro notifiche (migration `016` + trigger), segnala campo, offline (shell + cache), lobby e check-in. Gate finale: `test:all` verde (28 e2e), `build` verde. Verifica live `@tester` su tutte le schermate, autenticazione reale inclusa: **PASS, zero difetti**.
+`d17`–`d24` implementati, rivisti da `@oracle` e mergeati in `design/1.5`: onboarding, profilo, impostazioni, centro notifiche (migration `016` + trigger), segnala campo, offline (shell + cache), lobby (route dettaglio `/lobbies/[id]`, join con conferma, realtime) e check-in (9 stati, messaggi dal trigger corretto con migration `017`). Gate finale: `test:all` verde (28 e2e), `build` verde. Verifica live `@tester` su tutte le schermate, autenticazione reale inclusa: **PASS, zero difetti**.
 
 Trovato e corretto in coda un bug di sviluppo che rendeva impossibile testare da browser: il cookie di sessione era derivato dall'host (`sb-localhost` vs `sb-127`), ora è fisso (`sb-dropin-auth-token`) e browser/server concordano.
 
 ### Frontier (sbloccati)
 
-- [d20-impl-lobby](tickets/d20-impl-lobby.md) — in corso.
-- [d21-impl-checkin](tickets/d21-impl-checkin.md) — in corso.
 - [d25-a11y-sweep](tickets/d25-a11y-sweep.md) — sbloccato: tutte le schermate F3 sono in.
 - [d26-pwa-performance](tickets/d26-pwa-performance.md) — sbloccato (d24 chiuso).
 
@@ -90,8 +88,8 @@ Trovato e corretto in coda un bug di sviluppo che rendeva impossibile testare da
 | [d17-impl-onboarding](tickets/d17-impl-onboarding.md) | impl | no | d9, d5, d6 | chiuso 2026-11-10 |
 | [d18-impl-settings](tickets/d18-impl-settings.md) | impl | no | d10, d5, d6 | chiuso 2026-11-10 |
 | [d19-impl-profile](tickets/d19-impl-profile.md) | impl | no | d11, d5, d6 | chiuso 2026-11-10 |
-| [d20-impl-lobby](tickets/d20-impl-lobby.md) | impl | no | d12, d5, d6 | chiuso 2026-11-10 |
-| [d21-impl-checkin](tickets/d21-impl-checkin.md) | impl | no | d13, d5, d6 | chiuso 2026-11-10 |
+| [d20-impl-lobby](tickets/d20-impl-lobby.md) | impl | no | d12, d5, d6 | chiuso 2026-11-10|
+| [d21-impl-checkin](tickets/d21-impl-checkin.md) | impl | no | d13, d5, d6 | chiuso 2026-11-10|
 | [d22-impl-notifications](tickets/d22-impl-notifications.md) | impl | no | d14, d5, d6 | chiuso 2026-11-10 |
 | [d23-impl-report](tickets/d23-impl-report.md) | impl | no | d15, d5, d6 | chiuso 2026-11-10 |
 | [d24-impl-offline](tickets/d24-impl-offline.md) | impl | no | d16, d5, d6 | chiuso 2026-11-10 |
