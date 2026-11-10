@@ -13,6 +13,36 @@ const LoginModalLazy = lazy(() => import("@/components/auth/login-modal").then((
 const FirstRun = dynamic(() => import("@/components/onboarding/first-run").then((m) => ({ default: m.FirstRun })), {
   ssr: false,
 });
+// d26-nit: la prima apertura scarica il chunk login; il fallback mostra lo
+// sheet in caricamento (stessa sagoma del Drawer, token-only) invece di un
+// click apparentemente morto su rete lenta. Il tap sul backdrop chiude.
+function LoginLoadingFallback({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      role="status"
+      aria-label="Caricamento accesso"
+    >
+      <div className="absolute inset-0 bg-[var(--overlay)]" onClick={onClose} aria-hidden="true" />
+      <div className="relative w-full max-w-[720px] rounded-t-sheet bg-[var(--bg-elevated)] shadow-lg pb-safe">
+        <div className="flex justify-center pt-3 pb-3 min-h-[44px]" aria-hidden="true">
+          <div className="w-10 h-1.5 rounded-full bg-[var(--text-muted)]/30" />
+        </div>
+        <div className="px-5 pt-2 pb-6 space-y-3">
+          <p className="text-xl font-semibold font-[family-name:var(--font-syne)] text-[var(--text-primary)]">
+            Accedi
+          </p>
+          <div className="h-11 rounded-control bg-[var(--bg-surface)] animate-pulse" aria-hidden="true" />
+          <div className="h-11 rounded-control bg-[var(--bg-surface)] animate-pulse" aria-hidden="true" />
+          <Button className="w-full" disabled>
+            Caricamento…
+          </Button>
+          <span className="sr-only">Caricamento del modulo di accesso in corso</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 import { BanBanner } from "@/components/karma/ban-banner";
 import { Button } from "@/components/ui/button";
 import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
@@ -475,7 +505,7 @@ export default function HomePage() {
       </div>
 
       {loginMounted && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<LoginLoadingFallback onClose={() => setShowLogin(false)} />}>
           <LoginModalLazy open={showLogin} onClose={() => setShowLogin(false)} next={loginNext} />
         </Suspense>
       )}

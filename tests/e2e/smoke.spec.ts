@@ -20,5 +20,17 @@ test("homepage loads with map and lobby section, zero console errors", async ({
   // Auth entry point present for anonymous users
   await expect(page.getByRole("button", { name: "Accedi" })).toBeVisible();
 
+  // d26: login lazy — il click apre il dialog (chunk async), mai click morto:
+  // o il fallback di caricamento o direttamente il form, poi il form.
+  await page.getByRole("button", { name: "Accedi" }).click();
+  await expect(
+    page
+      .getByLabel(/indirizzo email/i)
+      .or(page.getByRole("status", { name: /caricamento accesso/i })),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByLabel(/indirizzo email/i)).toBeVisible({
+    timeout: 15_000,
+  });
+
   tracker.assertClean();
 });

@@ -428,12 +428,17 @@ Interventi che hanno mosso `/` 278→190 kB, entrambi misurati come giustificati
 
 ### 9.2 Lighthouse `/` (P/A11y/BP, LCP/CLS/TBT)
 
-| | Prima | Dopo (3 run) |
+Limite metodologico: il "prima" è **una singola run**, il "dopo" è la media di
+**3 run** (`d26-lh-after*.json` in `/tmp/opencode/`, run singola del prima in
+`d26-lh-before.json`). Tutti i run su `npm run start` via proxy locale
+`/supabase → 127.0.0.1:54321`.
+
+| | Prima (1 run) | Dopo (3 run) |
 |---|---|---|
 | Performance | 48 | 44 / 44 / 44 |
 | Accessibility | 96 | **100** ×3 |
 | Best Practices | 100 | 100 ×3 |
-| LCP | 5,2 s | 7,0 / 7,0 / 7,5 s |
+| LCP | 5,2 s | 7,0 / 7,0 / 7,5 s (**peggiorato**) |
 | CLS | 0,052 | 0,052 ×3 ✅ (<0,1) |
 | TBT | 7 230 ms | 7 350 / 6 290 / 6 390 ms |
 
@@ -443,17 +448,25 @@ solo nel chunk async `89831ab3` (mai nei chunk iniziali di nessuna route),
 `/styleguide` isolato nel suo chunk (nessuna altra route lo referenzia),
 offline reale (server spento post-SW): `/`, `/courts/<id>`, `/profile`,
 `/lobbies` servono shell/`/~offline`, mai bianco (e2e dedicato, poi rimosso).
-Cache: tile 600 voci/7 gg, stili 10 voci/7 gg, Supabase + `/profile` + `/lobbies`
+Degradazione accettata e registrata: i chunk lazy (FirstRun, LoginModal,
+Drawer condiviso) **non** sono precached — alla prima visita offline mancano
+onboarding e login; lo shell resta leggibile, le due funzioni tornano con la
+rete. Cache: tile 600 voci/7 gg, stili 10 voci/7 gg, Supabase + `/profile` + `/lobbies`
 in `NetworkOnly` (invariato da d24, già conforme).
 
 Budget **non raggiunti** (documentati, non nascosti): P ≥85, LCP <2,5 s,
-TBT <200 ms. Causa misurata: `maplibre-gl` (~1 MB, 269 kB transfer) deve essere
-parsato ed eseguito sul main thread all'apertura della home — da solo vale
-~6,3 s di `bootup-time` simulato (4x CPU). La mappa *è* la home: differirla
-cambierebbe il prodotto, vietato dal ticket. Numeri osservati (non simulati)
-delle stesse run: LCP 0,5 s, load 165 ms. La varianza P 44↔48 e A11y 96↔100
-tra run identiche è rumore: il fail A11y del "prima" è un `target-size` su un
-court-marker a bordo viewport (posizione dipendente dai dati, non dal codice).
+TBT <200 ms. Causa attribuita: il chunk MapLibre `89831ab3` (~1 MB raw,
+~269 kB gzip transfer) deve essere parsato ed eseguito sul main thread
+all'apertura della home — da solo vale ~6,3 s di `bootup-time` nell'audit
+`mainthread-work-breakdown` (CPU 4x simulata). La mappa *è* la home:
+differirla cambierebbe il prodotto, vietato dal ticket. L'LCP simulato è
+peggiorato 5,2→~7 s tra il run singolo del prima e i 3 run del dopo; con una
+sola run del prima non si può escludere varianza inter-run (rete tile,
+fresh-profile), quindi il peggioramento è registrato ma non spiegato come
+effetto certo degli interventi — che riducono comunque il JS iniziale
+misurato (278→190 kB, §9.1). Il fail A11y del "prima" è un `target-size` su
+un court-marker a bordo viewport (posizione dipendente dai dati, non dal
+codice): su un campione di 1 run non è confrontabile.
 
 ### 9.3 Font
 
