@@ -86,21 +86,15 @@ Stato: **F0, F1, F2 chiusi**; `d17` mergeato in `design/1.5` (commit base `18dae
 
 Trovato e corretto in coda un bug di sviluppo che rendeva impossibile testare da browser: il cookie di sessione era derivato dall'host (`sb-localhost` vs `sb-127`), ora è fisso (`sb-dropin-auth-token`) e browser/server concordano.
 
+### Frontier (sbloccati)
+
+- [d20-impl-lobby](tickets/d20-impl-lobby.md) — in corso.
+- [d21-impl-checkin](tickets/d21-impl-checkin.md) — in corso.
+- [d25-a11y-sweep](tickets/d25-a11y-sweep.md) — sbloccato: tutte le schermate F3 sono in.
+- [d26-pwa-performance](tickets/d26-pwa-performance.md) — sbloccato (d24 chiuso).
+
 ### Blocked
 
-- [d5-drawer-migration](tickets/d5-drawer-migration.md) — sbloccato da d4: pronto per il prossimo giro.
-- [d6-sonner-migration](tickets/d6-sonner-migration.md) — sbloccato da d4: pronto per il prossimo giro.
-- [d7-motion-pipelines](tickets/d7-motion-pipelines.md) — chiuso: primitive motion, hook reduced-motion SSR-safe.
-- [d8-form-rhf-zod](tickets/d8-form-rhf-zod.md) — chiuso: RHF+zod nei 4 form, schema unico.
-
-
-
-
-
-
-
-- [d25-a11y-sweep](tickets/d25-a11y-sweep.md) — blocked_by d17–d24.
-- [d26-pwa-performance](tickets/d26-pwa-performance.md) — blocked_by d24.
 - [d27-visual-full](tickets/d27-visual-full.md) — blocked_by d25, d26.
 
 ### Tickets (elenco completo)
