@@ -14,6 +14,9 @@ import {
 import { LoginPrompt } from "@/components/auth/login-prompt";
 import { BanBannerWrapper } from "@/components/karma/ban-banner-wrapper";
 import { MapPin, AlertTriangle, Clock, Users } from "lucide-react";
+import { courtDetailKey } from "@/lib/offline/cache";
+import { CacheWriter } from "@/components/offline/cache-writer";
+import { CourtOfflineShell } from "@/components/offline/court-offline-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -25,30 +28,78 @@ export default async function CourtPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: court } = await supabase
-    .from("courts")
-    .select("*")
-    .eq("id", id)
-    .single();
+  // d24: Supabase irraggiungibile ≠ 404. Il fallimento di rete finisce
+  // nella shell offline (cache o messaggio + Riprova); notFound solo se
+  // il campo davvero non esiste.
+  let loadError = false;
+  let court: {
+    id: string;
+    name: string;
+    address: string | null;
+    lat: number;
+    lng: number;
+    surface_type: string | null;
+    hoop_count: number | null;
+    photo_path: string | null;
+  } | null = null;
+  let lobbies: {
+    id: string;
+    start_time: string;
+    max_players: number;
+    lobby_participants?: { count: number }[];
+  }[] | null = null;
+  let reports: {
+    id: string;
+    category: string;
+    expires_at: string;
+    user_id: string;
+  }[] | null = null;
 
+  try {
+    // supabase-js ritorna { error } anche su errore rete (non lancia):
+    // PGRST116 = riga assente → 404 vero; altro errore → shell offline.
+    const { data: courtData, error: courtError } = await supabase
+      .from("courts")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (courtError) {
+      if (courtError.code !== "PGRST116") throw courtError;
+    } else {
+      court = courtData;
+    }
+
+    if (court) {
+      const { data: lobbiesData, error: lobbiesError } = await supabase
+        .from("lobbies")
+        .select("*, lobby_participants(count)")
+        .eq("court_id", id)
+        .eq("status", "open")
+        .order("start_time", { ascending: true });
+      if (lobbiesError) throw lobbiesError;
+      lobbies = lobbiesData;
+
+      const { data: reportsData, error: reportsError } = await supabase
+        .from("court_reports")
+        .select("id, category, expires_at, user_id")
+        .eq("court_id", id)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (reportsError) throw reportsError;
+      reports = reportsData;
+    }
+  } catch {
+    loadError = true;
+  }
+
+  // d24: campo assente senza errore di rete → 404 vero; errore di rete →
+  // shell offline (cache o messaggio + Riprova), mai un 404 secco.
   if (!court) {
+    if (loadError) return <CourtOfflineShell courtId={id} />;
     notFound();
   }
 
-  const { data: lobbies } = await supabase
-    .from("lobbies")
-    .select("*, lobby_participants(count)")
-    .eq("court_id", id)
-    .eq("status", "open")
-    .order("start_time", { ascending: true });
-
-  const { data: reports } = await supabase
-    .from("court_reports")
-    .select("id, category, expires_at, user_id")
-    .eq("court_id", id)
-    .gt("expires_at", new Date().toISOString())
-    .order("created_at", { ascending: false })
-    .limit(10);
 
   const {
     data: { user },
@@ -69,6 +120,19 @@ export default async function CourtPage({
 
   return (
     <main className="flex-1 p-6 space-y-6">
+      <CacheWriter
+        storageKey={courtDetailKey(id)}
+        value={{
+          court: {
+            name: court.name,
+            address: court.address,
+            surface_type: court.surface_type,
+            hoop_count: court.hoop_count,
+          },
+          openLobbies: lobbies?.length ?? 0,
+          savedAt: Date.now(),
+        }}
+      />
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold font-[family-name:var(--font-syne)] mb-1">
@@ -203,9 +267,21 @@ export default async function CourtPage({
             ))}
           </div>
         ) : (
-          <p className="text-[var(--text-muted)] text-sm">
-            Nessuna lobby attiva su questo campo.
-          </p>
+          <div className="rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-4">
+            <h3 className="text-base font-bold text-[var(--text-primary)]">
+              Nessuna lobby qui intorno. Sii il primo.
+            </h3>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Una lobby è un appuntamento: scegli orario e quanti siete, gli
+              altri si uniscono dalla mappa.
+            </p>
+            <div className="mt-3">
+              <CreateLobbyButton
+                courtId={court.id}
+                courtName={court.name}
+              />
+            </div>
+          </div>
         )}
       </div>
     </main>

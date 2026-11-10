@@ -63,4 +63,27 @@ npm run lint && npx tsc --noEmit && npm run lint:design
 
 ## Resolution
 
-(TBD — chiudere con: chiavi cache, route verificate offline, esito SW, screenshot, spec.)
+Implementato il 2026-11-10 su `fix/d24-f3` (prototipo d16 approvato da Andrea, copy/gerarchia vincolanti).
+
+**Chiavi cache** (`lib/offline/cache.ts`, TTL 24h, solo dati pubblici): `dropin:cache:courts:v1`, `dropin:cache:lobbies:v1`, `dropin:cache:court:v1:<id>`. Gotcha trovato in verifica: supabase-js non lancia su errore rete, ritorna `{ error }` — ogni fetch ora lo controlla o il fallback non scatta mai.
+
+**Route verificate offline** (build prod porta 3116, Supabase davvero spento, zero `pageerror`):
+- `/` con cache: lista+pin visibili, banner "Sei offline · dati di N min fa" + Riprova, stale badge "Dati di N min fa". Riconnessione: banner verde 3s + refresh.
+- `/courts/<id>` con cache: shell leggibile (nome, stale, azioni bloccate con spiegazione "Serve la connessione per il check-in", nessuna scrittura). Senza cache: "Non riusciamo a caricare questa pagina." + Riprova + Torna alla mappa (mai 404 secco). Chiude il residuo di `d1`.
+- `/courts/<id-inesistente>` a Supabase su: 404 vera (PGRST116 → `notFound()`).
+- `/lobbies`, `/profile` con Supabase down: fail open via middleware/redirect al login sulla home, nessuna schermata bianca.
+- Origin morta (server spento): SW serve `/~offline` precached (fallback `document` in `app/sw.ts`; tile `map-tiles-*` e font invariati).
+
+**Esito SW**: precache `/~offline` ok (revision "1" già in next.config.js), fallback navigazione verificato con origin morta (200 dal SW).
+
+**Spec**: `docs/design/specs/offline.md` (stati, copy, cache, SW, a11y, screenshot in `/tmp/opencode/d24-*.png`, nota deploy: `/supabase` relativo solo in dev).
+
+**Comandi**: `npm run lint` 0 errori · `tsc` verde · `lint:design` OK (76 file) · `vitest` 117+8 pass · `test:a11y` 3 pass · e2e `d24-offline.spec.ts` 1 pass · `npm run build` verde.
+
+**Scostamenti dal ticket**: `components/offline/cache-writer.tsx` aggiunto (la pagina campo è server e non tocca localStorage); `CourtOfflineShell` legge la cache post-mount per non rompere l'hydration; `/lobbies` e `/profile` non hanno shell dedicata — il fail-open esistente (redirect login) basta per "nessuna schermata bianca"; nessuna coda di mutazioni (fuori scope da ticket).
+
+**Follow-up @oracle (APPROVE WITH NITS, chiuso il 2026-11-10):**
+1. Banner anche quando il backend è ko ma il browser è online: nuova prop `forceStale` (passata da `stale` in home) — titolo "Dati di N min fa" + "Il server non risponde: vedi i dati salvati sul telefono." + Riprova; mai "Sei offline" se non è vero. Verificato con Supabase spento: banner visibile, resta dopo Riprova.
+2. `CourtOfflineShell`: durante `!ready` skeleton neutro (stesso output del server), errore "Non riusciamo…" solo a `ready && !cached` — niente flash d'errore a chi ha la cache.
+3. Vuoto-mappa: titolo di nuovo dinamico (`Nessun campo da ${sportLabel(sport).toLowerCase()} in quest'area`, o "Nessun campo in quest'area" se sport null); corpo + CTA "Aggiungi il primo campo" dal prototipo.
+4. Minori: `readCache` rimuove le entry scadute (test dedicato); `onRetry` via ref nelle deps del banner; guard `if (trying) return` in `OfflineRetry`. Spec e2e resa deterministica (`expect.poll` sul popolamento cache).
