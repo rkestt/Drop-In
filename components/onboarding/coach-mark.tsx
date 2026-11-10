@@ -11,6 +11,10 @@ import { coachKey, hasSeen, markSeen } from "@/lib/onboarding/storage";
  * «Ho capito», con la X o con Esc; chiuso non torna. Copy vincolato dal
  * prototipo approvato d9.
  */
+
+// Come in FirstRun: se localStorage non scrive (Safari privato) la chiusura
+// resta valida per la sessione, così il coach non riappare a ogni scheda.
+const dismissedThisSession = new Set<string>();
 export function CoachMark({
   feature,
   children,
@@ -25,6 +29,7 @@ export function CoachMark({
 
   // Dopo il primo render: solo la prima volta per questa feature.
   useEffect(() => {
+    if (dismissedThisSession.has(key)) return;
     if (!hasSeen(key)) setVisible(true);
   }, [key]);
 
@@ -33,6 +38,7 @@ export function CoachMark({
   }, [visible]);
 
   const dismiss = useCallback(() => {
+    dismissedThisSession.add(key);
     markSeen(key);
     setVisible(false);
     // Il focus torna sul controllo spiegato, non si perde nella pagina.

@@ -17,6 +17,11 @@ interface DrawerProps {
   describedBy?: string;
   /** Elemento da focalizzare all'apertura (default: comportamento Base UI). */
   initialFocus?: boolean | React.RefObject<HTMLElement | null>;
+  /**
+   * Elemento a cui restituire il focus alla chiusura (default: restore Base UI
+   * sull'elemento focalizzato prima dell'apertura).
+   */
+  finalFocus?: boolean | React.RefObject<HTMLElement | null>;
 }
 
 /**
@@ -37,6 +42,7 @@ export function Drawer({
   labelledBy,
   describedBy,
   initialFocus,
+  finalFocus,
 }: DrawerProps) {
   return (
     <BaseDrawer.Root
@@ -54,6 +60,7 @@ export function Drawer({
             aria-labelledby={labelledBy}
             aria-describedby={describedBy}
             initialFocus={initialFocus}
+            finalFocus={finalFocus}
             className={cn(
               "w-full max-w-[720px] rounded-t-sheet bg-[var(--bg-elevated)] shadow-lg outline-none pb-safe",
               className

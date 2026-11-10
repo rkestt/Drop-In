@@ -74,6 +74,8 @@ export default function HomePage() {
   const [query, setQuery] = useState("");
   const [fieldsAnnouncement, setFieldsAnnouncement] = useState("");
   const announceRef = useRef(true);
+  // Regione mappa: il FAB è il punto di ritorno stabile per il focus.
+  const fabRef = useRef<HTMLAnchorElement | null>(null);
   const supabase = useMemo(() => createClient(), []);
   const { sport, pSport } = useSport();
 
@@ -293,6 +295,7 @@ export default function HomePage() {
         <ReportedCourtsIndicator onCourtsUpdate={setReportedCourtIds} />
 
         <Link
+          ref={fabRef}
           href="/submit-court"
           className="absolute bottom-4 right-4 z-30 inline-flex items-center justify-center w-14 h-14 rounded-chip bg-[var(--accent)] text-[var(--accent-foreground)] shadow-lg hover:bg-[var(--accent-hover)] active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           aria-label="Aggiungi un campo"
@@ -378,8 +381,13 @@ export default function HomePage() {
       </div>
 
       <LoginModal open={showLogin} onClose={() => setShowLogin(false)} next={loginNext} />
-      {/* Primo avvio: si apre da solo al primo render, non blocca i dati. */}
-      <FirstRun />
+      {/* Primo avvio: si apre da solo al primo render, non blocca i dati.
+          Il login del passo 3 riusa il LoginModal di pagina (nessun secondo
+          flusso); alla chiusura il focus torna al FAB "Aggiungi un campo". */}
+      <FirstRun
+        onLogin={() => setShowLogin(true)}
+        returnFocusRef={fabRef}
+      />
     </main>
   );
 }

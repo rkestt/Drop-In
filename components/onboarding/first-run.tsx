@@ -19,6 +19,19 @@ import { cn } from "@/lib/utils";
  * Esc e tap fuori scrivono la chiave e chiudono (tutto passa da `onClose`).
  * Il cambio passo è uno swap di contenuto via `StepTransition`: istantaneo
  * con reduced motion, senza pop (l'informazione resta in testo e focus).
+ *
+ * Login (passo 3): «Accedi per salvare i progressi» chiude l'onboarding
+ * (segnandolo come visto: l'utente ha letto i 3 passi) e apre il login in un
+ * microtask. Niente modali a catena: due dialog modali impilati rubano il
+ * focus e rompono il restore; il login apre da solo a drawer chiuso.
+ *
+ * Chiusura: il focus torna a `returnFocusRef` (il FAB "Aggiungi un campo")
+ * invece che al `body` — al primo avvio niente aveva il focus e il restore di
+ * default lo lascerebbe lì. Punta un controllo foglia stabile, non il
+ * contenitore mappa: Base UI risolve un contenitore al primo figlio tabbabile
+ * (canvas o select a seconda del caricamento: non deterministico). Il drawer
+ * è modale, quindi alla chiusura l'utente non sta interagendo altrove:
+ * nessun furto di focus.
  */
 
 // Chiusura valida per la sessione anche quando localStorage non scrive
@@ -53,10 +66,17 @@ function stepSrLabel(index: number, current: number): string {
   return `Passo ${index + 1}: ${title}`;
 }
 
-export function FirstRun() {
+export function FirstRun({
+  onLogin,
+  returnFocusRef,
+}: {
+  /** Apre il login (es. il `LoginModal` della pagina): l'onboarding si chiude prima. */
+  onLogin?: () => void;
+  /** Controllo a cui restituire il focus alla chiusura (foglia stabile, es. FAB). */
+  returnFocusRef?: React.RefObject<HTMLElement | null>;
+}) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
-  const [showLoginNote, setShowLoginNote] = useState(false);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
 
   useEffect(() => {
@@ -72,9 +92,15 @@ export function FirstRun() {
   }, []);
 
   const goTo = useCallback((next: number) => {
-    setShowLoginNote(false);
     setStep(next);
   }, []);
+
+  const handleLogin = useCallback(() => {
+    if (!onLogin) return;
+    close();
+    // Il login apre a drawer chiuso, non sopra: niente modali a catena.
+    queueMicrotask(() => onLogin());
+  }, [close, onLogin]);
 
   // Il titolo riceve il focus a ogni apertura e cambio passo (screen reader);
   // non è un controllo: niente anello visivo (solo `outline-none` sul focus
@@ -94,6 +120,7 @@ export function FirstRun() {
       labelledBy={titleId}
       describedBy={bodyId}
       initialFocus={titleRef}
+      finalFocus={returnFocusRef}
       className="max-h-[70dvh] overflow-y-auto"
     >
       <div className="flex items-center gap-2 min-h-[44px]">
@@ -165,26 +192,14 @@ export function FirstRun() {
           >
             {current.cta}
           </Button>
-          {step === STEPS.length - 1 && (
-            <>
-              <Button
-                variant="secondary"
-                className="w-full"
-                aria-expanded={showLoginNote}
-                aria-controls="onb-login-note"
-                onClick={() => setShowLoginNote((v) => !v)}
-              >
-                Accedi per salvare i progressi
-              </Button>
-              <p
-                id="onb-login-note"
-                role="status"
-                hidden={!showLoginNote}
-                className="m-0 p-2.5 border border-[var(--border)] rounded-control-sm bg-[var(--bg-surface)] text-[13px] leading-normal text-[var(--text-secondary)]"
-              >
-                Si apre il drawer di accesso. Poi torni al passo 3.
-              </p>
-            </>
+          {step === STEPS.length - 1 && onLogin && (
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={handleLogin}
+            >
+              Accedi per salvare i progressi
+            </Button>
           )}
         </div>
       </StepTransition>
