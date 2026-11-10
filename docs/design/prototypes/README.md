@@ -27,14 +27,14 @@ npx playwright screenshot --viewport-size="360,780" \
 | File | Schermata | Ticket proto | Stato |
 |---|---|---|---|
 | `index.html` | Indice di review: le 8 schermate, cosa guardare | — | — |
-| `onboarding.html` | Primo avvio (3 passi sopra la mappa) | d9 | in review |
-| `settings.html` | Impostazioni | d10 | in review |
-| `profile.html` | Profilo e modifica nickname | d11 | in review |
-| `lobby.html` | Lobby: lista, crea, dettaglio, join | d12 | in review |
-| `checkin.html` | Check-in: permessi, fuori raggio, successo | d13 | in review |
-| `notifications.html` | Centro notifiche e permesso push | d14 | in review |
-| `report.html` | Segnala un campo | d15 | in review |
-| `offline.html` | Offline, errore, stati vuoti | d16 | in review |
+| `onboarding.html` | Primo avvio (3 passi sopra la mappa) | d9 | approvato 2026-11-10 |
+| `settings.html` | Impostazioni | d10 | approvato 2026-11-10 |
+| `profile.html` | Profilo e modifica nickname | d11 | approvato 2026-11-10 |
+| `lobby.html` | Lobby: lista, crea, dettaglio, join | d12 | approvato 2026-11-10 |
+| `checkin.html` | Check-in: permessi, fuori raggio, successo | d13 | approvato 2026-11-10 |
+| `notifications.html` | Centro notifiche e permesso push | d14 | approvato 2026-11-10 |
+| `report.html` | Segnala un campo | d15 | approvato 2026-11-10 |
+| `offline.html` | Offline, errore, stati vuoti | d16 | approvato 2026-11-10 |
 
 `proto.css` e `proto.js` sono la base condivisa: **non si duplicano** dentro i
 singoli file. I due `.woff2` self-hosted di `app/fonts/` sono incorporati una volta

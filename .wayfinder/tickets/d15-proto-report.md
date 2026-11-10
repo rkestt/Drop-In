@@ -4,6 +4,8 @@ type: design
 hitl: true
 claimed: true
 blocked_by: []
+status: closed
+closed_at: 2026-11-10
 ---
 ## Question
 
@@ -111,3 +113,5 @@ grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/report.html
 6. **Chip.** Bottoni `aria-pressed` (alternativa ammessa dal ticket) con pallino di stato, così la selezione non è affidata al solo colore; il gruppo ha `role="group"`, il label «Cosa non va» e `tabindex="-1"` per il focus sull'errore.
 
 **Prossimo passo.** Review HITL sulle scelte qui sopra; poi d23 implementa `components/report/**` con lo stesso copy e la scadenza calcolata a 48h.
+
+**Esito review HITL (2026-11-10):** approvato da Andrea senza modifiche richieste. Le scelte del prototipo sono vincolanti per l'implementazione (copy, gerarchia, stati); i punti aperti segnalati dai designer restano quelli scritti nella Resolution e si chiudono nel ticket di implementazione corrispondente.

@@ -4,6 +4,8 @@ type: design
 hitl: true
 claimed: true
 blocked_by: []
+status: closed
+closed_at: 2026-11-10
 ---
 ## Question
 
@@ -114,3 +116,4 @@ npx playwright screenshot --viewport-size="768,900" http://localhost:4179/notifi
 - `prototypes/README.md`: riga `notifications.html` ancora "da fare" per vincolo di task; va portata a "in review" in review.
 - Meteo campo: nessun evento sorgente nel DB; se non si vuole, si taglia la riga.
 
+**Esito review HITL (2026-11-10):** approvato da Andrea senza modifiche richieste. Le scelte del prototipo sono vincolanti per l'implementazione (copy, gerarchia, stati); i punti aperti segnalati dai designer restano quelli scritti nella Resolution e si chiudono nel ticket di implementazione corrispondente.

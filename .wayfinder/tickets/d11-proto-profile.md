@@ -4,6 +4,8 @@ type: design
 hitl: true
 claimed: true
 blocked_by: []
+status: closed
+closed_at: 2026-11-10
 ---
 ## Question
 
@@ -81,3 +83,4 @@ grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/profile.html
 
 **Da guardare in review:** gerarchia nome/karma (87 hero, statistiche 22px), copy del banner ("puoi partecipare di nuovo dal 16 novembre 2026" + cosa fare nel frattempo), drawer che lascia visibili header e karma, toast sopra la bottom nav, una sola CTA accent per stato. Nel prototipo l'errore inline mostra il caso vuoto; il limite di 30 caratteri è nel hint e va validato anche in implementazione.
 
+**Esito review HITL (2026-11-10):** approvato da Andrea senza modifiche richieste. Le scelte del prototipo sono vincolanti per l'implementazione (copy, gerarchia, stati); i punti aperti segnalati dai designer restano quelli scritti nella Resolution e si chiudono nel ticket di implementazione corrispondente.

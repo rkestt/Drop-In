@@ -4,6 +4,8 @@ type: design
 hitl: true
 claimed: true
 blocked_by: []
+status: closed
+closed_at: 2026-11-10
 ---
 ## Question
 
@@ -111,3 +113,5 @@ grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/checkin.html
 4. Già dentro: zero CTA primarie e check-out secondario, come da ticket.
 5. Reduced motion: «Senza pop» e nota di review.
 6. Tagli del background: l'idle non taglia nome/indirizzo a 360 e 768; gli sheet alti coprono il contesto (voluto).
+
+**Esito review HITL (2026-11-10):** approvato da Andrea senza modifiche richieste. Le scelte del prototipo sono vincolanti per l'implementazione (copy, gerarchia, stati); i punti aperti segnalati dai designer restano quelli scritti nella Resolution e si chiudono nel ticket di implementazione corrispondente.

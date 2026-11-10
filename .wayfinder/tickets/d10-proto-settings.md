@@ -4,6 +4,8 @@ type: design
 hitl: true
 claimed: true
 blocked_by: []
+status: closed
+closed_at: 2026-11-10
 ---
 ## Question
 
@@ -110,3 +112,5 @@ grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/settings.html
 **README.** La riga `settings.html` della tabella **non** è stata toccata in questa lane per il vincolo di concorrenza: va portata a “in review” al merge. La checklist sopra è compilata.
 
 **Review HITL.** In attesa di Andrea. Da guardare: gerarchia a 328/360, copy della riga push, drawer di uscita, switch del pallino.
+
+**Esito review HITL (2026-11-10):** approvato da Andrea senza modifiche richieste. Le scelte del prototipo sono vincolanti per l'implementazione (copy, gerarchia, stati); i punti aperti segnalati dai designer restano quelli scritti nella Resolution e si chiudono nel ticket di implementazione corrispondente.

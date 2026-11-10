@@ -35,14 +35,14 @@ Nessun codice finto in produzione.
 
 ### Frontier (sbloccati)
 
-- [d9-proto-onboarding](tickets/d9-proto-onboarding.md) — design HITL: prototipo pronto, **in review** (`prototypes/onboarding.html`).
-- [d10-proto-settings](tickets/d10-proto-settings.md) — design HITL: prototipo pronto, **in review** (`prototypes/settings.html`).
-- [d11-proto-profile](tickets/d11-proto-profile.md) — design HITL: prototipo pronto, **in review** (`prototypes/profile.html`).
-- [d12-proto-lobby](tickets/d12-proto-lobby.md) — design HITL: prototipo pronto, **in review** (`prototypes/lobby.html`).
-- [d13-proto-checkin](tickets/d13-proto-checkin.md) — design HITL: prototipo pronto, **in review** (`prototypes/checkin.html`).
-- [d14-proto-notifications](tickets/d14-proto-notifications.md) — design HITL: prototipo pronto, **in review** (`prototypes/notifications.html`).
-- [d15-proto-report](tickets/d15-proto-report.md) — design HITL: prototipo pronto, **in review** (`prototypes/report.html`).
-- [d16-proto-offline](tickets/d16-proto-offline.md) — design HITL: prototipo pronto, **in review** (`prototypes/offline.html`).
+- [d9-proto-onboarding](tickets/d9-proto-onboarding.md) — design HITL: **approvato** 2026-11-10, `prototypes/onboarding.html`).
+- [d10-proto-settings](tickets/d10-proto-settings.md) — design HITL: **approvato** 2026-11-10, `prototypes/settings.html`).
+- [d11-proto-profile](tickets/d11-proto-profile.md) — design HITL: **approvato** 2026-11-10, `prototypes/profile.html`).
+- [d12-proto-lobby](tickets/d12-proto-lobby.md) — design HITL: **approvato** 2026-11-10, `prototypes/lobby.html`).
+- [d13-proto-checkin](tickets/d13-proto-checkin.md) — design HITL: **approvato** 2026-11-10, `prototypes/checkin.html`).
+- [d14-proto-notifications](tickets/d14-proto-notifications.md) — design HITL: **approvato** 2026-11-10, `prototypes/notifications.html`).
+- [d15-proto-report](tickets/d15-proto-report.md) — design HITL: **approvato** 2026-11-10, `prototypes/report.html`).
+- [d16-proto-offline](tickets/d16-proto-offline.md) — design HITL: **approvato** 2026-11-10, `prototypes/offline.html`).
 
 ### Decisions so far (map design-system)
 
@@ -66,7 +66,7 @@ Nessun codice finto in produzione.
 - [d6-sonner-migration](tickets/d6-sonner-migration.md) — sbloccato da d4: pronto per il prossimo giro.
 - [d7-motion-pipelines](tickets/d7-motion-pipelines.md) — chiuso: primitive motion, hook reduced-motion SSR-safe.
 - [d8-form-rhf-zod](tickets/d8-form-rhf-zod.md) — chiuso: RHF+zod nei 4 form, schema unico.
-- [d17-impl-onboarding](tickets/d17-impl-onboarding.md) — blocked_by d9 (approvazione HITL del prototipo); d5/d6 già chiusi.
+- [d17-impl-onboarding](tickets/d17-impl-onboarding.md) — **sbloccato**: d9 approvato, d5/d6 chiusi.
 - [d18-impl-settings](tickets/d18-impl-settings.md) — blocked_by d10, d5, d6.
 - [d19-impl-profile](tickets/d19-impl-profile.md) — blocked_by d11, d5, d6.
 - [d20-impl-lobby](tickets/d20-impl-lobby.md) — blocked_by d12, d5, d6.
@@ -90,14 +90,14 @@ Nessun codice finto in produzione.
 | [d6-sonner-migration](tickets/d6-sonner-migration.md) | impl | no | d4 | chiuso 2026-11-09 |
 | [d7-motion-pipelines](tickets/d7-motion-pipelines.md) | impl | no | d5, d6 | chiuso 2026-11-09 |
 | [d8-form-rhf-zod](tickets/d8-form-rhf-zod.md) | impl | no | d5 | chiuso 2026-11-09 |
-| [d9-proto-onboarding](tickets/d9-proto-onboarding.md) | design | sì | — | in review HITL |
-| [d10-proto-settings](tickets/d10-proto-settings.md) | design | sì | — | in review HITL |
-| [d11-proto-profile](tickets/d11-proto-profile.md) | design | sì | — | in review HITL |
-| [d12-proto-lobby](tickets/d12-proto-lobby.md) | design | sì | — | in review HITL |
-| [d13-proto-checkin](tickets/d13-proto-checkin.md) | design | sì | — | in review HITL |
-| [d14-proto-notifications](tickets/d14-proto-notifications.md) | design | sì | — | in review HITL |
-| [d15-proto-report](tickets/d15-proto-report.md) | design | sì | — | in review HITL |
-| [d16-proto-offline](tickets/d16-proto-offline.md) | design | sì | — | in review HITL |
+| [d9-proto-onboarding](tickets/d9-proto-onboarding.md) | design | sì | — | approvato 2026-11-10 |
+| [d10-proto-settings](tickets/d10-proto-settings.md) | design | sì | — | approvato 2026-11-10 |
+| [d11-proto-profile](tickets/d11-proto-profile.md) | design | sì | — | approvato 2026-11-10 |
+| [d12-proto-lobby](tickets/d12-proto-lobby.md) | design | sì | — | approvato 2026-11-10 |
+| [d13-proto-checkin](tickets/d13-proto-checkin.md) | design | sì | — | approvato 2026-11-10 |
+| [d14-proto-notifications](tickets/d14-proto-notifications.md) | design | sì | — | approvato 2026-11-10 |
+| [d15-proto-report](tickets/d15-proto-report.md) | design | sì | — | approvato 2026-11-10 |
+| [d16-proto-offline](tickets/d16-proto-offline.md) | design | sì | — | approvato 2026-11-10 |
 | [d17-impl-onboarding](tickets/d17-impl-onboarding.md) | impl | no | d9, d5, d6 | aperto |
 | [d18-impl-settings](tickets/d18-impl-settings.md) | impl | no | d10, d5, d6 | aperto |
 | [d19-impl-profile](tickets/d19-impl-profile.md) | impl | no | d11, d5, d6 | aperto |

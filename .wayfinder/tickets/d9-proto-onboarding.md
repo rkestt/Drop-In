@@ -4,6 +4,8 @@ type: design
 hitl: true
 claimed: true
 blocked_by: []
+status: closed
+closed_at: 2026-11-10
 ---
 ## Question
 
@@ -139,3 +141,4 @@ toccata su istruzione dell’orchestratore: la riga `onboarding.html` è ancora
 `localStorage`, drawer reale (d5) e motion (d7) restano per d17. La mappa è un
 disegno statico: nessun tile, nessun dato reale.
 
+**Esito review HITL (2026-11-10):** approvato da Andrea senza modifiche richieste. Le scelte del prototipo sono vincolanti per l'implementazione (copy, gerarchia, stati); i punti aperti segnalati dai designer restano quelli scritti nella Resolution e si chiudono nel ticket di implementazione corrispondente.

@@ -4,6 +4,8 @@ type: design
 hitl: true
 claimed: true
 blocked_by: []
+status: closed
+closed_at: 2026-11-10
 ---
 ## Question
 
@@ -125,3 +127,5 @@ lo stato `13`: la pagina statica servita quando la route non è in cache.
   copy italiano; un solo accent per stato (tranne `12`, motivato); AA sui
   token usati; reduced motion; screenshot 360/768; nessun colore o font fuori
   da `proto.css` tranne lo stato `08` (richiesto dal ticket).
+
+**Esito review HITL (2026-11-10):** approvato da Andrea senza modifiche richieste. Le scelte del prototipo sono vincolanti per l'implementazione (copy, gerarchia, stati); i punti aperti segnalati dai designer restano quelli scritti nella Resolution e si chiudono nel ticket di implementazione corrispondente.

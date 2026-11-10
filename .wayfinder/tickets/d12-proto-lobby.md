@@ -4,6 +4,8 @@ type: design
 hitl: true
 claimed: true
 blocked_by: []
+status: closed
+closed_at: 2026-11-10
 ---
 ## Question
 
@@ -130,3 +132,4 @@ grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/lobby.html
 - Approvare la deroga card/"Unisciti" o chiedere il join diretto dalla lista.
 - Dettaglio confermato come pagina (non drawer), come da ticket.
 
+**Esito review HITL (2026-11-10):** approvato da Andrea senza modifiche richieste. Le scelte del prototipo sono vincolanti per l'implementazione (copy, gerarchia, stati); i punti aperti segnalati dai designer restano quelli scritti nella Resolution e si chiudono nel ticket di implementazione corrispondente.
