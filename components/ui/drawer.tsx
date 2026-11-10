@@ -16,7 +16,10 @@ interface DrawerProps {
   /** Id dell'elemento che descrive il dialog. */
   describedBy?: string;
   /** Elemento da focalizzare all'apertura (default: comportamento Base UI). */
-  initialFocus?: boolean | React.RefObject<HTMLElement | null>;
+  initialFocus?:
+    | boolean
+    | React.RefObject<HTMLElement | null>
+    | ((openType: unknown) => boolean | HTMLElement | null | void);
   /**
    * Elemento a cui restituire il focus alla chiusura (default: restore Base UI
    * sull'elemento focalizzato prima dell'apertura).

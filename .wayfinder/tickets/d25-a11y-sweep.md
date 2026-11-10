@@ -94,3 +94,13 @@ Nit:
 5. `helpers/auth.ts`: `resolveServiceRoleKey()` lancia se la env manca e l'URL non è localhost/127.0.0.1.
 
 Esiti finali (config /tmp porta 3121): senza flag 5 passed / 10 skipped; con `E2E_WITH_DB=1` 15 passed. `tsc`, `lint` (0 errori), `lint:design`, `vitest` (220) verdi.
+
+## Resolution — finding @tester sul drawer nickname (2026-11-11)
+
+Difetto reale: all'apertura del drawer "Modifica nickname" il focus restava su `body`, il primo Tab usciva sullo skip link e il trap non ingaggiava. Causa: `initialFocus={nicknameRef}` — Base UI legge `ref.current` troppo presto (popup appena montato, ref del campo ancora `null`).
+
+Correzione: `initialFocus` passato come **funzione** `() => nicknameRef.current` (forma accettata dall'API Base UI, valutata all'apertura a ref attaccato). Tipo allargato in `components/ui/drawer.tsx`. Alternativa scartata: `useEffect` post-open (duplica il meccanismo Base UI); default senza `initialFocus` (mette il focus sul container del popup, non sul campo — verificato sul login).
+
+Verifica: nuovo `tests/e2e/drawer-nickname.spec.ts` (gateato `E2E_WITH_DB`, pattern di `a11y.spec.ts`): apertura → `activeElement` è `#profile-nickname` senza Tab; 5 Tab + 2 Shift+Tab restano nel dialog; axe pulito sul drawer aperto; Esc chiude e il focus torna sul trigger. Verde (3 run).
+
+Altri drawer: `first-run.tsx` usa lo stesso pattern ma ha un `useEffect [open, step]` di backup che mette il focus sul titolo — funziona, non toccato. `login-modal`, `check-in-sheet`, `create-lobby-drawer`, `report-drawer`, `join-lobby-drawer`, `coach-mark` non passano `initialFocus` (default Base UI): focus sul container, trap ok — nessun intervento.
