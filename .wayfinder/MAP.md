@@ -58,12 +58,10 @@ Trovato e corretto in coda un bug di sviluppo che rendeva impossibile testare da
 
 ### Frontier (sbloccati)
 
-- [d25-a11y-sweep](tickets/d25-a11y-sweep.md) — sbloccato: tutte le schermate F3 sono in.
-- [d26-pwa-performance](tickets/d26-pwa-performance.md) — sbloccato (d24 chiuso).
+- [d27-visual-full](tickets/d27-visual-full.md) — in corso (ultimo ticket del piano).
 
 ### Blocked
 
-- [d27-visual-full](tickets/d27-visual-full.md) — blocked_by d25, d26.
 
 ### Tickets (elenco completo)
 
@@ -93,8 +91,8 @@ Trovato e corretto in coda un bug di sviluppo che rendeva impossibile testare da
 | [d22-impl-notifications](tickets/d22-impl-notifications.md) | impl | no | d14, d5, d6 | chiuso 2026-11-10 |
 | [d23-impl-report](tickets/d23-impl-report.md) | impl | no | d15, d5, d6 | chiuso 2026-11-10 |
 | [d24-impl-offline](tickets/d24-impl-offline.md) | impl | no | d16, d5, d6 | chiuso 2026-11-10 |
-| [d25-a11y-sweep](tickets/d25-a11y-sweep.md) | task | no | d17–d24 | aperto |
-| [d26-pwa-performance](tickets/d26-pwa-performance.md) | task | no | d24 | aperto |
+| [d25-a11y-sweep](tickets/d25-a11y-sweep.md) | task | no | d17–d24 | chiuso 2026-11-11|
+| [d26-pwa-performance](tickets/d26-pwa-performance.md) | task | no | d24 | chiuso 2026-11-11|
 | [d27-visual-full](tickets/d27-visual-full.md) | infra | no | d25, d26 | aperto |
 
 ---

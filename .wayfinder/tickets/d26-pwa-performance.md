@@ -2,8 +2,10 @@
 id: d26
 type: task
 hitl: false
-claimed: false
+claimed: true
 blocked_by: [d24]
+status: closed
+closed_at: 2026-11-11
 ---
 ## Question
 
