@@ -5,9 +5,18 @@ const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
 // Solo locale (stesso default di `npx supabase status`): crea utenti già
 // confermati via Admin API così il login via UI funziona senza Mailpit.
-const SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ??
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
+function resolveServiceRoleKey(): string {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return process.env.SUPABASE_SERVICE_ROLE_KEY;
+  }
+  if (/^(https?:\/\/)?(127\.0\.0\.1|localhost)([:/]|$)/.test(SUPABASE_URL)) {
+    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
+  }
+  throw new Error(
+    "SUPABASE_SERVICE_ROLE_KEY mancante e URL non locale: niente fallback, per non spedire la chiave di servizio nel posto sbagliato.",
+  );
+}
+const SERVICE_ROLE_KEY = resolveServiceRoleKey();
 
 export type TestUser = { email: string; password: string; nickname: string };
 

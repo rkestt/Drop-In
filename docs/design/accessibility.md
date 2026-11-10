@@ -89,12 +89,14 @@ Già presente in `globals.css`. Verificare che ogni nuova animazione rispetti qu
 
 ## Esiti — sweep del 2026-11-10 (`tests/e2e/a11y.spec.ts`)
 
-Suite axe (tag wcag2a/wcag2aa/wcag21a/wcag21aa/wcag22aa), 15 test verdi:
+Suite axe (tag wcag2a/wcag2aa/wcag21a/wcag21aa/wcag22aa), 15 test verdi
+(`E2E_WITH_DB=1`; senza flag i 5 senza DB passano e i 10 con DB sono
+skippati, quindi la CI resta verde senza Supabase):
 
 | Route | Contesto | Esito |
 |---|---|---|
 | `/styleguide`, `/~offline`, `/submit-court` | CI, senza DB | 0 violazioni |
-| `/`, `/?login=required` (drawer) | locale, con DB | 0 violazioni (marker esclusi, vedi sotto) |
+| `/`, `/?login=required` (drawer) | locale, con DB | 0 violazioni (marker esclusi, vedi sotto). `/` passa anche senza DB (verificato con REST/auth abortiti: 0 marker, 0 violazioni) |
 | `/profile`, `/settings`, `/notifications`, `/lobbies`, `/lobbies/<id>`, `/courts/<id>` | locale + utente confermato via Admin API (`E2E_WITH_DB=1`) | 0 violazioni (marker esclusi) |
 | `/` con `reducedMotion: reduce` | locale | regione mappa e contenuto restano visibili/leggibili |
 | Skip link su `/` e `/settings` | tastiera | primo Tab → link visibile → Invio → focus su `#contenuto` |
@@ -102,8 +104,8 @@ Suite axe (tag wcag2a/wcag2aa/wcag21a/wcag21aa/wcag22aa), 15 test verdi:
 
 Violate e corrette nello sweep:
 
-- `color-contrast` 4,09:1 — testo `--danger` su `bg-danger/10` (errore login, poi stessa combinazione in submit-court, create-lobby, edit-profile, account-settings, karma-indicator, ban-banner): passato a `--danger-dark` (7,35:1). Nessun cambio d'identità: è la variante "su tinta" già usata dai badge.
-- Marker mappa 40px → 44px (`w-10` → `w-11`), minimo di progetto su tutti i controlli.
+- `color-contrast` 4,09:1 — testo `--danger` su `bg-danger/10` (errore login, poi stessa combinazione in submit-court, create-lobby, edit-profile, account-settings, karma-indicator, ban-banner, header "Segnalazioni attive" su `/courts/<id>`): passato a `--danger-dark` (7,35:1). Nessun cambio d'identità: è la variante "su tinta" già usata dai badge. L'header segnalazioni (visibile solo con report attivi) è stato verificato con riga temporanea in `court_reports`, poi rimossa.
+- Marker mappa 40px → 44px (`w-10` → `w-11`), minimo di progetto su tutti i controlli. Il test prova anche l'attivazione reale: Invio sul marker naviga a `/courts/<id>`.
 - Skip link mancante: aggiunto + `id="contenuto" tabIndex={-1}` sui `main` dei gruppi `(app)` e `(dashboard)`.
 
 ## Eccezioni

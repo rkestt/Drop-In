@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function LobbyNotFound() {
   return (
-    <main className="mx-auto w-full max-w-[720px] flex-1 p-6">
+    <main id="contenuto" tabIndex={-1} className="mx-auto w-full max-w-[720px] flex-1 p-6">
       <div className="py-8 text-center">
         <h1 className="text-xl font-semibold text-[var(--text-primary)]">
           Lobby non trovata

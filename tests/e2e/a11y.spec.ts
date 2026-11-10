@@ -55,76 +55,21 @@ test.describe("accessibility (axe) — statiche, verdi in CI", () => {
   }
 });
 
-test.describe("accessibility (axe) — home con mappa", () => {
+// `/` in CI non ha Supabase né seed: niente attese sui dati (marker,
+// liste). L'axe deve passare anche a mappa vuota; l'esclusione dei marker
+// sotto è no-op quando non ce ne sono.
+test.describe("accessibility (axe) — home, verde in CI anche senza DB", () => {
   test("/ has no axe violations (marker sovrapposti esclusi)", async ({
     page,
   }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    // Attende i marker: senza non si testa nulla di reale.
-    await page.waitForSelector(".court-marker", { timeout: 20_000 });
     const results = await new AxeBuilder({ page })
       .withTags([...TAGS])
-      // Eccezione documentata (accessibility.md): i court marcati dalle
-      // stesse coordinate del seed si sovrappongono e axe `target-size`
-      // li segnala per geometria dei dati, non del codice. Gli attributi
-      // dei marker (ruolo, nome, tastiera) sono asseriti qui sotto.
-      .exclude(".court-marker")
-      .analyze();
-    expect(results.violations).toEqual([]);
-  });
-
-  test("i marker sono operabili da tastiera e nominati", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-    const marker = page.locator(".court-marker").first();
-    await marker.waitFor({ timeout: 20_000 });
-    await expect
-      .poll(async () => page.locator(".court-marker").count(), { timeout: 20_000 })
-      .toBeGreaterThan(0);
-    const first = page.locator(".court-marker").first();
-    await expect(first).toHaveAttribute("role", "button");
-    await expect(first).toHaveAttribute("tabindex", "0");
-    const label = await first.getAttribute("aria-label");
-    expect(label).toMatch(/^Campo: .+/);
-    // Focus visibile: l'anello del progetto, non outline:none secco.
-    await first.focus();
-    await expect(first).toBeFocused();
-  });
-
-  test("skip link: primo Tab, apre il contenuto", async ({ page }) => {
-    await seedOnboarded(page);
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-    await dismissOnboarding(page);
-    const skip = page.getByRole("link", { name: "Vai al contenuto" });
-    await page.keyboard.press("Tab");
-    await expect(skip).toBeFocused();
-    // Visibile solo al focus (sr-only → not-sr-only).
-    await expect(skip).toBeVisible();
-    await page.keyboard.press("Enter");
-    await expect(page.locator("#contenuto")).toBeFocused();
-  });
-
-  test("login via tastiera: compila e invia con Enter", async ({ page }) => {
-    await seedOnboarded(page);
-    await page.goto("/?login=required");
-    await page.waitForLoadState("networkidle");
-    await dismissOnboarding(page);
-    const email = page.getByLabel("Indirizzo email");
-    await email.waitFor({ timeout: 15_000 });
-    // Percorso interamente da tastiera: Tab fino al campo, digita, invia.
-    await email.focus();
-    await page.keyboard.type("non-esiste@dropin.test");
-    await page.keyboard.press("Tab");
-    await page.keyboard.type("password-errata");
-    await page.keyboard.press("Enter");
-    // Esito annunciato: errore con role=alert + aria-live (login-modal).
-    await expect(page.getByRole("alert").first()).toBeVisible({
-      timeout: 15_000,
-    });
-    const results = await new AxeBuilder({ page })
-      .withTags([...TAGS])
+      // Eccezione documentata (accessibility.md): con dati reali i court
+      // vicini si sovrappongono e axe `target-size` li segnala per
+      // geometria dei dati, non del codice. Con DB i marker sono coperti
+      // dal test dedicato nel describe gateato qui sotto.
       .exclude(".court-marker")
       .analyze();
     expect(results.violations).toEqual([]);
@@ -206,6 +151,69 @@ test.describe("accessibility (axe) — autenticate (E2E_WITH_DB)", () => {
       ).toBeFocused();
       await page.keyboard.press("Enter");
       await expect(page.locator("#contenuto")).toBeFocused();
+    });
+
+    // Questi test vogliono il DB con seed: non girano in CI.
+    test("i marker sono operabili da tastiera e nominati", async ({
+      page,
+    }) => {
+      await page.goto("/");
+      await page.waitForLoadState("networkidle");
+      const first = page.locator(".court-marker").first();
+      await first.waitFor({ timeout: 20_000 });
+      await expect
+        .poll(async () => page.locator(".court-marker").count(), {
+          timeout: 20_000,
+        })
+        .toBeGreaterThan(0);
+      await expect(first).toHaveAttribute("role", "button");
+      await expect(first).toHaveAttribute("tabindex", "0");
+      const label = await first.getAttribute("aria-label");
+      expect(label).toMatch(/^Campo: .+/);
+      // Focus visibile: l'anello del progetto, non outline:none secco.
+      await first.focus();
+      await expect(first).toBeFocused();
+      // Attivazione reale: Invio naviga alla scheda campo.
+      await first.press("Enter");
+      await page.waitForURL(/\/courts\/[0-9a-f-]+$/, { timeout: 15_000 });
+    });
+
+    test("skip link: primo Tab, apre il contenuto", async ({ page }) => {
+      await seedOnboarded(page);
+      await page.goto("/");
+      await page.waitForLoadState("networkidle");
+      await dismissOnboarding(page);
+      const skip = page.getByRole("link", { name: "Vai al contenuto" });
+      await page.keyboard.press("Tab");
+      await expect(skip).toBeFocused();
+      // Visibile solo al focus (sr-only → not-sr-only).
+      await expect(skip).toBeVisible();
+      await page.keyboard.press("Enter");
+      await expect(page.locator("#contenuto")).toBeFocused();
+    });
+
+    test("login via tastiera: compila e invia con Enter", async ({ page }) => {
+      await seedOnboarded(page);
+      await page.goto("/?login=required");
+      await page.waitForLoadState("networkidle");
+      await dismissOnboarding(page);
+      const email = page.getByLabel("Indirizzo email");
+      await email.waitFor({ timeout: 15_000 });
+      // Percorso interamente da tastiera: Tab fino al campo, digita, invia.
+      await email.focus();
+      await page.keyboard.type("non-esiste@dropin.test");
+      await page.keyboard.press("Tab");
+      await page.keyboard.type("password-errata");
+      await page.keyboard.press("Enter");
+      // Esito annunciato: errore con role=alert + aria-live (login-modal).
+      await expect(page.getByRole("alert").first()).toBeVisible({
+        timeout: 15_000,
+      });
+      const results = await new AxeBuilder({ page })
+        .withTags([...TAGS])
+        .exclude(".court-marker")
+        .analyze();
+      expect(results.violations).toEqual([]);
     });
   });
 });
