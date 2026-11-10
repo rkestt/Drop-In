@@ -63,4 +63,19 @@ grep -rn "outline-none" app components | head
 
 ## Resolution
 
-(TBD — chiudere con: violazioni trovate/corrette, route coperte, percorso tastiera, esito CI e live, data.)
+Chiude d25 (2026-11-10). Suite `tests/e2e/a11y.spec.ts` estesa da 3 a 15 test, tutti verdi (`E2E_WITH_DB=1 npx playwright test tests/e2e/a11y.spec.ts` su config con porta 3121: 15 passed; senza flag gli 8 statici passano e i 7 con DB sono skippati, quindi la CI resta verde senza Supabase).
+
+Violazioni trovate e corrette (nessun cambio di copy/token visivi d'identità):
+
+- `color-contrast` 4,09:1 (axe `serious`): testo `text-[var(--danger)]` su `bg-danger/10` nello stato di errore del login. Corretto passando a `--danger-dark` (7,35:1, la variante "su tinta" già usata dai badge), stessa tinta di sfondo. Stessa combinazione sistemata in `submit-court-form` (2 punti), `create-lobby-drawer`, `edit-profile-sheet`, `account-section`, `karma-indicator` (low), `ban-banner` (testo + icona). Documentato in `accessibility.md` (tabella + regola).
+- `target-size` sui marker mappa: erano 40px (`w-10`), portati a 44px (`w-11`) come da minimo di progetto.
+
+Eccezioni documentate (non corrette nel codice):
+
+- Marker `.court-marker` esclusi dall'axe (`.exclude`) su `/` e pagine con mappa: i seed condividono le coordinate, i marker si sovrappongono e `target-size` fallisce per geometria dei dati. Ruolo/tabindex/nome/focus coperti da asserzioni esplicite nel test; rimozione = clustering/spiderfy (riga in `gaps.md`).
+
+Aggiunte tastiera/struttura: componente `SkipLink` nei layout `(app)`/`(dashboard)` + `main#contenuto tabIndex={-1}` su tutte le pagine dei due gruppi; helper `tests/e2e/helpers/auth.ts` (utente confermato via Admin API + login via UI + storageState); test skip-link (`/` e `/settings`), login interamente da tastiera con esito `role="alert"`, marker operabili, reduced-motion. `grep tabindex="[1-9]`: pulito. `outline-none` solo con anello `focus-visible` o su contenitori non interattivi (popup Base UI, heading con focus programmatico).
+
+Route coperte: `/`, `/styleguide`, `/~offline`, `/submit-court`, `/?login=required`, `/profile`, `/settings`, `/notifications`, `/lobbies`, `/lobbies/<seed>`, `/courts/<seed>`.
+
+Verifica: `npm run lint` (0 errori, 1 warning pre-esistente in `scripts/check-design.mjs`), `tsc --noEmit` verde, `lint:design` OK (105 file), `vitest` 220 passed. Da fare fuori da questo ticket: firma live @tester con screenshot.

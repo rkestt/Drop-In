@@ -37,7 +37,7 @@ export default async function NotificationsPage() {
   }));
 
   return (
-    <main className="flex-1 w-full max-w-[720px] mx-auto pb-8">
+    <main id="contenuto" tabIndex={-1} className="flex-1 w-full max-w-[720px] mx-auto pb-8">
       <h1 className="text-3xl font-bold font-[family-name:var(--font-syne)] px-4 pt-6 pb-4">
         Notifiche
       </h1>

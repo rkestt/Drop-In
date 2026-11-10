@@ -139,7 +139,7 @@ export default async function CourtPage({
   );
 
   return (
-    <main className="flex-1 p-6 space-y-6">
+    <main id="contenuto" tabIndex={-1} className="flex-1 p-6 space-y-6">
       <CacheWriter
         storageKey={courtDetailKey(id)}
         value={{

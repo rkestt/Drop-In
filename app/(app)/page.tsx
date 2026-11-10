@@ -308,7 +308,7 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <main className="flex-1 flex items-center justify-center" role="status" aria-label="Caricamento dati in corso">
+      <main id="contenuto" tabIndex={-1} className="flex-1 flex items-center justify-center" role="status" aria-label="Caricamento dati in corso">
         <div className="animate-pulse space-y-3">
           <div className="h-8 w-32 bg-[var(--bg-surface)] rounded-lg" />
           <div className="h-4 w-48 bg-[var(--bg-surface)] rounded-lg" />
@@ -326,7 +326,7 @@ export default function HomePage() {
     : null;
 
   return (
-    <main className="flex-1 flex flex-col relative">
+    <main id="contenuto" tabIndex={-1} className="flex-1 flex flex-col relative">
       {user && <BanBanner userId={user.id} />}
       <div className="px-4 pt-3">
         <ConnectionBanner

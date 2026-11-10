@@ -453,7 +453,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
         <div
           ref={errorAlertRef}
           tabIndex={-1}
-          className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm animate-scale-in"
+          className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger-dark)] text-sm animate-scale-in"
           role="alert"
           aria-live="assertive"
         >
@@ -522,7 +522,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
         {locationError && !error && (
           <div
-            className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm"
+            className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger-dark)] text-sm"
             role="alert"
             aria-live="assertive"
           >

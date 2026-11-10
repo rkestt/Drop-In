@@ -143,7 +143,7 @@ export function EditProfileSheet({
         >
           {error && (
             <div
-              className="p-3 rounded-card bg-[var(--danger)]/10 text-[var(--danger)] text-sm"
+              className="p-3 rounded-card bg-[var(--danger)]/10 text-[var(--danger-dark)] text-sm"
               role="alert"
             >
               {error}

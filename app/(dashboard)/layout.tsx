@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { SkipLink } from "@/components/a11y/skip-link";
 
 export default function DashboardLayout({
   children,
@@ -9,6 +10,7 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="flex flex-col min-h-full">
+      <SkipLink />
       <header className="sticky top-0 z-40 bg-[var(--bg-elevated)] border-b border-[var(--cool-muted)]/20 pt-safe">
         <div className="max-w-[720px] mx-auto flex items-center justify-between h-14 px-4">
           <Link

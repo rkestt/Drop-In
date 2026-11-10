@@ -118,7 +118,7 @@ export function AccountSection({ email, userId, nickname }: AccountSectionProps)
           <div
             role="alert"
             aria-live="assertive"
-            className="mb-4 rounded-control-sm bg-[var(--danger)]/10 p-3 text-sm text-[var(--danger)]"
+            className="mb-4 rounded-control-sm bg-[var(--danger)]/10 p-3 text-sm text-[var(--danger-dark)]"
           >
             {error}
           </div>
