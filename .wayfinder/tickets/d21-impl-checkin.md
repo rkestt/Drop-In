@@ -128,4 +128,21 @@ GPS" nascosta quando l'accuratezza è 0/sconosciuta. (3) `pl-4` invece di
 18px nella disclosure (scala token). (4) Toast Sonner anche sul successo
 (esito non bloccante) oltre all'inline; sul check-out solo in caso di
 errore. (5) `docs/design/specs/checkin.md` (nome del task) invece di
-`check-in.md` (nome indicato nel ticket).
+`check-in.md` (nome indicato nel ticket). (6) Range semplificato: niente
+hero metrico/gauge, solo testo con i metri reali + hint (dettagli in
+`docs/design/specs/checkin.md`, sezione scostamenti). (7) Check-out:
+"**Fai check-out**" come da prototipo. (8) Check-in scaduto → idle con
+nuovo check-in immediato; sessione assente/scaduta → apre il `LoginModal`.
+
+## Segu-up (review oracle su 26cf226)
+
+1. Scaduto → idle via `isCheckinActive()` in `lib/checkin/errors.ts`
+   (+3 unit test); mai più "fino alle <ora passata>".
+2. Ramo `auth` in `fromInsertError` (`/accesso|login|sessione/i` →
+   "Accedi di nuovo per fare il check-in"); senza sessione la scheda apre
+   direttamente il `LoginModal`, l'errore `auth` da insert riapre il login.
+3. Checkout "Fai check-out" (copy prototipo).
+4. Spec: sezione scostamenti con range + claim mock precisa
+   (`ALLOW_MOCK_GPS` letta solo in `page.tsx` server-side).
+Riverifica: `vitest` 206/206, `lint` ok (warning pre-esistente),
+`tsc` 0, `lint:design` OK; live `court-detail.spec` 2/2 su porta 3120.

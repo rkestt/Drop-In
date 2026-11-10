@@ -18,6 +18,7 @@ export type CheckInErrorKind =
   | "out-of-range"
   | "already-inside"
   | "cooldown"
+  | "auth"
   | "server";
 
 export interface CheckInErrorInfo {
@@ -111,6 +112,14 @@ export function fromInsertError(message: string): CheckInErrorInfo {
       retryLabel: RETRY,
     };
   }
+  if (/accesso|login|sessione/i.test(message)) {
+    return {
+      kind: "auth",
+      title: "Accesso richiesto",
+      body: "Accedi di nuovo per fare il check-in.",
+      retryLabel: "Accedi",
+    };
+  }
   if (/già|gia|attivo|duplicate|unique/i.test(message)) {
     return {
       kind: "already-inside",
@@ -133,6 +142,14 @@ export function expiryFromCheckin(checkedInAt: string | number | Date): Date {
   const base =
     checkedInAt instanceof Date ? checkedInAt.getTime() : new Date(checkedInAt).getTime();
   return new Date(base + CHECK_IN_DURATION_MS);
+}
+
+/** True se il check-in è ancora valido (scadenza futura). */
+export function isCheckinActive(
+  checkedInAt: string | number | Date,
+  now: Date = new Date()
+): boolean {
+  return expiryFromCheckin(checkedInAt).getTime() > now.getTime();
 }
 
 export function formatExpiry(date: Date): string {

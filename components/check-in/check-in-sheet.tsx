@@ -8,6 +8,7 @@ import { createLogger } from "@/lib/logger";
 const log = createLogger("check-in");
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
+import { LoginModal } from "@/components/auth/login-modal";
 import { StepTransition } from "@/components/motion/step-transition";
 import { SuccessPop } from "@/components/motion/success-pop";
 import { CheckoutButton } from "@/components/check-in/checkout-button";
@@ -20,6 +21,7 @@ import {
   fromAccuracy,
   fromGeolocationCode,
   fromInsertError,
+  isCheckinActive,
   outOfRangeError,
   parseDistanceMeters,
   type CheckInErrorInfo,
@@ -99,11 +101,14 @@ export function CheckInSheet({
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [since, setSince] = useState<string | null>(null);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
     if (!open) return;
-    if (activeCheckIn) {
+    // Scaduto = come se non ci fosse: si torna a idle e si può rifare
+    // il check-in subito, senza vicoli ciechi.
+    if (activeCheckIn && isCheckinActive(activeCheckIn.checkedInAt)) {
       setState("inside");
       setSince(formatExpiry(new Date(activeCheckIn.checkedInAt)));
       setExpiresAt(formatExpiry(expiryFromCheckin(activeCheckIn.checkedInAt)));
@@ -130,7 +135,11 @@ export function CheckInSheet({
       } = await supabase.auth.getUser();
 
       if (!user) {
-        throw new Error("Devi effettuare l'accesso per fare check-in.");
+        // Senza sessione non si mostra un errore generico: si apre il login.
+        // Al ritorno l'utente ritrova la scheda e tocca "Fai check-in".
+        setState("idle");
+        setShowLogin(true);
+        return;
       }
 
       const position = await readPosition(mockGps);
@@ -201,7 +210,8 @@ export function CheckInSheet({
     state === "success" ? "done" : state === "inside" ? "inside" : state === "error" ? "error" : "form";
 
   return (
-    <Drawer open={open} onClose={onClose} title="Check-in">
+    <>
+      <Drawer open={open} onClose={onClose} title="Check-in">
       {/* Entrata/uscita del drawer restano quelle di Base UI: qui dentro si
           scambia solo il contenuto, senza animazioni custom sul contenitore. */}
       <StepTransition stepKey={stepKey}>
@@ -342,7 +352,11 @@ export function CheckInSheet({
 
             <div className="flex flex-col gap-2">
               <Button
-                onClick={handleCheckIn}
+                onClick={
+                  state === "error" && error?.kind === "auth"
+                    ? () => setShowLogin(true)
+                    : handleCheckIn
+                }
                 disabled={state === "loading"}
                 aria-busy={state === "loading"}
                 className="w-full"
@@ -362,6 +376,8 @@ export function CheckInSheet({
           </div>
         )}
       </StepTransition>
-    </Drawer>
+      </Drawer>
+      <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
+    </>
   );
 }

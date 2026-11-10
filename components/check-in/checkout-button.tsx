@@ -41,7 +41,7 @@ export function CheckoutButton({ checkInId }: CheckoutButtonProps) {
       disabled={loading}
     >
       <LogOut className="w-4 h-4 mr-1.5" />
-      {loading ? "Uscita..." : "Lascio il campo"}
+      {loading ? "Uscita..." : "Fai check-out"}
     </Button>
   );
 }

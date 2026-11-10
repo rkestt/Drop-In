@@ -5,6 +5,7 @@ import {
   fromAccuracy,
   fromGeolocationCode,
   fromInsertError,
+  isCheckinActive,
   parseDistanceMeters,
 } from "@/lib/checkin/errors";
 
@@ -79,6 +80,13 @@ describe("fromInsertError", () => {
     expect(info.hint).toMatch(/resta valida/i);
   });
 
+  it("sessione mancante → accesso richiesto", () => {
+    const info = fromInsertError("Devi effettuare l'accesso per fare check-in.");
+    expect(info.kind).toBe("auth");
+    expect(info.body).toMatch(/accedi di nuovo/i);
+    expect(info.retryLabel).toBe("Accedi");
+  });
+
   it("già dentro → nessun secondo check-in", () => {
     const info = fromInsertError("Hai già un check-in attivo su questo campo");
     expect(info.kind).toBe("already-inside");
@@ -99,5 +107,25 @@ describe("expiryFromCheckin", () => {
   it("scadenza = check-in + 2h, formato it-IT", () => {
     const expiry = expiryFromCheckin("2026-11-10T17:40:00+01:00");
     expect(formatExpiry(expiry)).toBe("19:40");
+  });
+});
+
+describe("isCheckinActive", () => {
+  it("check-in vecchio di 3h → scaduto", () => {
+    expect(
+      isCheckinActive("2026-11-10T17:40:00+01:00", new Date("2026-11-10T20:40:01+01:00"))
+    ).toBe(false);
+  });
+
+  it("check-in di 1h fa → attivo", () => {
+    expect(
+      isCheckinActive("2026-11-10T17:40:00+01:00", new Date("2026-11-10T18:40:00+01:00"))
+    ).toBe(true);
+  });
+
+  it("scadenza esatta → scaduto", () => {
+    expect(
+      isCheckinActive("2026-11-10T17:40:00+01:00", new Date("2026-11-10T19:40:00+01:00"))
+    ).toBe(false);
   });
 });
