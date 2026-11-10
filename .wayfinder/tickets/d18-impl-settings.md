@@ -62,4 +62,50 @@ npm run test:a11y
 
 ## Resolution
 
-(TBD — chiudere con: sezioni, stati permesso, esito logout, screenshot, spec.)
+Implementato il 2026-11-10 (branch `fix/d18-f3`).
+
+**Sezioni** (`app/(dashboard)/settings/page.tsx`, server, guard fail-open +
+`loginRedirectUrl("/settings")` come `profile/page.tsx`; middleware: aggiunto
+`"settings"` a `PROTECTED_SEGMENTS` in `lib/auth/routes.ts`):
+Notifiche (`notifications-section.tsx`), Posizione (`location-section.tsx`),
+Account (`account-section.tsx`), Informazioni (`info-section.tsx`, server).
+
+**Stati permesso** (`checking` → `prompt`“Da chiedere” / `granted`“Consentita” /
+`denied`“Negata” + istruzioni Safari/Chrome / `unsupported`“Non supportata”):
+- `navigator.permissions.query({name:"geolocation"})` in try/catch; se assente
+  o lancia (Safari: niente voce `geolocation` in Permissions) → fallback
+  `prompt`, mai crash. `getCurrentPosition` con timeout 8s su "Riprova";
+  `PERMISSION_DENIED` → `denied`, altri errori → `prompt`. Coordinate mai
+  salvate. Live region `role=status` ("Posizione consentita. Ora puoi fare
+  check-in."). Verificati live: `prompt` (default) e `granted` (permessi
+  concessi via Playwright); `denied`/`unsupported` per mappatura codici.
+- Permessi negati/non supportati: nessun crash, badge + testo dedicati,
+  per `denied` guida di riattivazione per-browser; nessun loop di richiesta.
+
+**Logout**: drawer Base UI "Vuoi uscire?" (copy vincolante) → `signOut()` +
+`router.replace("/")` + `router.refresh()`; errore inline con "Riprova".
+Verificato live: logout → `/`, poi `/settings` → login. Nessun loop.
+
+**Esiti comandi**: `vitest settings-preferences` 7/7; `lint` 0 errori
+(1 warning pre-esistente in `scripts/check-design.mjs`); `tsc` pulito;
+`lint:design` OK (78 file); `test:a11y` 3/3; live Playwright 360/768:
+redirect anon `307 → /?login=required&next=%2Fsettings`, render autenticato
+completo, switch persiste (`dropin:pref:badge:v1` → "0"), toast Sonner,
+axe 0 violazioni su `/settings` autenticato, console pulita.
+Screenshot: `/tmp/opencode/d18-settings-auth-360.png`,
+`/tmp/opencode/d18-settings-auth-768.png` (+ anon `d18-settings-360/768.png`).
+Spec: `docs/design/specs/impostazioni.md`.
+
+**Scostamenti**:
+- `profile/page.tsx` NON toccato (link "Impostazioni" al merge: altra lane
+  sta riscrivendo la pagina).
+- "Informativa privacy" / "Segnala un problema" omesse: il prototipo ne
+  rimanda le destinazioni a d18 e non esiste alcuna destinazione reale
+  (regola ticket: nessuna voce che non faccia nulla).
+- "Avvisi nell'app" → `/notifications` (rotta d22, 404 finché d22 non atterra).
+- Mai chiamato `Notification.requestPermission` (verificato via grep).
+- Nota env (non committata, solo verifica): con `NEXT_PUBLIC_SUPABASE_URL`
+  relativo (`/supabase`) il cookie browser (`sb-localhost-auth-token`) non
+  è letto dal server (`127.0.0.1` → altro storage key) — vale anche per
+  `/profile` (pre-esistente). Verifica autenticata eseguita con
+  `SUPABASE_INTERNAL_URL=http://localhost:54321` solo sul server dev 3115.
