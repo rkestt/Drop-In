@@ -92,7 +92,6 @@ Trovato e corretto in coda un bug di sviluppo che rendeva impossibile testare da
 - [d6-sonner-migration](tickets/d6-sonner-migration.md) — sbloccato da d4: pronto per il prossimo giro.
 - [d7-motion-pipelines](tickets/d7-motion-pipelines.md) — chiuso: primitive motion, hook reduced-motion SSR-safe.
 - [d8-form-rhf-zod](tickets/d8-form-rhf-zod.md) — chiuso: RHF+zod nei 4 form, schema unico.
-- [d17-impl-onboarding](tickets/d17-impl-onboarding.md) — **sbloccato**: d9 approvato, d5/d6 chiusi.
 
 
 
@@ -124,14 +123,14 @@ Trovato e corretto in coda un bug di sviluppo che rendeva impossibile testare da
 | [d14-proto-notifications](tickets/d14-proto-notifications.md) | design | sì | — | approvato 2026-11-10 |
 | [d15-proto-report](tickets/d15-proto-report.md) | design | sì | — | approvato 2026-11-10 |
 | [d16-proto-offline](tickets/d16-proto-offline.md) | design | sì | — | approvato 2026-11-10 |
-| [d17-impl-onboarding](tickets/d17-impl-onboarding.md) | impl | no | d9, d5, d6 | chiuso 2026-11-10|
-| [d18-impl-settings](tickets/d18-impl-settings.md) | impl | no | d10, d5, d6 | chiuso 2026-11-10|
-| [d19-impl-profile](tickets/d19-impl-profile.md) | impl | no | d11, d5, d6 | chiuso 2026-11-10|
-| [d20-impl-lobby](tickets/d20-impl-lobby.md) | impl | no | d12, d5, d6 | chiuso 2026-11-10|
-| [d21-impl-checkin](tickets/d21-impl-checkin.md) | impl | no | d13, d5, d6 | chiuso 2026-11-10|
-| [d22-impl-notifications](tickets/d22-impl-notifications.md) | impl | no | d14, d5, d6 | chiuso 2026-11-10|
-| [d23-impl-report](tickets/d23-impl-report.md) | impl | no | d15, d5, d6 | chiuso 2026-11-10|
-| [d24-impl-offline](tickets/d24-impl-offline.md) | impl | no | d16, d5, d6 | chiuso 2026-11-10|
+| [d17-impl-onboarding](tickets/d17-impl-onboarding.md) | impl | no | d9, d5, d6 | chiuso 2026-11-10 |
+| [d18-impl-settings](tickets/d18-impl-settings.md) | impl | no | d10, d5, d6 | chiuso 2026-11-10 |
+| [d19-impl-profile](tickets/d19-impl-profile.md) | impl | no | d11, d5, d6 | chiuso 2026-11-10 |
+| [d20-impl-lobby](tickets/d20-impl-lobby.md) | impl | no | d12, d5, d6 | chiuso 2026-11-10 |
+| [d21-impl-checkin](tickets/d21-impl-checkin.md) | impl | no | d13, d5, d6 | chiuso 2026-11-10 |
+| [d22-impl-notifications](tickets/d22-impl-notifications.md) | impl | no | d14, d5, d6 | chiuso 2026-11-10 |
+| [d23-impl-report](tickets/d23-impl-report.md) | impl | no | d15, d5, d6 | chiuso 2026-11-10 |
+| [d24-impl-offline](tickets/d24-impl-offline.md) | impl | no | d16, d5, d6 | chiuso 2026-11-10 |
 | [d25-a11y-sweep](tickets/d25-a11y-sweep.md) | task | no | d17–d24 | aperto |
 | [d26-pwa-performance](tickets/d26-pwa-performance.md) | task | no | d24 | aperto |
 | [d27-visual-full](tickets/d27-visual-full.md) | infra | no | d25, d26 | aperto |
