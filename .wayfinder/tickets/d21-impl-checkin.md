@@ -77,4 +77,55 @@ Assorbite da questo ticket (dedup del Phase 1 review, PR #49):
 
 ## Resolution
 
-(TBD — chiudere con: stati verificati, gestione mock, esito build, screenshot, spec.)
+Chiuso 2026-11-10 su `fix/d21-f3`. Tutti i 9 stati del prototipo
+(`docs/design/prototypes/checkin.html`, approvato da Andrea il 2026-11-10)
+sono implementati in `components/check-in/check-in-sheet.tsx` (stesso nome
+file, riuso `Drawer` d5/d7-d8, `StepTransition`, `SuccessPop`, Sonner):
+
+- idle (finestra 2h, nota GPS 50 m, CTA) · loading (`aria-busy`) · permesso
+  negato (code 1 + disclosure "Come fare") · posizione/timeout (code 2/3,
+  messaggi distinti) · accuratezza > 20 m · fuori raggio (messaggio del
+  trigger, CTA "Aggiorna posizione") · già dentro (dalle HH:MM, fino alle
+  HH:MM, check-out secondaria) · successo (`SuccessPop`, "fino alle HH:MM",
+  chiusura esplicita, niente auto-close) · server generico (dati conservati).
+- Errori inline (`role="alert"`), esiti `role="status"`; reduced motion via
+  `SuccessPop`/`StepTransition` (testo invariato, niente pop); touch ≥ 44px;
+  token-only (`lint:design` verde).
+- Nessun successo ottimistico (solo dopo insert), bottone disabilitato
+  durante la richiesta, scadenza = `checked_in_at + 2h` it-IT.
+- `lib/checkin/errors.ts` (puro) + `tests/unit/checkin-errors.test.ts`
+  (14 test): code 1/2/3, accuratezza, distanza, cooldown 5 min, già dentro.
+- `page.tsx` additiva: query `check_ins` active dell'utente + prop
+  `activeCheckIn`; `CheckInButton` label "Sei qui" se attivo. File vietati
+  intoccati (`stack.md`, `MAP.md`, `1.5.md`, `playwright.config.ts`,
+  `drawer.tsx`).
+- Mock GPS: flag calcolata dal Server Component e passata come prop
+  `mockGps` (`NEXT_PUBLIC_ALLOW_MOCK_GPS=true` + non-produzione); nel client
+  non compare il nome della variabile — `grep ALLOW_MOCK_GPS .next/static`
+  vuoto sul build di produzione. Nessuna seconda variabile.
+
+**Fix DB al contorno (migration 017).** Il trigger
+`enforce_check_in_distance` usava `%.0f` in `RAISE EXCEPTION`, ma RAISE
+capisce solo `%` nudo: il messaggio live era "(1003.40670779.0f m)".
+Ora usa `format()` con `ROUND(...)::INT` → "(1003 m)". Il parser client
+(`parseDistanceMeters`) resta tollerante anche al vecchio formato.
+
+**Verifica live (Playwright, config copiata con porta 3120, poi cancellata).**
+Login UI flaky in locale + sessione server cieca (storage key browser
+`sb-localhost-auth-token` vs server, bug pre-esistente fuori scope): per i
+test ho firmato la sessione via cookie nel formato @supabase/ssr. Stati
+verificati con GPS vero e mock, screenshot in `/tmp/opencode/`:
+`d21-sheet-idle/​success/​inside` (1280), `d21-sheet-denied-360.png`,
+`d21-sheet-range-360.png` ("Sei a 1003 m dal campo", trigger reale).
+
+**Comandi.** `npm run lint` ok (1 warning pre-esistente in
+`scripts/check-design.mjs`), `tsc` 0, `lint:design` OK (99 file),
+`vitest` 202/202, `test:a11y` 3/3, `npm run build` ok + grep mock vuoto.
+
+**Scostamenti dal prototipo.** (1) Auto-close dopo successo rimosso:
+il prototipo chiede chiusura esplicita ("Chiudi"). (2) Riga "Precisione
+GPS" nascosta quando l'accuratezza è 0/sconosciuta. (3) `pl-4` invece di
+18px nella disclosure (scala token). (4) Toast Sonner anche sul successo
+(esito non bloccante) oltre all'inline; sul check-out solo in caso di
+errore. (5) `docs/design/specs/checkin.md` (nome del task) invece di
+`check-in.md` (nome indicato nel ticket).

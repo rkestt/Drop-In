@@ -105,6 +105,25 @@ export default async function CourtPage({
     data: { user },
   } = await supabase.auth.getUser();
 
+  // d21: check-in attivo dell'utente su questo campo (stato "già dentro").
+  // Query additiva: il resto della pagina non cambia.
+  // Mock GPS: calcolato qui sul server (mai nel bundle client) — true solo
+  // con NEXT_PUBLIC_ALLOW_MOCK_GPS=true fuori produzione.
+  let activeCheckIn: { id: string; checked_in_at: string | null } | null =
+    null;
+  if (user) {
+    const { data } = await supabase
+      .from("check_ins")
+      .select("id, checked_in_at")
+      .eq("court_id", id)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("checked_in_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    activeCheckIn = data;
+  }
+
   const photoUrl = court.photo_path
     ? supabase.storage.from("court-photos").getPublicUrl(court.photo_path).data.publicUrl
     : null;
@@ -208,6 +227,18 @@ export default async function CourtPage({
                 courtName={court.name}
                 courtLat={court.lat}
                 courtLng={court.lng}
+                mockGps={
+                  process.env.NEXT_PUBLIC_ALLOW_MOCK_GPS === "true" &&
+                  process.env.NODE_ENV !== "production"
+                }
+                activeCheckIn={
+                  activeCheckIn?.checked_in_at
+                    ? {
+                        id: activeCheckIn.id,
+                        checkedInAt: activeCheckIn.checked_in_at,
+                      }
+                    : null
+                }
               />
               <CreateLobbyButton
                 courtId={court.id}

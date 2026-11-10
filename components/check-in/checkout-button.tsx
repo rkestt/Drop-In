@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
@@ -22,8 +23,10 @@ export function CheckoutButton({ checkInId }: CheckoutButtonProps) {
         .eq("id", checkInId);
 
       if (error) throw error;
+      toast.success("Check-out effettuato.");
       window.location.reload();
     } catch (err) {
+      toast.error("Check-out non riuscito. Riprova.");
       console.error("Checkout error:", err);
     } finally {
       setLoading(false);
