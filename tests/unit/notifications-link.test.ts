@@ -26,14 +26,14 @@ describe("notificationHref", () => {
   });
 
   // Shape reale 002: notify_participant_joined (solo lobby).
-  it("participant_joined di 002 porta alla lista lobby", () => {
+  it("participant_joined di 002 porta al dettaglio lobby", () => {
     expect(
       notificationHref({
         type: "participant_joined",
         lobby_id: LOBBY,
         user_id: "999e4567-e89b-12d3-a456-426614174001",
       })
-    ).toBe("/lobbies");
+    ).toBe(`/lobbies/${LOBBY}`);
   });
 
   // Shape reale 002: karma_loss porta lobby_id ma va al profilo (prototipo).

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -15,19 +16,19 @@ import { Drawer } from "@/components/ui/drawer";
 import { StepTransition } from "@/components/motion/step-transition";
 import { SuccessPop } from "@/components/motion/success-pop";
 
-interface CreateLobbySheetProps {
+interface CreateLobbyDrawerProps {
   open: boolean;
   onClose: () => void;
   courtId: string;
   courtName: string;
 }
 
-export function CreateLobbySheet({
+export function CreateLobbyDrawer({
   open,
   onClose,
   courtId,
   courtName,
-}: CreateLobbySheetProps) {
+}: CreateLobbyDrawerProps) {
   // Orario e posti in react-hook-form (schema zod = unica fonte).
   // Restano useState solo per: loading, errori di rete/DB, esito.
   const {
@@ -51,6 +52,7 @@ export function CreateLobbySheet({
   const closeTimer = useRef<number | null>(null);
 
   const supabase = createClient();
+  const router = useRouter();
 
   useEffect(() => {
     if (!open) {
@@ -127,13 +129,13 @@ export function CreateLobbySheet({
         throw error;
       }
 
-      // Successo: l'esito resta dentro lo sheet, poi il drawer si chiude e
-      // la pagina si aggiorna per mostrare la lobby in "Lobby attive".
+      // Successo: l'esito resta dentro il drawer, poi si chiude e la
+      // pagina si aggiorna (router.refresh + realtime) — mai reload.
       setCreatedPlayers(values.maxPlayers);
       setCreated(true);
       closeTimer.current = window.setTimeout(() => {
         onClose();
-        window.location.reload();
+        router.refresh();
       }, 1400);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Errore durante la creazione della lobby.";

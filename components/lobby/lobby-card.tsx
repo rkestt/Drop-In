@@ -1,165 +1,104 @@
 "use client";
 
-import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { NextHighlight } from "@/components/motion/next-highlight";
 import { Users, Clock } from "lucide-react";
+import { formatDistanceM } from "@/lib/lobbies/nearby";
+import type { LobbySummary } from "./types";
 
-interface Participant {
-  user_id: string;
-  nickname: string | null;
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleString("it-IT", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-interface LobbyCardProps {
-  lobby: {
-    id: string;
-    court_id: string;
-    creator_id: string;
-    start_time: string;
-    max_players: number;
-    status: string;
-    courts?: { name: string } | null;
-    participants_count?: number;
-    participants?: Participant[];
-  };
-  userId?: string;
-}
-
-export function LobbyCard({ lobby, userId }: LobbyCardProps) {
-  const [joining, setJoining] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const supabase = createClient();
-
-  const isFull = (lobby.participants_count ?? 0) >= lobby.max_players;
-  // Stato di appartenenza: testo + colore lo dicono sempre; l'highlight
-  // orienta solo al primo sguardo e sfuma alla prima interazione.
-  const isJoined =
-    !!userId && (lobby.participants ?? []).some((p) => p.user_id === userId);
-  const statusVariant =
+/**
+ * Card lobby presentazionale (prototipo d12, lista): tutta la card è un link
+ * al dettaglio `/lobbies/[id]` — join ed esci vivono lì, mai qui.
+ * Badge di stato + "Sei dentro" (NextHighlight) o "Unisciti" come nel prototipo.
+ */
+export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
+  const isFull = lobby.participants_count >= lobby.max_players;
+  const statusLabel =
     lobby.status === "open"
+      ? isFull
+        ? "Al completo"
+        : "Aperta"
+      : lobby.status === "in_progress"
+        ? "In corso"
+        : "Chiusa";
+  const statusVariant =
+    lobby.status === "open" && !isFull
       ? "accent"
       : lobby.status === "in_progress"
-      ? "warning"
-      : "default";
-
-  const handleJoin = async () => {
-    if (!userId) {
-      setError("Devi effettuare l'accesso per unirti.");
-      return;
-    }
-    if (isFull) {
-      setError("La lobby è al completo.");
-      return;
-    }
-
-    setJoining(true);
-    setError(null);
-
-    try {
-      // Check for ban before attempting insert
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("banned_until, karma_score")
-        .eq("user_id", userId)
-        .single();
-
-      if (profile?.banned_until && new Date(profile.banned_until) > new Date()) {
-        throw new Error(
-          `Sei bannato fino al ${new Date(profile.banned_until).toLocaleString("it-IT")}. Non puoi partecipare a lobby.`
-        );
-      }
-
-      if ((profile?.karma_score ?? 90) < 50) {
-        throw new Error(
-          `Karma troppo basso (${profile?.karma_score}). Non puoi partecipare a lobby.`
-        );
-      }
-
-      const { error } = await supabase.from("lobby_participants").insert({
-        lobby_id: lobby.id,
-        user_id: userId,
-      });
-      if (error) throw error;
-      window.location.reload();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Errore durante l'unione.";
-      setError(msg);
-    } finally {
-      setJoining(false);
-    }
-  };
+        ? "warning"
+        : "default";
+  const stateLabel = lobby.is_joined
+    ? "sei dentro"
+    : isFull
+      ? "al completo"
+      : lobby.status;
+  // Nome accessibile completo: campo, sport, orario, posti, distanza, stato.
+  const ariaLabel = [
+    `Lobby al ${lobby.court_name}`,
+    lobby.court_sport ?? undefined,
+    `ore ${formatTime(lobby.start_time)}`,
+    `${lobby.participants_count} su ${lobby.max_players}`,
+    lobby.distance_m != null ? `a ${formatDistanceM(lobby.distance_m)}` : undefined,
+    stateLabel,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
-    <div className="bg-[var(--bg-surface)] rounded-xl p-4 space-y-3">
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-[var(--text-primary)] truncate">
-            {lobby.courts?.name || "Campo sconosciuto"}
-          </h3>
-          <div className="flex items-center gap-3 mt-1 text-sm text-[var(--text-secondary)]">
-            <span className="flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" />
-              {new Date(lobby.start_time).toLocaleString("it-IT", {
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+    <Link
+      href={`/lobbies/${lobby.id}`}
+      aria-label={ariaLabel}
+      className="block rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-4 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-elevated)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
+    >
+      <span className="flex items-start gap-2">
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-semibold text-[var(--text-primary)]">
+            {lobby.court_name}
+          </span>
+          <span className="mt-1 flex items-center gap-3 text-sm text-[var(--text-secondary)]">
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+              {formatTime(lobby.start_time)}
             </span>
-            <span className="flex items-center gap-1">
-              <Users className="w-3.5 h-3.5" />
-              {lobby.participants_count ?? 0}/{lobby.max_players}
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+              <Users className="h-3.5 w-3.5" aria-hidden="true" />
+              {lobby.participants_count}/{lobby.max_players}
             </span>
-          </div>
-        </div>
+            {lobby.distance_m != null && (
+              <span className="whitespace-nowrap">{formatDistanceM(lobby.distance_m)}</span>
+            )}
+          </span>
+        </span>
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <Badge variant={statusVariant as any}>
-          {lobby.status === "open" ? "Aperta" : lobby.status === "in_progress" ? "In corso" : "Chiusa"}
-        </Badge>
-      </div>
-
-      {lobby.participants && lobby.participants.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {lobby.participants.slice(0, 4).map((p) => (
-            <span
-              key={p.user_id}
-              className="text-label px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--text-primary)]"
-            >
-              {p.nickname || "Anonimo"}
-            </span>
-          ))}
-          {lobby.participants.length > 4 && (
-            <span className="text-label text-[var(--text-muted)]">
-              +{lobby.participants.length - 4}
-            </span>
-          )}
-        </div>
-      )}
-
-      {error && (
-        <p className="text-sm text-[var(--danger)]">{error}</p>
-      )}
-
-      {lobby.status === "open" &&
-        (isJoined ? (
-          <NextHighlight>
-            <Badge variant="success" className="w-full justify-center py-2">
+        <Badge variant={statusVariant as any}>{statusLabel}</Badge>
+      </span>
+      <span className="mt-2 flex items-center">
+        {lobby.is_joined ? (
+          <NextHighlight className="ml-auto">
+            <span className="rounded-chip bg-[var(--accent-subtle)] px-2 py-0.5 text-label font-semibold text-[var(--text-primary)]">
               Sei dentro
-            </Badge>
+            </span>
           </NextHighlight>
         ) : (
-          <Button
-            variant="primary"
-            size="sm"
-            className="w-full"
-            onClick={handleJoin}
-            disabled={joining || isFull}
-          >
-            {joining ? "Unione..." : isFull ? "Al completo" : "Unisciti"}
-          </Button>
-        ))}
-    </div>
+          lobby.status === "open" &&
+          !isFull && (
+            <span className="ml-auto inline-flex items-center gap-1 text-sm font-semibold text-[var(--accent)]">
+              Unisciti
+              <span aria-hidden="true">›</span>
+            </span>
+          )
+        )}
+      </span>
+    </Link>
   );
 }
