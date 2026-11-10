@@ -12,10 +12,10 @@ test.describe("motion pipeline (styleguide demo)", () => {
   }) => {
     const tracker = await trackConsoleErrors(page);
     await page.goto("/styleguide");
+    await page.getByTestId("pipe-demo").scrollIntoViewIfNeeded();
     const step = page.getByTestId("pipe-step");
-    await step.scrollIntoViewIfNeeded();
-
     await expect(step).toHaveText("Passo 1: posizione");
+    await step.scrollIntoViewIfNeeded();
     await page.getByRole("button", { name: "Passo 2", exact: true }).click();
     // Durante l'uscita i due step coesistono: si attende lo smontaggio del
     // vecchio (un solo nodo = una sola animazione per cambio di stato).
@@ -37,8 +37,9 @@ test.describe("motion pipeline (styleguide demo)", () => {
   }) => {
     const tracker = await trackConsoleErrors(page);
     await page.goto("/styleguide");
+    await page.getByTestId("pipe-demo").scrollIntoViewIfNeeded();
     const pop = page.getByTestId("pipe-success");
-    await pop.scrollIntoViewIfNeeded();
+    await expect(pop).toBeAttached();
 
     await expect(pop.getByText("Check-in effettuato")).toBeVisible();
     await expect(pop.getByText(/Check-in attivo fino alle/)).toBeVisible();
@@ -59,8 +60,9 @@ test.describe("motion pipeline (styleguide demo)", () => {
   }) => {
     const tracker = await trackConsoleErrors(page);
     await page.goto("/styleguide");
+    await page.getByTestId("pipe-demo").scrollIntoViewIfNeeded();
     const label = page.getByTestId("pipe-highlight");
-    await label.scrollIntoViewIfNeeded();
+    await expect(label).toBeAttached();
 
     const wrapper = page.locator("[data-highlight]").filter({
       has: label,
@@ -82,10 +84,11 @@ test.describe("motion pipeline (styleguide demo)", () => {
     const tracker = await trackConsoleErrors(page);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/styleguide");
+    await page.getByTestId("pipe-demo").scrollIntoViewIfNeeded();
 
     // Step: scambio istantaneo, nessun transform inline di Motion.
     const step = page.getByTestId("pipe-step");
-    await step.scrollIntoViewIfNeeded();
+    await expect(step).toBeAttached();
     await page.getByRole("button", { name: "Passo 2", exact: true }).click();
     // Ramo statico: un solo nodo da subito, niente AnimatePresence.
     await expect(step).toHaveCount(1);
@@ -103,7 +106,7 @@ test.describe("motion pipeline (styleguide demo)", () => {
 
     // Success: testo subito leggibile, check fermo.
     const pop = page.getByTestId("pipe-success");
-    await pop.scrollIntoViewIfNeeded();
+    await expect(pop).toBeAttached();
     await expect(pop.getByText("Check-in effettuato")).toBeVisible();
     await expect(pop.getByText(/Check-in attivo fino alle/)).toBeVisible();
     expect(
@@ -115,7 +118,7 @@ test.describe("motion pipeline (styleguide demo)", () => {
 
     // Highlight: nessun velo animato, al tap sparisce e il testo resta.
     const label = page.getByTestId("pipe-highlight");
-    await label.scrollIntoViewIfNeeded();
+    await expect(label).toBeAttached();
     const wrapper = page.locator("[data-highlight]").filter({ has: label });
     await expect(wrapper).toHaveAttribute("data-highlight", "on");
     await label.click();

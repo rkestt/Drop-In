@@ -496,7 +496,7 @@ function PipelineMotionDemo() {
   const [popRun, setPopRun] = useState(0);
   const [highlightRun, setHighlightRun] = useState(0);
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div data-testid="pipe-demo" className="grid gap-4 sm:grid-cols-3">
       <div className="rounded-card border border-[var(--cool-muted)]/25 bg-[var(--bg-elevated)] p-4">
         <p className="text-sm font-medium">StepTransition</p>
         <p className="mt-0.5 font-mono text-label leading-snug text-[var(--text-secondary)]">
