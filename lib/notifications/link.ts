@@ -21,21 +21,30 @@ function readData(data: unknown): Record<string, unknown> | null {
 
 /**
  * Da `data` JSONB a href interno sicuro, altrimenti `null`.
- * - `court_id` valido → `/courts/<uuid>` (route esistente).
- * - solo `lobby_id` valido → `/lobbies` (lista: non esiste una route
- *   `/lobbies/<id>`, un href lì darebbe 404).
- * - `data` malformato o UUID non validi → `null` (la riga resta
- *   sulla pagina e mostra il dettaglio, senza navigare).
+ * Il kind guida la scelta (prototipo d14):
+ * - karma/ban → `/profile` ("Apri profilo"), anche se `data` porta altri id
+ *   (es. `karma_loss` di 002 porta `lobby_id`: non deve aprire la lobby);
+ * - tipi lobby (`lobby_starting_soon`, `participant_joined`, `lobby`):
+ *   `court_id` valido → `/courts/<uuid>`, altrimenti `lobby_id` valido →
+ *   `/lobbies` (lista: non esiste una route `/lobbies/<id>`, lì darebbe 404);
+ * - checkin/weather/neutral: `court_id` valido → `/courts/<uuid>`
+ *   ("Apri campo"), altrimenti `null` (la riga resta e mostra il dettaglio).
+ * UUID non validi o `data` malformato → `null`, senza eccezioni.
  */
 export function notificationHref(data: unknown): string | null {
   const record = readData(data);
   if (!record) return null;
+  const kind = notificationKind(data);
+
+  if (kind === "karma" || kind === "ban") return "/profile";
 
   const courtId = cleanUuid(record.court_id);
   if (courtId) return `/courts/${courtId}`;
 
-  const lobbyId = cleanUuid(record.lobby_id);
-  if (lobbyId) return "/lobbies";
+  if (kind === "lobby") {
+    const lobbyId = cleanUuid(record.lobby_id);
+    if (lobbyId) return "/lobbies";
+  }
 
   return null;
 }

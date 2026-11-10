@@ -106,3 +106,29 @@ verificato solo in codice + review prototipo).
    registrata anche in `docs/design/specs/notifiche.md`.
 3. Titolo riga `text-base` invece di 15px: scala token chiusa
    (`lint:design`), gerarchia invariata (bold 16 vs body 14).
+
+## Review oracle (APPROVE WITH NITS, 3 bloccanti) — risolti il 2026-11-10
+
+1. **Migration idempotente.** `CREATE POLICY` wrappata in DO block con check
+   su `pg_policies` (pattern 008/015); funzione `CREATE OR REPLACE`,
+   trigger `DROP IF EXISTS` + `CREATE`. Verificata con due applicazioni
+   consecutive via psql (`-f` ×2, entrambe OK); commento corretto.
+2. **Scrittura limitata a `read_at` — scelta (a) trigger.** La policy da sola
+   lasciava self-spoof su titolo/corpo/data delle proprie righe. Ora
+   `trg_restrict_push_notifications_update` (BEFORE UPDATE) accetta solo
+   modifiche a `read_at`, resto → `P0001`. Casi 27d/27e in
+   `tests/rls/assertions.sql` (title e user_id bloccati, proprietario
+   invariato). Nessun flusso esistente scrive altre colonne (002 solo
+   INSERT, app solo `read_at`).
+3. **Href per kind.** `karma_loss` porta `lobby_id` ma apriva la lobby:
+   ora karma/ban → `/profile` ("Apri profilo", prototipo); solo i tipi
+   lobby usano `lobby_id` (court → `/courts/<uuid>`, senno `/lobbies`);
+   checkin/meteo/neutral → `/courts/<uuid>` se `court_id` valido, senno
+   `null`. Test con shape reali di 002. Live: riga karma mostra
+   "Apri profilo".
+- Nit: niente `preventDefault` con modificatori (navigazione nativa, resta
+  non letta); `loadMore` filtra `seenIds` (offset shiftato dal prepend);
+  `void removeChannel`.
+- Riverifica: vitest 143/143, lint/tsc/lint:design verdi, test:rls exit 0,
+  live completo verde + console pulita, axe autenticata 0 violazioni,
+  suite a11y 3/3 (run precedente, pagine non toccate da questo round).

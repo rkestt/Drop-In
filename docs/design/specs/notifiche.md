@@ -32,9 +32,16 @@ da leggere, aprire il campo o la lobby collegata con un tap.
   default) + `Segna tutte come lette`; righe non lette con pallino, titolo
   bold, `sr-only` "Non letta".
 - **Tap riga con link:** optimistic `read_at` con rollback + toast su errore,
-  poi naviga (`/courts/<uuid>`, o `/lobbies` se solo `lobby_id`).
-- **Tap riga senza link** (`data` malformato): resta sulla pagina, segna come
-  letta, mostra il dettaglio nel corpo. Mai errori, mai navigazioni a vuoto.
+  poi naviga. Click con modificatori (cmd/ctrl/shift) o centrale: navigazione
+  nativa senza mark-as-read.
+- **Deep link per kind** (`notificationHref`): karma/ban → `/profile`
+  ("Apri profilo", come il prototipo — `karma_loss` di 002 porta `lobby_id`
+  ma non apre la lobby); tipi lobby → `/courts/<uuid>` se `court_id` valido
+  senno `/lobbies` (lista); checkin/meteo/neutri → `/courts/<uuid>` se
+  `court_id` valido senno nessun href.
+- **Tap riga senza link** (`data` malformato o kind senza id utile): resta
+  sulla pagina, segna come letta, mostra il dettaglio nel corpo. Mai errori,
+  mai navigazioni a vuoto.
 - **Realtime:** nuova riga in testa con flash accent 2s + un solo toast
   Sonner per id (deduplicato); annuncio via live region `aria-live="polite"`.
 - **Vuoto:** icona campanella, `Nessuna notifica` /
@@ -46,6 +53,16 @@ da leggere, aprire il campo o la lobby collegata con un tap.
 - **Offline:** banner `Dati di N min fa` + `Sei offline. Segnare come letta
   richiede la connessione.`; righe non interattive, niente segna-come-letto.
 - **Paginazione:** `Carica altre` (20 per pagina), errore inline + Riprova.
+
+## Scrittura limitata a `read_at` (scelta esplicita)
+
+Postgres non ha column-list su UPDATE: la policy da sola lascerebbe al
+proprietario la riscrittura di titolo/corpo/data delle proprie righe
+(self-spoof). Scelta (a): trigger `BEFORE UPDATE`
+`trg_restrict_push_notifications_update` in 016 che accetta solo modifiche a
+`read_at` (tutto il resto → `P0001`), coperto dai casi 27d/27e di
+`tests/rls/assertions.sql`. Nessun flusso esistente scrive altre colonne
+(002 fa solo INSERT, l'app scrive solo `read_at`).
 
 ## Deep link (scostamento dal ticket)
 

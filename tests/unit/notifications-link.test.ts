@@ -9,19 +9,75 @@ const COURT = "123e4567-e89b-12d3-a456-426614174000";
 const LOBBY = "123e4567-e89b-12d3-a456-426614174001";
 
 describe("notificationHref", () => {
-  it("court_id valido porta a /courts/<uuid>", () => {
+  it("court_id valido senza kind porta a /courts/<uuid>", () => {
     expect(notificationHref({ court_id: COURT })).toBe(`/courts/${COURT}`);
   });
 
-  it("solo lobby_id valido porta alla lista lobby (niente /lobbies/<id>)", () => {
-    expect(notificationHref({ lobby_id: LOBBY, type: "participant_joined" })).toBe(
-      "/lobbies"
+  // Shape reale 002: notify_lobby_starting_soon (court + lobby + start).
+  it("lobby_starting_soon di 002 porta al campo", () => {
+    expect(
+      notificationHref({
+        type: "lobby_starting_soon",
+        lobby_id: LOBBY,
+        court_id: COURT,
+        start_time: "2026-11-10T19:00:00+01:00",
+      })
+    ).toBe(`/courts/${COURT}`);
+  });
+
+  // Shape reale 002: notify_participant_joined (solo lobby).
+  it("participant_joined di 002 porta alla lista lobby", () => {
+    expect(
+      notificationHref({
+        type: "participant_joined",
+        lobby_id: LOBBY,
+        user_id: "999e4567-e89b-12d3-a456-426614174001",
+      })
+    ).toBe("/lobbies");
+  });
+
+  // Shape reale 002: karma_loss porta lobby_id ma va al profilo (prototipo).
+  it("karma_loss di 002 porta al profilo, non alla lobby", () => {
+    expect(
+      notificationHref({
+        type: "karma_loss",
+        lobby_id: LOBBY,
+        points_lost: 3,
+      })
+    ).toBe("/profile");
+  });
+
+  it("il kind vince sul court_id: karma con campo va al profilo", () => {
+    expect(notificationHref({ kind: "karma", court_id: COURT })).toBe(
+      "/profile"
     );
   });
 
-  it("court_id vince su lobby_id quando entrambi validi", () => {
+  it("ban con lobby_id va al profilo", () => {
+    expect(notificationHref({ kind: "ban", lobby_id: LOBBY })).toBe("/profile");
+  });
+
+  it("meteo/checkin con solo lobby_id non navigano", () => {
+    expect(notificationHref({ kind: "weather", lobby_id: LOBBY })).toBeNull();
+    expect(notificationHref({ kind: "checkin", lobby_id: LOBBY })).toBeNull();
+  });
+
+  it("meteo/checkin con court_id aprono il campo", () => {
+    expect(notificationHref({ kind: "weather", court_id: COURT })).toBe(
+      `/courts/${COURT}`
+    );
+    expect(notificationHref({ kind: "checkin", court_id: COURT })).toBe(
+      `/courts/${COURT}`
+    );
+  });
+
+  it("court_id vince su lobby_id quando entrambi validi (tipo lobby)", () => {
     expect(
-      notificationHref({ court_id: COURT, lobby_id: LOBBY })
+      notificationHref({
+        type: "lobby_starting_soon",
+        court_id: COURT,
+        lobby_id: LOBBY,
+      })
     ).toBe(`/courts/${COURT}`);
   });
 
@@ -35,11 +91,11 @@ describe("notificationHref", () => {
     ["uuid non valido", { court_id: "abc" }],
     ["path traversal nel campo", { court_id: "../../etc" }],
     ["campo non stringa", { court_id: 42 }],
+    ["lobby_id non valido", { type: "participant_joined", lobby_id: "zzz" }],
     ["data null", null],
     ["data stringa", "lobby"],
     ["data array", [COURT]],
     ["oggetto vuoto", {}],
-    ["solo type senza id", { type: "karma_loss" }],
   ])("non naviga e non lancia errori: %s", (_label, data) => {
     expect(notificationHref(data)).toBeNull();
   });

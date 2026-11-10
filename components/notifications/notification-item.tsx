@@ -38,6 +38,7 @@ const KIND_STYLE: Record<NotificationKind, string> = {
 };
 
 function goLabel(href: string): string {
+  if (href === "/profile") return "Apri profilo";
   if (href.startsWith("/courts/")) return "Apri campo";
   return "Apri lobby";
 }
@@ -124,6 +125,16 @@ export function NotificationItem({
         <Link
           href={href}
           onClick={(event) => {
+            // Nuova scheda/finestra o modificatori: navigazione nativa,
+            // nessun mark-as-read ottimistico (la riga resta non letta).
+            if (
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey
+            ) {
+              return;
+            }
             event.preventDefault();
             onOpen(notification);
           }}

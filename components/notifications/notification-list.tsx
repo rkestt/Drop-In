@@ -100,7 +100,7 @@ export function NotificationList({
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
   }, [supabase, userId]);
 
@@ -116,7 +116,11 @@ export function NotificationList({
     if (error) {
       setLoadError(true);
     } else {
-      const rows = (data ?? []) as NotificationRow[];
+      // Il prepend realtime sposta l'offset: filtra le righe già viste
+      // per non duplicarle in lista.
+      const rows = ((data ?? []) as NotificationRow[]).filter(
+        (row) => !seenIds.current.has(row.id)
+      );
       for (const row of rows) seenIds.current.add(row.id);
       setItems((prev) => [...prev, ...rows]);
       setHasMore(rows.length === PAGE_SIZE);
