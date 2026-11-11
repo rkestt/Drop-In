@@ -56,7 +56,7 @@ Fuori da questa lista ma reale: **#58** (retract/edit submission, L) e **#60** (
 9. Service worker: deploy N → visita → deploy N+1 → rivisita, versione nuova senza svuotare la cache.
 10. Backup `pg_dump` del remoto salvato prima del push.
 
-## Stato aggiornato — 2026-11-11 (sessione Fase A + B, branch `feat/post-1.5-fase-b`)
+## Stato aggiornato — 2026-11-11 (sessione Fase A + B, mergiata in `master`)
 
 - **Fase A chiusa.** Le issue #54–#61 non contenevano più falsi "assorbito" (verificato con `gh issue view --comments`: nessuna occorrenza). `docs/moderation.md:116` corretto: la 012 è applicata, il masking è completo solo dalla 018, le guardie NULL-opache sono chiuse dalla 018.
 - **Fase B chiusa** con migration `018`–`021` e test: #54, #55, #56, #57, #59, #60, #61, #48.
@@ -68,7 +68,7 @@ Fuori da questa lista ma reale: **#58** (retract/edit submission, L) e **#60** (
 - **Gate verdi** sul branch: `tsc --noEmit`, `lint`, `lint:design`, `vitest` 231/231, `test:rls` (incl. §28–32), `build`, `playwright --project=e2e` 27, `visual-static` 12, `visual-full` 24.
 - Baseline `onboarding-360` rigenerata: il cambio di altezza (780→786) è la nuova copy dell'empty state, non un bug di layout.
 - **Staging**: `docs/staging.md` scritto come checklist decisionale. La scelta self-hosted vs preview resta al report dei prerequisiti del server (RAM/disco/upload/IP o tunnel), non è una decisione presa.
-- **Follow-up emersi in review** (non in questa fase): filtro sport visibile in `/lobbies` (oggi il default basket può svuotare la tab senza spiegazione), `photo_path` non renderizzata sulla home (campo `photo_url` morto, rimosso), prima fetch lobby che può partire prima della geolocalizzazione, rebuild dei marker a ogni cambio sport (solo perf).
+- **Follow-up emersi in review** (non in questa fase): filtro sport visibile in `/lobbies` (#65), `photo_path` non renderizzata sulla home (#66), prima fetch lobby che può partire prima della geolocalizzazione, rebuild dei marker a ogni cambio sport (solo perf).
 
 ## Cosa NON fare ora
 
