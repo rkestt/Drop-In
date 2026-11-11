@@ -18,8 +18,8 @@ CREATE POLICY courts_select_all ON public.courts
 
 Distinzione tra INVOKER e DEFINER, verificata su `010_court_submissions.sql`:
 
-- `courts_in_viewport` e `nearby_courts`: **SECURITY INVOKER** (nessuna clausola DEFINER). Ereditano la RLS di `courts` perché girano col ruolo del chiamante, quindi il `SELECT * FROM courts` nel corpo è filtrato dalla policy. È per questo che non c'è nessun `WHERE moderation_status='approved'` nel loro SQL: aggiungerlo creerebbe due posti da tenere allineati.
-- `submit_court`, `dedup_candidates`, `approve_court`, `reject_court`, `mark_duplicate`: **SECURITY DEFINER**, per una ragione precisa ciascuno — `submit_court` deve inserire una corte `pending` che la RLS nasconderebbe; `dedup_candidates` deve vedere anche le pending; i tre di moderazione devono poter aggiornare righe che il chiamante non può toccare. Ognuno si difende con la propria guardia (`auth.uid()` obbligatorio, whitelist, rate limit, oppure `auth.role()='service_role' OR is_moderator()`).
+- `courts_in_viewport` e `nearby_courts`: **SECURITY INVOKER** (nessuna clausola DEFINER). Ereditano la RLS di `courts` perché girano col ruolo del chiamante, quindi il `SELECT` nel corpo è filtrato dalla policy. È per questo che non c'è nessun `WHERE moderation_status='approved'` nel loro SQL: aggiungerlo creerebbe due posti da tenere allineati. (`courts_in_viewport` dalla 018 elenca le colonne esplicite invece di `SELECT *`, stessa RLS.)
+- `submit_court`, `dedup_candidates`, `approve_court`, `reject_court`, `mark_duplicate`: **SECURITY DEFINER**, per una ragione precisa ciascuno — `submit_court` deve inserire una corte `pending` che la RLS nasconderebbe; `dedup_candidates` deve vedere anche le pending; i tre di moderazione devono poter aggiornare righe che il chiamante non può toccare. Ognuno si difende con la propria guardia (`auth.uid()` obbligatorio, whitelist, rate limit, oppure `auth.role() IS DISTINCT FROM 'service_role' AND NOT is_moderator()` → `42501`, deny di default dalla 018).
 
 Il punto che conta: **la RLS è l'unico layer per la lettura**, le guardie dentro i DEFINER sono l'unico layer per la scrittura. Non ci sono filtri duplicati.
 
@@ -73,19 +73,17 @@ Supabase Studio locale su `http://127.0.0.1:54333` (SQL editor → gira come `po
 docker exec -i supabase_db_drop-in psql -U postgres -d postgres
 ```
 
-**Comportamento diverso per `submit_court` e per gli RPC di moderazione.** `submit_court` rifiuta esplicitamente quando `auth.uid()` è NULL (`Devi essere autenticato per inviare un campo.`), quindi **fallisce** da Studio/psql. Solo `approve_court`/`reject_court`/`mark_duplicate` hanno la guardia NULL-opaca e passano. Test reale eseguito da psql come `postgres`:
+**Comportamento diverso per `submit_court` e per gli RPC di moderazione.** `submit_court` rifiuta esplicitamente quando `auth.uid()` è NULL (`Devi essere autenticato per inviare un campo.`), quindi **fallisce** da Studio/psql. Gli RPC di moderazione negano di default senza claim JWT (`Non autorizzato.`, `42501`) dalla migration 018: per moderare da Studio/psql impostare prima i claim (`SET LOCAL request.jwt.claims = '{"sub":"<uuid-mod>","role":"authenticated"}';`). Test reale eseguito da psql come `postgres`:
 
 ```text
 SELECT submit_court('Test Psql', 41.9, 12.5);
 -- ERROR:  Devi essere autenticato per inviare un campo.
 
 SELECT approve_court('00000000-0000-0000-0000-000000000000');
---  approve_court
--- ---------------
---                 (nessun errore; 0 righe aggiornate su UUID inesistente)
+-- ERROR:  Non autorizzato. (42501: senza claim JWT la guardia nega)
 ```
 
-Nessun workaround necessario per la moderazione (`set local request.jwt.claims` non richiesto); per `submit_court` non esiste invece scorciatoia da psql: l'invio richiede un JWT `authenticated` (via app/PostgREST).
+Per moderare da psql/Studio serve la scorciatoia dei claim (`SET LOCAL request.jwt.claims = ...`, vedi sopra); per `submit_court` non esiste invece scorciatoia da psql: l'invio richiede un JWT `authenticated` (via app/PostgREST).
 
 > **Avviso: da Studio/psql la RLS non si applica.** Il ruolo `postgres` ha `rolbypassrls`, quindi le policy non filtrano: `courts_in_viewport`/`nearby_courts` (e qualunque `SELECT` diretto) restituiscono anche `pending`/`rejected`/`duplicate`. Chi esplora da Studio vede righe che il pubblico non vede; per vedere ciò che vede il pubblico, filtrare esplicitamente `moderation_status = 'approved'`.
 
@@ -113,13 +111,13 @@ Bucket `court-photos`: pubblico in lettura, 5 MB, solo `image/jpeg|png|webp`. Sc
 
 `dedup_candidates` è concesso solo ad `authenticated` (non ad `anon`). Un anonimo non deve poter enumerare le corti pending per posizione; le pending sono visibili al suo interno proprio perché deve confrontarci una proposta in arrivo.
 
-> **In arrivo (migration 012, non ancora applicata — documentazione anticipatoria).** Le corti non `approved` che non appartengono al chiamante verranno restituite **mascherate** (`id = NULL`, `name = 'Proposta in attesa'`), per chiudere l'enumerazione delle proposte altrui via posizione. Le proprie proposte restano visibili per esteso. Resta invariato il perché le pending si vedono: evitare di duplicare una proposta già in coda — il mascheramento nasconde *di chi* è e *quale* riga sia, non *che* lì c'è già qualcosa.
+> **Applicata (migration 012) e completata (migration 018).** Le corti non `approved` che non appartengono al chiamante vengono restituite **mascherate**: `id = NULL`, `name = 'Proposta in attesa'` (012), più `lat = NULL`, `lng = NULL`, `distance_m = NULL`, `moderation_status = NULL`, `source = NULL` (018 — prima questi ultimi restavano in chiaro e rivelavano dove si trova la proposta altrui). Le proprie proposte restano visibili per esteso. Resta invariato il perché le pending si vedono: evitare di duplicare una proposta già in coda — il mascheramento nasconde *di chi* è, *quale* riga sia e *dove* sia, non *che* lì c'è già qualcosa.
 
-## Difetto noto: guardie NULL-opache (bypass da psql/Studio)
+## Guardie NULL-opache: corrette in 018 (era un difetto noto)
 
-Chiamando gli RPC di moderazione da psql/Studio come `postgres` i claim JWT sono assenti, `auth.role()` è NULL e `IF NULL THEN` non scatta, quindi le guardie lasciano passare. È un **difetto noto, non una proprietà accettabile**: qualunque chiamante senza claim JWT — incluso un futuro job pg_cron, che gira come `postgres` senza claims — esegue la moderazione senza autorizzazione. Richiede accesso diretto al DB, mentre PostgREST imposta sempre i claim, quindi dal browser non è raggiungibile; resta comunque da correggere.
+Prima della 018, chiamando gli RPC di moderazione da psql/Studio come `postgres` i claim JWT erano assenti, `auth.role()` era NULL e `IF NULL THEN` non scattava, quindi le guardie lasciavano passare: qualunque chiamante senza claim JWT — incluso un futuro job pg_cron, che gira come `postgres` senza claims — eseguiva la moderazione senza autorizzazione.
 
-La correzione è scrivere le guardie con `IS DISTINCT FROM` (deny di default), ad esempio:
+La correzione (migration 018) scrive le guardie con `IS DISTINCT FROM` (deny di default):
 
 ```sql
 IF auth.role() IS DISTINCT FROM 'service_role' AND NOT public.is_moderator() THEN
@@ -127,7 +125,7 @@ IF auth.role() IS DISTINCT FROM 'service_role' AND NOT public.is_moderator() THE
 END IF;
 ```
 
-Con `IS DISTINCT FROM`, un `auth.role()` NULL **nega** l'accesso invece di lasciarlo passare. Finché la correzione non è applicata, trattare ogni esecuzione da Studio/psql come operazione privilegiata non autenticata.
+Con `IS DISTINCT FROM`, un `auth.role()` NULL **nega** l'accesso invece di lasciarlo passare. Da Studio/psql la moderazione richiede ora i claim espliciti (vedi sopra).
 
 ## Foto immutabile dopo l'approvazione (migration 014)
 

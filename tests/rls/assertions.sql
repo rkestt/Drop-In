@@ -571,4 +571,145 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ================= 28. #54: pending altrui interamente mascherata in dedup =================
+-- Come C (non proprietario): la riga mascherata non espone coordinate,
+-- distanza, stato o origine; il nome reale non filtra mai.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.dedup_candidates(41.9, 12.5, 3000)
+             WHERE name IN ('Pending Court', 'Test Court')) THEN
+    RAISE EXCEPTION 'non-owner saw foreign pending real name';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.dedup_candidates(41.9, 12.5, 3000)
+                 WHERE name = 'Proposta in attesa') THEN
+    RAISE EXCEPTION 'masked row missing for non-owner';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.dedup_candidates(41.9, 12.5, 3000)
+             WHERE name = 'Proposta in attesa'
+               AND (id IS NOT NULL OR lat IS NOT NULL OR lng IS NOT NULL
+                    OR distance_m IS NOT NULL OR moderation_status IS NOT NULL
+                    OR source IS NOT NULL)) THEN
+    RAISE EXCEPTION 'masked row leaks coordinates/distance/status/source';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- Controllo positivo: il proprietario vede la propria pending per esteso.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.dedup_candidates(41.9, 12.5, 3000)
+                 WHERE name = 'Pending Court' AND id IS NOT NULL
+                   AND lat IS NOT NULL AND lng IS NOT NULL
+                   AND moderation_status = 'pending') THEN
+    RAISE EXCEPTION 'owner lost unmasked view of own pending';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- ================= 29. #57: UPDATE di court_id su pending -> P0001 =================
+-- Il creatore sposta la propria lobby (creata al punto 23 su 'C Court',
+-- approvata) verso 'Pending Court': il trigger BEFORE UPDATE OF court_id
+-- blocca. Stesso per un check-in proprio su corte approvata (inserito qui
+-- sulle coordinate esatte della corte per passare il controllo distanza,
+-- INSERT-only). Accettati P0001 (trigger) o 42501 (RLS): cio' che conta e'
+-- che lo spostamento non riesca.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+INSERT INTO public.check_ins (user_id, court_id, lat, lng)
+VALUES ('11111111-1111-1111-1111-111111111111',
+        (SELECT id FROM public.courts WHERE name = 'C Court'), 41.94, 12.54);
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.lobbies SET court_id = (SELECT id FROM public.courts WHERE name = 'Pending Court')
+    WHERE creator_id = '11111111-1111-1111-1111-111111111111';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE IN ('42501', 'P0001') THEN RETURN; END IF;
+    RAISE EXCEPTION 'lobby move su pending: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'lobby moved onto pending court';
+END $$;
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.check_ins SET court_id = (SELECT id FROM public.courts WHERE name = 'Pending Court')
+    WHERE user_id = '11111111-1111-1111-1111-111111111111';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE IN ('42501', 'P0001') THEN RETURN; END IF;
+    RAISE EXCEPTION 'check-in move su pending: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'check-in moved onto pending court';
+END $$;
+-- Controlli positivi: stesso trigger non blocca gli UPDATE leciti.
+UPDATE public.lobbies SET max_players = 12
+WHERE creator_id = '11111111-1111-1111-1111-111111111111';
+UPDATE public.lobbies SET court_id = (SELECT id FROM public.courts WHERE name = 'Photo Approved')
+WHERE creator_id = '11111111-1111-1111-1111-111111111111';
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+                 WHERE l.creator_id = '11111111-1111-1111-1111-111111111111'
+                   AND c.name = 'Photo Approved' AND l.max_players = 12) THEN
+    RAISE EXCEPTION 'lecit lobby update blocked by court_id guard';
+  END IF;
+END $$;
+
+-- ================= 30. #61: courts_in_viewport espone solo le colonne scelte =================
+-- Uguaglianza esatta sull'elenco dei parametri OUT/TABLE: niente location,
+-- submitted_by, osm_id, duplicate_of, created_at/updated_at, e nessuna
+-- futura colonna sensibile finita dentro per sbaglio via SELECT *.
+DO $$ DECLARE v TEXT[]; BEGIN
+  SELECT COALESCE(array_agg(u.name ORDER BY u.ord), '{}') INTO v
+  FROM pg_proc p
+  JOIN LATERAL unnest(p.proargnames, p.proargmodes) WITH ORDINALITY AS u(name, mode, ord) ON true
+  WHERE p.pronamespace = 'public'::regnamespace
+    AND p.proname = 'courts_in_viewport'
+    AND u.mode IN ('o', 'b', 't');
+  IF v <> ARRAY['id','name','lat','lng','address','surface_type','hoop_count',
+                'status','sport','venue_type','source','photo_path','moderation_status'] THEN
+    RAISE EXCEPTION 'courts_in_viewport columns changed: %', v;
+  END IF;
+END $$;
+
+-- ================= 31. #60: p_query con '%' non fa da wildcard =================
+-- Come anon: '%' e '_' letterali non matchano nulla (nessuna corte li
+-- contiene); la ricerca normale continua a funzionare.
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$ DECLARE v_n BIGINT; BEGIN
+  SELECT count(*) INTO v_n FROM public.nearby_courts(41.9, 12.5, 50000, 10, NULL, '%');
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'p_query %% acted as wildcard: % rows', v_n;
+  END IF;
+  SELECT count(*) INTO v_n FROM public.nearby_courts(41.9, 12.5, 50000, 10, NULL, '_');
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'p_query _ acted as wildcard: % rows', v_n;
+  END IF;
+  SELECT count(*) INTO v_n FROM public.nearby_courts(41.9, 12.5, 50000, 10, NULL, 'C Court');
+  IF v_n < 1 THEN
+    RAISE EXCEPTION 'plain p_query stopped matching';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- ================= 32. #59: deny di default senza claim JWT (tripwire per IS DISTINCT FROM) =================
+-- Senza claim JWT auth.role() è NULL: con `<>` il confronto è NULL e la
+-- guardia lascia passare, con `IS DISTINCT FROM` nega con 42501. Se la 018
+-- venisse revertata a `<>`, questo blocco (e non il resto della suite)
+-- fallirebbe con 'approve senza claim riuscita'.
+SET LOCAL request.jwt.claims = '';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.approve_court((SELECT id FROM public.courts WHERE name = 'Pending Court'));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'approve senza claim: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'approve senza claim riuscita (guardia NULL-opaca?)';
+END $$;
+RESET ROLE;
+
 ROLLBACK;
