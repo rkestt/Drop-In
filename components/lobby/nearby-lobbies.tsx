@@ -11,6 +11,8 @@ import {
   NEARBY_RADIUS_M,
   OPEN_LOBBIES_LIMIT,
 } from "@/lib/lobbies/nearby";
+import { sportLabel, sportMatches } from "@/lib/sport/sports";
+import { useSport } from "@/lib/sport/sport-context";
 import { MapPin } from "lucide-react";
 import type { LobbySummary } from "./types";
 
@@ -23,12 +25,17 @@ type NearbyState =
       kind: "ready";
       lobbies: LobbySummary[];
       nearestCourt: { id: string; name: string } | null;
+      /** Vuoto perche': "radius" = niente nel raggio, "sport" = lobby nel
+          raggio ma non per questo sport, null = non vuote. */
+      emptyCause: "radius" | "sport" | null;
     };
 
 /**
  * Tab "Vicine": chiede la posizione, carica le lobby aperte (campione di
  * `OPEN_LOBBIES_LIMIT`, vedi spec) con le coordinate del campo e tiene solo
- * quelle entro il raggio (bug #48), ordinate per distanza reale. Coordinate
+ * quelle entro il raggio (bug #48), ordinate per distanza reale, poi filtra
+ * per lo sport attivo (`sportMatches`, stesso predicato del RPC
+ * `open_lobbies`: "multi" e liste ";" — bug #48 sport gap). Coordinate
  * campo assenti/non numeriche → riga esclusa (`courtDistanceM` = null).
  * Senza posizione: messaggio + CTA "Trova un campo", mai dati inventati.
  * Senza lobby ma con campi vicini: CTA "Crea una lobby" sul campo più
@@ -43,9 +50,16 @@ export function NearbyLobbies({
 }) {
   const [state, setState] = useState<NearbyState>({ kind: "locating" });
   const supabase = createClient();
+  const { sport, pSport } = useSport();
   // Ultima posizione nota: gli eventi realtime ricaricano i DATI (load),
   // non le props server (router.refresh qui non servirebbe a nulla).
   const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  // Sport letto via ref: il cambio sport non deve rifare geolocalizzazione
+  // (l'effect locate sotto dipende da `load`, che così resta stabile).
+  const pSportRef = useRef(pSport);
+  useEffect(() => {
+    pSportRef.current = pSport;
+  }, [pSport]);
 
   const load = useCallback(
     (lat: number, lng: number) => {
@@ -97,12 +111,19 @@ export function NearbyLobbies({
           }
 
           const lobbies: LobbySummary[] = [];
+          // Due stadi separati: prima il raggio, poi lo sport. Così a lista
+          // vuota si distingue "niente nel raggio" da "niente per lo sport".
+          let anyInRadius = false;
           for (const l of rows) {
             if (!l.courts) continue;
             const d = courtDistanceM(lat, lng, l.courts.lat, l.courts.lng);
             // Null = coordinate inutilizzabili: esclusa, mai "distanza
-            // sconosciuta" in una tab "Vicine".
+            // sconosciuta" in una tab "Vicine". isWithinRadiusM riusa la
+            // stessa matematica (haversine + guardia null); `d` serve solo
+            // per mostrarla nella card.
             if (d === null || !isWithinRadiusM(lat, lng, l.courts.lat, l.courts.lng)) continue;
+            anyInRadius = true;
+            if (!sportMatches(l.courts.sport, pSportRef.current)) continue;
             const participants = (l.lobby_participants ?? []).map((p) => ({
               user_id: p.user_id,
               nickname: nicknameMap.get(p.user_id) ?? null,
@@ -140,7 +161,17 @@ export function NearbyLobbies({
           }
 
           if (!cancelled) {
-            setState({ kind: "ready", lobbies, nearestCourt });
+            setState({
+              kind: "ready",
+              lobbies,
+              nearestCourt,
+              emptyCause:
+                lobbies.length > 0
+                  ? null
+                  : pSportRef.current !== null && anyInRadius
+                    ? "sport"
+                    : "radius",
+            });
             onCount(lobbies.length);
           }
         } catch {
@@ -176,6 +207,16 @@ export function NearbyLobbies({
       cancelled = true;
     };
   }, [load]);
+
+  // Cambio sport: ri-filtra con l'ultima posizione nota, senza rifare
+  // geolocalizzazione (al mount pSport è invariato: nessuna doppia fetch).
+  const prevPSport = useRef(pSport);
+  useEffect(() => {
+    if (prevPSport.current === pSport) return;
+    prevPSport.current = pSport;
+    const c = coordsRef.current;
+    if (c) loadRef.current(c.lat, c.lng);
+  }, [pSport]);
 
   // Realtime efficace: join/leave ricaricano i dati con l'ultima posizione
   // nota. router.refresh() qui non servirebbe: la pagina non passa props
@@ -257,14 +298,19 @@ export function NearbyLobbies({
   }
 
   if (state.lobbies.length === 0) {
+    // Stesso pattern dell'empty state esistente (icona text-muted + CTA):
+    // cambia solo il testo tra "niente nel raggio" e "niente per lo sport".
+    // Senza "qui intorno" nella variante sport: il titolo resta su una riga
+    // a 360 per ogni label.
+    const sportCause = state.emptyCause === "sport" && sport !== null;
     return (
       <div className="py-8 text-center">
         <MapPin className="mx-auto mb-2 h-8 w-8 text-[var(--text-muted)]" aria-hidden="true" />
         <h2 className="text-xl font-semibold text-[var(--text-primary)]">
-          Nessuna lobby qui intorno
+          {sportCause ? `Nessuna lobby di ${sportLabel(sport).toLowerCase()}` : "Nessuna lobby qui intorno"}
         </h2>
         <p className="mx-auto mt-1 max-w-60 text-sm text-[var(--text-secondary)]">
-          Sii il primo.
+          {sportCause ? "Ci sono partite di altri sport." : "Sii il primo."}
         </p>
         <div className="mx-auto mt-3 w-full max-w-60 [&_button]:min-h-11 [&_button]:w-full">
           {state.nearestCourt ? (

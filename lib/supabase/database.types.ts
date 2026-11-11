@@ -332,32 +332,9 @@ isOneToOne: false
                            },
 "courts_in_viewport":
 { Args: { "max_lat": number,"max_lng": number,"max_results"?: number,"min_lat": number,"min_lng": number,"p_sport"?: string }; Returns: {
-              "address": string | null,
-"created_at": string | null,
-"duplicate_of": string | null,
-"hoop_count": number | null,
-"id": string,
-"lat": number,
-"lng": number,
-"location": unknown,
-"moderation_status": string,
-"name": string,
-"osm_id": string | null,
-"photo_path": string | null,
-"source": string,
-"sport": string | null,
-"status": string | null,
-"submitted_by": string | null,
-"surface_type": string | null,
-"updated_at": string | null,
-"venue_type": string | null
+              "address": string,"hoop_count": number,"id": string,"lat": number,"lng": number,"moderation_status": string,"name": string,"photo_path": string,"source": string,"sport": string,"status": string,"surface_type": string,"venue_type": string
             }[]
-                          SetofOptions: {
-        from: "*"
-        to: "courts"
-        isOneToOne: false
-        isSetofReturn: true
-      } },
+                           },
 "dedup_candidates":
 { Args: { "p_lat": number,"p_lng": number,"p_radius_m"?: number }; Returns: {
               "distance_m": number,"id": string,"lat": number,"lng": number,"moderation_status": string,"name": string,"source": string
@@ -488,7 +465,7 @@ isOneToOne: false
 { Args: { "p_body": string,"p_data"?: Json,"p_title": string,"p_user_id": string }; Returns: undefined
                            },
 "open_lobbies":
-{ Args: { "p_limit"?: number,"p_sport"?: string }; Returns: {
+{ Args: { "p_lat"?: number,"p_limit"?: number,"p_lng"?: number,"p_radius_m"?: number,"p_sport"?: string }; Returns: {
               "court_id": string,"court_name": string,"court_sport": string,"id": string,"max_players": number,"participants_count": number,"start_time": string,"status": string
             }[]
                            },
