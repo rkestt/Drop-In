@@ -16,7 +16,7 @@ function resolveServiceRoleKey(): string {
     "SUPABASE_SERVICE_ROLE_KEY mancante e URL non locale: niente fallback, per non spedire la chiave di servizio nel posto sbagliato.",
   );
 }
-const SERVICE_ROLE_KEY = resolveServiceRoleKey();
+export const SERVICE_ROLE_KEY = resolveServiceRoleKey();
 
 export type TestUser = { email: string; password: string; nickname: string };
 

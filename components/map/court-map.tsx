@@ -313,7 +313,14 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
   }, [removeCourtMarkers]);
 
   return (
-    <div className="absolute inset-0" role="region" aria-label={ariaLabel}>
+    <div
+      className="absolute inset-0"
+      role="region"
+      aria-label={ariaLabel}
+      // Screenshot visual: canvas WebGL, tile di rete, marker e controlli
+      // non sono deterministici → il confronto li ignora (grigio uniforme).
+      data-visual-mask
+    >
       <div ref={mapContainer} className="w-full h-full" />
       {locationError && (
         <div className="absolute top-4 left-4 right-4 bg-[var(--bg-elevated)] rounded-card p-3 shadow-lg z-10" role="alert" aria-live="polite">

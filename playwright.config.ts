@@ -21,21 +21,51 @@ function loadEnvLocal(): Record<string, string> {
 const envLocal = loadEnvLocal();
 void envLocal;
 
+// Porta parametrica: default 3100. Lane parallele o run manuali mentre la
+// 3100 è occupata usano E2E_PORT=3140 (il webServer riusato segue la porta).
+const E2E_PORT = Number(process.env.E2E_PORT ?? 3100);
+
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3100",
+    baseURL: `http://localhost:${E2E_PORT}`,
     trace: "retain-on-failure",
     // Utente "di ritorno": onboarding e coach già visti, altrimenti il drawer
     // del primo avvio rende inert il contenuto e gli e2e non trovano le sezioni.
     storageState: "tests/e2e/storage-state.json",
   },
+  projects: [
+    {
+      name: "e2e",
+      testIgnore: ["**/screens-visual.spec.ts"],
+    },
+    {
+      // Senza Supabase: gira anche in CI (vedi job visual-static).
+      name: "visual-static",
+      testMatch: ["**/screens-visual.spec.ts"],
+      use: {
+        timezoneId: "Europe/Rome",
+        locale: "it-IT",
+      },
+    },
+    {
+      // Con Supabase locale: solo in locale con E2E_WITH_DB=1
+      // (fuori CI: `npm run test:visual:full`). Senza la env, i test
+      // si skippano da soli ed il progetto resta verde.
+      name: "visual-full",
+      testMatch: ["**/screens-visual-full.spec.ts"],
+      use: {
+        timezoneId: "Europe/Rome",
+        locale: "it-IT",
+      },
+    },
+  ],
   webServer: {
-    command: "npm run dev -- -p 3100",
-    url: "http://localhost:3100",
+    command: `npm run dev -- -p ${E2E_PORT}`,
+    url: `http://localhost:${E2E_PORT}`,
     reuseExistingServer: true,
     timeout: 120_000,
   },
