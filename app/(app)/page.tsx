@@ -66,6 +66,11 @@ import { StaleBadge } from "@/components/offline/stale-badge";
 import { useSport } from "@/lib/sport/sport-context";
 import { sportLabel } from "@/lib/sport/sports";
 import { safeNext } from "@/lib/auth/routes";
+import {
+  NEARBY_RADIUS_M,
+  ROME_CENTER,
+  selectLobbiesOrigin,
+} from "@/lib/lobbies/nearby";
 
 const CourtMap = dynamic(() => import("@/components/map/court-map").then((m) => ({ default: m.CourtMap })), {
   ssr: false,
@@ -84,7 +89,6 @@ interface Court {
   sport: string | null;
   venue_type: string | null;
   source: string;
-  photo_url: string | null;
   moderation_status: string;
 }
 
@@ -98,8 +102,6 @@ interface Lobby {
   court_name?: string | null;
   court_sport?: string | null;
 }
-
-const ROME_CENTER = { lat: 41.8919, lng: 12.5113 };
 
 function normalize(s: string): string {
   return s
@@ -146,6 +148,13 @@ export default function HomePage() {
     sportRef.current = sport;
     pSportRef.current = pSport;
   }, [sport, pSport]);
+
+  // Ultima posizione nota in un ref: fetchLobbies resta stabile (nessuna
+  // ri-sottoscrizione realtime) e legge l'origine al momento della chiamata.
+  const userLocationRef = useRef<[number, number] | null>(null);
+  useEffect(() => {
+    userLocationRef.current = userLocation;
+  }, [userLocation]);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -209,13 +218,32 @@ export default function HomePage() {
     [supabase, pSport]
   );
 
+  // Causa dell'empty state lobby: "radius" = niente nel raggio, "sport" =
+  // lobby nel raggio ma non per questo sport, null = non vuote o ignoto.
+  const [lobbiesEmptyCause, setLobbiesEmptyCause] = useState<
+    "radius" | "sport" | null
+  >(null);
+
   const fetchLobbies = useCallback(async () => {
+    const thisReq = ++reqId.current;
     try {
+      // Origine del raggio: posizione utente → centro mappa → Roma. Letta
+      // dai ref al momento della chiamata: il cambio sport non la resetta.
+      const origin = selectLobbiesOrigin(
+        userLocationRef.current,
+        lastBounds.current,
+        ROME_CENTER
+      );
+      const rpcSport = pSportRef.current ?? undefined;
       const { data: lobbiesData, error } = await supabase.rpc("open_lobbies", {
-        p_sport: pSportRef.current ?? undefined,
+        p_sport: rpcSport,
         p_limit: 20,
+        p_lat: origin.lat,
+        p_lng: origin.lng,
+        p_radius_m: NEARBY_RADIUS_M,
       });
       if (error) throw error;
+      if (thisReq !== reqId.current) return; // stale response dropped
       const formatted: Lobby[] = (
         (lobbiesData as unknown as Array<{
           id: string;
@@ -238,11 +266,37 @@ export default function HomePage() {
         court_sport: l.court_sport ?? null,
       }));
       setLobbies(formatted);
+      if (formatted.length > 0) {
+        setLobbiesEmptyCause(null);
+      } else if (rpcSport == null) {
+        // Senza filtro sport, vuoto = niente nel raggio.
+        setLobbiesEmptyCause("radius");
+      } else {
+        // Con filtro sport, vuoto = ambiguo: seconda chiamata senza sport
+        // (stessa origine, limite 1) per distinguere "niente nel raggio" da
+        // "niente per questo sport".
+        try {
+          const { data: anyData } = await supabase.rpc("open_lobbies", {
+            p_limit: 1,
+            p_lat: origin.lat,
+            p_lng: origin.lng,
+            p_radius_m: NEARBY_RADIUS_M,
+          });
+          const anyRows = (anyData as unknown[] | null) ?? [];
+          if (thisReq !== reqId.current) return; // stale response dropped
+          setLobbiesEmptyCause(anyRows.length > 0 ? "sport" : "radius");
+        } catch {
+          if (thisReq !== reqId.current) return; // stale response dropped
+          setLobbiesEmptyCause(null);
+        }
+      }
+      if (thisReq !== reqId.current) return; // stale response dropped
       const now = Date.now();
       writeCache(LOBBIES_CACHE_KEY, formatted, undefined, now);
       setLobbiesSavedAt(now);
       setLobbiesStale(false);
     } catch (err) {
+      if (thisReq !== reqId.current) return; // stale response dropped
       console.error("Error fetching lobbies:", err);
       // Offline o fetch fallita: shell leggibile dai dati in cache.
       const cached = readCache<Lobby[]>(LOBBIES_CACHE_KEY);
@@ -271,8 +325,14 @@ export default function HomePage() {
       const prev = coveredBBox.current;
       if (prev && bboxInside(bounds, prev)) return;
       fetchCourtsForBBox(bounds);
+      // Senza geolocalizzazione l'origine è il centro mappa: al pan la lista
+      // lobby va rifiltrata (con geo l'origine è fissa, niente refetch).
+      // L'handler scatta già su bounds stabili (moveend/zoomend), niente debounce.
+      if (userLocationRef.current == null) {
+        fetchLobbies();
+      }
     },
-    [fetchCourtsForBBox]
+    [fetchCourtsForBBox, fetchLobbies]
   );
 
   const handleBoundsChangeWrapped = useCallback(
@@ -463,9 +523,17 @@ export default function HomePage() {
         {lobbies.length === 0 ? (
           <div className="text-center py-8">
             <MapPin className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
-            <p className="text-[var(--text-muted)] text-sm">
-              Nessuna lobby qui intorno. Sii il primo.
-            </p>
+            {lobbiesEmptyCause === "sport" && sport !== null ? (
+              <p className="text-[var(--text-muted)] text-sm">
+                Nessuna lobby di {sportLabel(sport).toLowerCase()} qui intorno.
+                <br />
+                Ci sono partite di altri sport.
+              </p>
+            ) : (
+              <p className="text-[var(--text-muted)] text-sm">
+                Nessuna lobby qui intorno. Sii il primo.
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-3">

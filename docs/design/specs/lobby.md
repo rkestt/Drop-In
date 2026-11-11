@@ -72,7 +72,9 @@ pagine, crea e join sono drawer. Mai drawer su drawer.
   sr-only; "Non hai lobby attive / Creane una dal campo / Trova un campo"
   (Le tue); "Nessuna lobby qui intorno / Sii il primo" + crea sulla prima
   corte vicina, o "Trova un campo" se niente intorno; posizione negata →
-  "Attiva la posizione…".
+  "Attiva la posizione…". Variante sport (partite nel raggio ma non per lo
+  sport attivo): "Nessuna lobby di <sport> / Ci sono partite di altri
+  sport.", stessa CTA.
 - **dettaglio**: aperta / piena (banner + crea) / in corso (nota, niente
   CTA) / chiusa (nota, niente CTA).
 - **join-ottimistico**: banner "Sei dentro…" + toast; errore → rollback +

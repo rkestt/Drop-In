@@ -62,6 +62,40 @@ export function isWithinRadiusM(
   return d !== null && d <= radiusM;
 }
 
+/** Centro fallback: Roma, stessa origine storica della home. */
+export const ROME_CENTER = { lat: 41.8919, lng: 12.5113 };
+
+export interface LobbiesOrigin {
+  lat: number;
+  lng: number;
+}
+
+/** Centro di una BBox {n,s,e,w} (media aritmetica dei bordi). */
+export function bboxCenter(b: {
+  n: number;
+  s: number;
+  e: number;
+  w: number;
+}): LobbiesOrigin {
+  return { lat: (b.n + b.s) / 2, lng: (b.e + b.w) / 2 };
+}
+
+/**
+ * Origine del filtro raggio lobby (bug #48, Fase B): posizione geolocalizzata
+ * dell'utente (tupla MapLibre [lng, lat]) → centro della mappa → fallback.
+ * Ordine deciso: userLocation ?? lastBounds center ?? ROME_CENTER. Il cambio
+ * sport non tocca l'origine: la legge dai ref al momento della fetch.
+ */
+export function selectLobbiesOrigin(
+  userLngLat: readonly [number, number] | null | undefined,
+  bounds: { n: number; s: number; e: number; w: number } | null | undefined,
+  fallback: LobbiesOrigin = ROME_CENTER
+): LobbiesOrigin {
+  if (userLngLat) return { lat: userLngLat[1], lng: userLngLat[0] };
+  if (bounds) return bboxCenter(bounds);
+  return fallback;
+}
+
 /** "400 m" sotto il km, "2,4 km" sopra (it-IT). */
 export function formatDistanceM(meters: number): string {
   if (meters < 1000) return `${Math.round(meters)} m`;

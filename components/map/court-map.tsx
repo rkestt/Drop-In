@@ -122,6 +122,13 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
   const userMarker = useRef<maplibregl.Marker | null>(null);
   const loadedRef = useRef(false);
   const lastSizeRef = useRef<{ w: number; h: number } | null>(null);
+  // onBoundsChange arriva da page.tsx con una nuova identità a ogni cambio
+  // sport: tenerlo fuori dalle deps di createMap evita il teardown/ricreazione
+  // della mappa (reset viewport). fireBounds legge sempre l'ultimo via ref.
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange;
+  }, [onBoundsChange]);
   const [mapError, setMapError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
 
@@ -180,9 +187,10 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     });
 
     const fireBounds = () => {
-      if (!onBoundsChange) return;
+      const cb = onBoundsChangeRef.current;
+      if (!cb) return;
       const b = instance.getBounds();
-      onBoundsChange({ n: b.getNorth(), s: b.getSouth(), e: b.getEast(), w: b.getWest() }, instance.getZoom());
+      cb({ n: b.getNorth(), s: b.getSouth(), e: b.getEast(), w: b.getWest() }, instance.getZoom());
     };
     instance.on("load", () => {
       loadedRef.current = true;
@@ -217,7 +225,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     });
 
     map.current = instance;
-  }, [onBoundsChange]);
+  }, []);
 
   useEffect(() => {
     if (mapContainer.current && (mapContainer.current.clientWidth === 0 || mapContainer.current.clientHeight === 0)) {
