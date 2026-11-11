@@ -40,7 +40,7 @@ export function CheckoutButton({ checkInId }: CheckoutButtonProps) {
       onClick={handleCheckout}
       disabled={loading}
     >
-      <LogOut className="w-4 h-4 mr-1.5" />
+      <LogOut className="w-4 h-4 me-1.5" />
       {loading ? "Uscita..." : "Fai check-out"}
     </Button>
   );

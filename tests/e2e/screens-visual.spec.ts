@@ -22,8 +22,10 @@ const STATIC_SCREENS = [
   {
     name: "styleguide",
     url: "/styleguide",
-    ready: (page: Page) =>
-      page.getByRole("heading", { name: "Styleguide" }),
+    // La sezione 09 è client-only (`ssr: false`): il segnale di prontezza deve
+    // aspettare lei, altrimenti l'altezza della pagina cambia tra uno scatto e
+    // l'altro (era il motivo dei diff a 1280).
+    ready: (page: Page) => page.getByTestId("library-showcase"),
   },
   {
     name: "offline",

@@ -419,7 +419,7 @@ function Section({
             {title}
           </h2>
         </div>
-        <p className="max-w-[460px] text-sm leading-relaxed text-[var(--text-secondary)] sm:text-right">
+        <p className="max-w-[460px] text-sm leading-relaxed text-[var(--text-secondary)] sm:text-end">
           {intro}
         </p>
       </div>
@@ -535,7 +535,7 @@ function PipelineMotionDemo() {
           <Button
             variant="ghost"
             size="sm"
-            className="-ml-3 gap-2"
+            className="-ms-3 gap-2"
             onClick={() => setStep("uno")}
           >
             Passo 1
@@ -567,7 +567,7 @@ function PipelineMotionDemo() {
         <Button
           variant="ghost"
           size="sm"
-          className="mt-2 -ml-3 gap-2"
+          className="mt-2 -ms-3 gap-2"
           onClick={() => setPopRun((n) => n + 1)}
         >
           <RotateCcw className="h-4 w-4" aria-hidden="true" />
@@ -595,7 +595,7 @@ function PipelineMotionDemo() {
         <Button
           variant="ghost"
           size="sm"
-          className="mt-2 -ml-3 gap-2"
+          className="mt-2 -ms-3 gap-2"
           onClick={() => setHighlightRun((n) => n + 1)}
         >
           <RotateCcw className="h-4 w-4" aria-hidden="true" />
@@ -830,7 +830,7 @@ export function StyleguideClient() {
                 >
                   <div
                     className={cn(
-                      "flex w-16 shrink-0 items-center justify-center border-r border-[var(--cool-muted)]/20 sm:h-20 sm:w-full sm:border-b sm:border-r-0",
+                      "flex w-16 shrink-0 items-center justify-center border-e border-[var(--cool-muted)]/20 sm:h-20 sm:w-full sm:border-b sm:border-e-0",
                       token.kind !== "fill" && "bg-[var(--bg-elevated)]"
                     )}
                     style={
@@ -915,7 +915,7 @@ export function StyleguideClient() {
                   <span className="font-[family-name:var(--font-syne)] text-[64px] font-bold leading-none">
                     Aa
                   </span>
-                  <div className="text-right">
+                  <div className="text-end">
                     <p className="text-sm font-medium">Syne</p>
                     <p className="text-label text-[var(--text-secondary)]">
                       Display · 400–800
@@ -937,7 +937,7 @@ export function StyleguideClient() {
               <div className="rounded-card border border-[var(--cool-muted)]/25 bg-[var(--bg-elevated)] p-5">
                 <div className="flex items-end justify-between gap-4">
                   <span className="text-[64px] font-normal leading-none">Aa</span>
-                  <div className="text-right">
+                  <div className="text-end">
                     <p className="text-sm font-medium">Source Sans 3</p>
                     <p className="text-label text-[var(--text-secondary)]">
                       Body · 400–700
@@ -1212,7 +1212,7 @@ export function StyleguideClient() {
           >
             <SubSection title="Decise" note="nessuna installata">
               <div className="overflow-x-auto rounded-card border border-[var(--cool-muted)]/25">
-                <table className="w-full border-collapse text-left sm:min-w-[560px]">
+                <table className="w-full border-collapse text-start sm:min-w-[560px]">
                   <thead className="max-sm:sr-only">
                     <tr className="border-b border-[var(--border-strong)] bg-[var(--bg-elevated)]">
                       <th
@@ -1361,7 +1361,7 @@ export function StyleguideClient() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="mt-2 -ml-3 gap-2"
+                    className="mt-2 -ms-3 gap-2"
                     onClick={() => replayMotion("fade")}
                   >
                     <RotateCcw className="h-4 w-4" aria-hidden="true" />
@@ -1385,7 +1385,7 @@ export function StyleguideClient() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="mt-2 -ml-3 gap-2"
+                    className="mt-2 -ms-3 gap-2"
                     onClick={() => replayMotion("scale")}
                   >
                     <RotateCcw className="h-4 w-4" aria-hidden="true" />
@@ -1411,7 +1411,7 @@ export function StyleguideClient() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="mt-2 -ml-3 gap-2"
+                    className="mt-2 -ms-3 gap-2"
                     onClick={() => replayMotion("pop")}
                   >
                     <RotateCcw className="h-4 w-4" aria-hidden="true" />
@@ -1446,7 +1446,7 @@ export function StyleguideClient() {
               </p>
             </SubSection>
 
-            <div className="mt-6 border-l-2 border-[var(--accent)] pl-4">
+            <div className="mt-6 border-s-2 border-[var(--accent)] ps-4">
               <p className="text-sm font-medium">
                 Onboarding-first: il motion è funzionale alla guida, non
                 decorativo
@@ -1684,12 +1684,12 @@ export function StyleguideClient() {
               <div className="mx-auto w-[360px] max-w-full">
                 <div className="overflow-hidden rounded-card border border-[var(--cool-muted)]/30 bg-[var(--bg-base)] shadow-lg">
                   <div className="relative h-[220px] bg-[var(--bg-surface)]">
-                    <p className="pl-4 pt-4 text-label text-[var(--text-secondary)]">
+                    <p className="ps-4 pt-4 text-label text-[var(--text-secondary)]">
                       area mappa
                     </p>
                     <span
                       aria-hidden="true"
-                      className="absolute bottom-4 right-4 inline-flex h-14 w-14 items-center justify-center rounded-chip bg-[var(--accent)] text-[var(--accent-foreground)] shadow-lg"
+                      className="absolute bottom-4 end-4 inline-flex h-14 w-14 items-center justify-center rounded-chip bg-[var(--accent)] text-[var(--accent-foreground)] shadow-lg"
                     >
                       <Plus className="h-7 w-7" />
                     </span>
@@ -1812,7 +1812,7 @@ export function StyleguideClient() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="mt-2 -ml-3"
+                      className="mt-2 -ms-3"
                       onClick={() => setRetryState("error")}
                     >
                       Torna all&apos;errore

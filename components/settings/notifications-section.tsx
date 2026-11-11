@@ -53,7 +53,7 @@ export function NotificationsSection() {
       <div className="mt-2 rounded-card border border-[var(--border)] bg-[var(--bg-surface)]">
         <Link
           href="/notifications"
-          className="flex min-h-[56px] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--bg-elevated)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"
+          className="flex min-h-[56px] items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-[var(--bg-elevated)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"
         >
           <span className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="text-base font-semibold text-[var(--text-primary)]">
@@ -80,7 +80,7 @@ export function NotificationsSection() {
           aria-checked={enabled}
           aria-label="Pallino degli avvisi non letti"
           onClick={toggle}
-          className="flex min-h-[56px] w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--bg-elevated)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"
+          className="flex min-h-[56px] w-full cursor-pointer items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-[var(--bg-elevated)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"
         >
           <span className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="text-base font-semibold text-[var(--text-primary)]">

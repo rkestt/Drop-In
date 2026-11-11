@@ -323,7 +323,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     >
       <div ref={mapContainer} className="w-full h-full" />
       {locationError && (
-        <div className="absolute top-4 left-4 right-4 bg-[var(--bg-elevated)] rounded-card p-3 shadow-lg z-10" role="alert" aria-live="polite">
+        <div className="absolute top-4 start-4 end-4 bg-[var(--bg-elevated)] rounded-card p-3 shadow-lg z-10" role="alert" aria-live="polite">
           <p className="text-sm text-[var(--text-secondary)]">{locationError}</p>
         </div>
       )}

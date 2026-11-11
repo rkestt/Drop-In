@@ -54,19 +54,19 @@ export function JoinLobbyDrawer({
         <dl className="overflow-hidden rounded-card border border-[var(--border)] bg-[var(--bg-surface)]">
           <div className="flex items-baseline justify-between gap-3 px-4 py-2.5 text-sm">
             <dt className="text-[var(--text-muted)]">Campo</dt>
-            <dd className="text-right font-semibold text-[var(--text-primary)]">
+            <dd className="text-end font-semibold text-[var(--text-primary)]">
               {info.courtName}
             </dd>
           </div>
           <div className="flex items-baseline justify-between gap-3 border-t border-[var(--border)] px-4 py-2.5 text-sm">
             <dt className="text-[var(--text-muted)]">Orario</dt>
-            <dd className="text-right font-semibold text-[var(--text-primary)]">
+            <dd className="text-end font-semibold text-[var(--text-primary)]">
               <span className="capitalize">{day}</span>, {time}
             </dd>
           </div>
           <div className="flex items-baseline justify-between gap-3 border-t border-[var(--border)] px-4 py-2.5 text-sm">
             <dt className="text-[var(--text-muted)]">Posti liberi</dt>
-            <dd className="text-right font-semibold text-[var(--text-primary)]">
+            <dd className="text-end font-semibold text-[var(--text-primary)]">
               {info.freeSpots} su {info.maxPlayers}
             </dd>
           </div>

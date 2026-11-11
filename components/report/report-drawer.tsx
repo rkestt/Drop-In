@@ -363,7 +363,7 @@ export function ReportDrawer({
             <div className="space-y-2">
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+                  <Loader2 className="w-4 h-4 me-2 animate-spin" aria-hidden="true" />
                 )}
                 {loading ? "Invio…" : error ? "Riprova" : "Invia segnalazione"}
               </Button>

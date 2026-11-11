@@ -84,7 +84,7 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
       </span>
       <span className="mt-2 flex items-center">
         {lobby.is_joined ? (
-          <NextHighlight className="ml-auto">
+          <NextHighlight className="ms-auto">
             <span className="rounded-chip bg-[var(--accent-subtle)] px-2 py-0.5 text-label font-semibold text-[var(--text-primary)]">
               Sei dentro
             </span>
@@ -92,7 +92,7 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
         ) : (
           lobby.status === "open" &&
           !isFull && (
-            <span className="ml-auto inline-flex items-center gap-1 text-sm font-semibold text-[var(--accent)]">
+            <span className="ms-auto inline-flex items-center gap-1 text-sm font-semibold text-[var(--accent)]">
               Unisciti
               <span aria-hidden="true">›</span>
             </span>

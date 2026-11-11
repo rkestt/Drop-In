@@ -245,7 +245,7 @@ function AccordionExample() {
     <Accordion.Root>
       <Accordion.Item value="rules">
         <Accordion.Header>
-          <Accordion.Trigger className="flex min-h-[44px] w-full items-center justify-between text-left text-sm font-semibold text-[var(--text-primary)]">
+          <Accordion.Trigger className="flex min-h-[44px] w-full items-center justify-between text-start text-sm font-semibold text-[var(--text-primary)]">
             Regole del campo
             <ChevronDown className="h-4 w-4" aria-hidden="true" />
           </Accordion.Trigger>
@@ -383,7 +383,7 @@ function FormExample() {
 
 export function LibraryShowcase() {
   return (
-    <div className="space-y-4">
+    <div data-testid="library-showcase" className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Dialog" source="Base UI" note="Conferme, check-in, distruttive.">
           <DialogExample />

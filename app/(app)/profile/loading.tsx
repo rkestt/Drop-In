@@ -29,7 +29,7 @@ export default function ProfileLoading() {
         <div className="w-28 h-4 rounded-control-sm animate-shimmer" />
         <div className="mt-3 grid grid-cols-3">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="flex flex-col gap-1.5 px-3 first:pl-0 last:pr-0">
+            <div key={i} className="flex flex-col gap-1.5 px-3 first:ps-0 last:pe-0">
               <div className="w-11 h-5 rounded-control-sm animate-shimmer" />
               <div className="w-[72px] h-2.5 rounded-control-sm animate-shimmer" />
             </div>

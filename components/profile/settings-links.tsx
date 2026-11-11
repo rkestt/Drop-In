@@ -32,7 +32,7 @@ export function SettingsLinks() {
             <Icon className="w-5 h-5" />
           </span>
           <span className="text-base font-medium">{title}</span>
-          <span aria-hidden="true" className="inline-flex ml-auto text-[var(--text-muted)]">
+          <span aria-hidden="true" className="inline-flex ms-auto text-[var(--text-muted)]">
             <ChevronRight className="w-5 h-5" />
           </span>
         </Link>

@@ -479,12 +479,12 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
           >
             {locationLoading ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+                <Loader2 className="w-4 h-4 me-2 animate-spin" aria-hidden="true" />
                 Ricerca posizione...
               </>
             ) : (
               <>
-                <MapPin className="w-4 h-4 mr-2" aria-hidden="true" />
+                <MapPin className="w-4 h-4 me-2" aria-hidden="true" />
                 Usa la mia posizione
               </>
             )}
@@ -712,7 +712,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
             <button
               type="button"
               onClick={removePhoto}
-              className="absolute top-2 right-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--bg-elevated)]/90 text-[var(--text-primary)] shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="absolute top-2 end-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--bg-elevated)]/90 text-[var(--text-primary)] shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               aria-label="Rimuovi foto"
             >
               <X className="w-4 h-4" aria-hidden="true" />
@@ -730,7 +730,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       <Button type="submit" className="w-full" disabled={submitting}>
         {submitting ? (
           <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+            <Loader2 className="w-4 h-4 me-2 animate-spin" aria-hidden="true" />
             Invio in corso...
           </>
         ) : (

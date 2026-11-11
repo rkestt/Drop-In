@@ -25,7 +25,7 @@ export function InfoSection() {
           <span className="text-base font-semibold text-[var(--text-primary)]">
             Versione
           </span>
-          <span className="ml-auto text-sm text-[var(--text-secondary)]">
+          <span className="ms-auto text-sm text-[var(--text-secondary)]">
             {APP_VERSION}
           </span>
         </div>

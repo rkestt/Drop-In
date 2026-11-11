@@ -287,7 +287,7 @@ export function LobbyDetail({
             {participants.slice(0, 5).map((p) => (
               <span
                 key={p.user_id}
-                className={`-ml-2 inline-flex h-9 w-9 items-center justify-center rounded-full border bg-[var(--bg-elevated)] text-xs font-semibold first:ml-0 ${
+                className={`-ms-2 inline-flex h-9 w-9 items-center justify-center rounded-full border bg-[var(--bg-elevated)] text-xs font-semibold first:ms-0 ${
                   p.user_id === userId
                     ? "border-[var(--accent)] text-[var(--text-primary)]"
                     : "border-[var(--border-strong)] text-[var(--text-secondary)]"
@@ -297,7 +297,7 @@ export function LobbyDetail({
               </span>
             ))}
             {joined && !joinedInitial && (
-              <span className="-ml-2 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--accent)] bg-[var(--bg-elevated)] text-xs font-semibold text-[var(--text-primary)]">
+              <span className="-ms-2 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--accent)] bg-[var(--bg-elevated)] text-xs font-semibold text-[var(--text-primary)]">
                 TU
               </span>
             )}

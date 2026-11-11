@@ -28,7 +28,7 @@ export function CheckInButton({
   return (
     <>
       <Button onClick={() => setOpen(true)}>
-        <MapPin className="mr-1.5 h-4 w-4" aria-hidden="true" />
+        <MapPin className="me-1.5 h-4 w-4" aria-hidden="true" />
         {activeCheckIn ? "Sei qui" : "Check-in"}
       </Button>
       <CheckInSheet

@@ -129,7 +129,7 @@ export function FirstRun({
             type="button"
             onClick={() => goTo(step - 1)}
             aria-label="Passo precedente"
-            className="inline-flex items-center -ml-1.5 pr-1.5 min-h-[44px] text-sm text-[var(--text-secondary)] underline underline-offset-4 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2"
+            className="inline-flex items-center -ms-1.5 pe-1.5 min-h-[44px] text-sm text-[var(--text-secondary)] underline underline-offset-4 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2"
           >
             <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             Indietro
@@ -142,7 +142,7 @@ export function FirstRun({
           type="button"
           onClick={close}
           aria-label="Salta il primo avvio"
-          className="ml-auto min-w-[44px] min-h-[44px] px-1 text-sm text-[var(--text-secondary)] underline underline-offset-4 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2"
+          className="ms-auto min-w-[44px] min-h-[44px] px-1 text-sm text-[var(--text-secondary)] underline underline-offset-4 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2"
         >
           Salta
         </button>

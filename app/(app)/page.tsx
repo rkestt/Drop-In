@@ -389,15 +389,15 @@ export default function HomePage() {
           locationError={locationError}
           onBoundsChange={handleBoundsChangeWrapped}
         />
-        <div className="absolute top-3 left-3 z-20">
+        <div className="absolute top-3 start-3 z-20">
           <SportSelector className="" />
         </div>
-        <div className="absolute top-3 right-3 z-20">
+        <div className="absolute top-3 end-3 z-20">
           <NotificationBell />
         </div>
         {noCourtsForSport && !courtsStale && (
           <div
-            className="absolute bottom-4 left-4 right-4 z-20 rounded-card border border-[var(--border-strong)] bg-[var(--bg-elevated)] p-4"
+            className="absolute bottom-4 start-4 end-4 z-20 rounded-card border border-[var(--border-strong)] bg-[var(--bg-elevated)] p-4"
             role="status"
             aria-live="polite"
           >
@@ -421,7 +421,7 @@ export default function HomePage() {
         <Link
           ref={fabRef}
           href="/submit-court"
-          className="absolute bottom-4 right-4 z-30 inline-flex items-center justify-center w-14 h-14 rounded-chip bg-[var(--accent)] text-[var(--accent-foreground)] shadow-lg hover:bg-[var(--accent-hover)] active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+          className="absolute bottom-4 end-4 z-30 inline-flex items-center justify-center w-14 h-14 rounded-chip bg-[var(--accent)] text-[var(--accent-foreground)] shadow-lg hover:bg-[var(--accent-hover)] active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           aria-label="Aggiungi un campo"
         >
           <Plus className="w-7 h-7" aria-hidden="true" />

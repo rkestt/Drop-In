@@ -227,7 +227,7 @@ export function CheckInSheet({
           </div>
         ) : state === "inside" && activeCheckIn ? (
           <div className="space-y-4">
-            <div className="rounded-card border border-[var(--border)] border-l-2 border-l-[var(--success)] bg-[var(--bg-surface)] p-4">
+            <div className="rounded-card border border-[var(--border)] border-s-2 border-s-[var(--success)] bg-[var(--bg-surface)] p-4">
               <p
                 className="text-base text-[var(--text-primary)]"
                 role="status"
@@ -332,7 +332,7 @@ export function CheckInSheet({
                       Come fare
                     </summary>
                     <div className="px-3.5 pb-3.5 text-sm leading-relaxed text-[var(--text-secondary)]">
-                      <ol className="list-decimal space-y-1.5 pl-4">
+                      <ol className="list-decimal space-y-1.5 ps-4">
                         <li>Apri le Impostazioni del telefono.</li>
                         <li>Cerca Drop-In e apri la voce Posizione.</li>
                         <li>Scegli «Consenti» e torna qui.</li>

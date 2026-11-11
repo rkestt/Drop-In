@@ -43,19 +43,19 @@ export function StatsRow({ checkIns, created, played }: StatsRowProps) {
         I tuoi numeri
       </h2>
       <div className="mt-3 grid grid-cols-3">
-        <div className="flex flex-col gap-1 min-w-0 pr-3 border-l-0">
+        <div className="flex flex-col gap-1 min-w-0 pe-3 border-s-0">
           <StatValue value={checkIns} label="Check-in" />
           <p className="m-0 min-h-7 text-label uppercase tracking-wider font-semibold text-[var(--text-muted)]">
             Check-in
           </p>
         </div>
-        <div className="flex flex-col gap-1 min-w-0 px-3 border-l border-[var(--border)]">
+        <div className="flex flex-col gap-1 min-w-0 px-3 border-s border-[var(--border)]">
           <StatValue value={created} label="Lobby create" />
           <p className="m-0 min-h-7 text-label uppercase tracking-wider font-semibold text-[var(--text-muted)]">
             Lobby create
           </p>
         </div>
-        <div className="flex flex-col gap-1 min-w-0 pl-3 border-l border-[var(--border)]">
+        <div className="flex flex-col gap-1 min-w-0 ps-3 border-s border-[var(--border)]">
           <StatValue value={played} label="Lobby giocate" />
           <p className="m-0 min-h-7 text-label uppercase tracking-wider font-semibold text-[var(--text-muted)]">
             Lobby giocate

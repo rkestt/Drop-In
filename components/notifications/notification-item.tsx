@@ -160,7 +160,7 @@ export function NotificationItem({
           onClick={() => onOpen(notification)}
           className={cn(
             rowClass,
-            "w-full text-left hover:bg-[var(--bg-elevated)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] cursor-pointer"
+            "w-full text-start hover:bg-[var(--bg-elevated)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] cursor-pointer"
           )}
         >
           {content}

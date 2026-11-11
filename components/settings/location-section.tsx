@@ -234,7 +234,7 @@ export function LocationSection() {
             <p className="text-[13px] font-semibold text-[var(--text-secondary)]">
               Come riattivarla
             </p>
-            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-[var(--text-muted)]">
+            <ul className="mt-2 list-disc space-y-1.5 ps-5 text-[13px] leading-relaxed text-[var(--text-muted)]">
               <li>
                 <strong className="font-semibold text-[var(--text-secondary)]">
                   Safari.
