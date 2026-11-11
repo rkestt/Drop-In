@@ -1,4 +1,7 @@
 {
+  "../sources/obs-post-1.5-fase-b-rpc-hardening": [
+    "sources/rpc-table-return-masking-tipi-generati-non-nullable"
+  ],
   "wayfinder-orchestration-patterns": [
     "sources/wayfinder-subsession-orchestration"
   ]

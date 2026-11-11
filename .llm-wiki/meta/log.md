@@ -35,3 +35,8 @@
 ## 2026-11-09
 
 - **retro**: {"slug":"visual-regression-falso-verde-font-non-applicati","title":"Visual regression: falso verde quando next/font non applica i font"}
+
+## 2026-11-11
+
+- **retro**: {"slug":"rpc-table-return-masking-tipi-generati-non-nullable","title":"RPC RETURNS TABLE: i tipi generati dicono non-null, il masking restituisce NULL"}
+- **retro**: {"slug":"staging-env-vercel-preview-supabase-free","title":"Drop-In: staging = Vercel Preview + progetto Supabase free separato"}
