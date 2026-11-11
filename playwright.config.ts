@@ -46,7 +46,6 @@ export default defineConfig({
       // Senza Supabase: gira anche in CI (vedi job visual-static).
       name: "visual-static",
       testMatch: ["**/screens-visual.spec.ts"],
-      grep: /visual-static/,
       use: {
         timezoneId: "Europe/Rome",
         locale: "it-IT",
@@ -57,8 +56,7 @@ export default defineConfig({
       // (fuori CI: `npm run test:visual:full`). Senza la env, i test
       // si skippano da soli ed il progetto resta verde.
       name: "visual-full",
-      testMatch: ["**/screens-visual.spec.ts"],
-      grep: /visual-full/,
+      testMatch: ["**/screens-visual-full.spec.ts"],
       use: {
         timezoneId: "Europe/Rome",
         locale: "it-IT",
