@@ -1,0 +1,131 @@
+# Staging
+
+Fonte di verità per il loop quotidiano migrazioni: `docs/database-workflow.md`.
+Roadmap post-1.5: `docs/plans/post-1.5.md`. Qui solo ambienti, limiti e procedure remote.
+
+## Ambienti
+
+| Ambiente | Frontend | Backend |
+|---|---|---|
+| local | `npm run dev` (localhost:3000) | Supabase locale Docker (API 54321) |
+| stage | Vercel Preview, alias https://drop-in-stage.vercel.app (branch `stage`, scope "Preview") | Supabase `drop-in-staging`, ref `ygnjqqgnxdmgpeeidkbn`, eu-central-1 |
+| prod | Vercel Production, https://drop-in-rho.vercel.app (branch `master`, scope "Production") | Supabase `Drop-in`, ref `jeuqmmiebzeqtdctmtzj`, eu-central-1 |
+
+Scope Production intoccato e indipendente dallo stage.
+
+## Vercel
+
+Progetto `drop-in`, org `andrea-fioris-projects-14d416c7`, piano Hobby, framework Next.js, Node 26.x, Production Branch `master`, repo collegato (github rkestt/Drop-In).
+
+- Env Preview `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` puntano al progetto staging (verificato via pull delle env Preview).
+- Custom environment "staging" solo Pro: lo stage usa lo scope Preview + alias fisso.
+- `ssoProtection` messo a null: i preview sono pubblici (di default la Vercel Authentication richiederebbe login Vercel).
+
+## Supabase staging (provisionato e verificato)
+
+- 17 migrazioni 001→017 applicate, PostGIS in `public`, pg_trgm/pgcrypto/uuid-ossp in `extensions`.
+- pg_cron, 5 job: auto-close-lobbies */15, auto-checkout */15, remove-expired-bans orario, archive-old-reports giornaliero 02:00, notify-lobby-starting-soon */5.
+- Bucket `court-photos` pubblico, limite 5 MiB (migrazione 010, policy irrigidite dalla 014).
+- Publication `supabase_realtime`: profiles, lobbies, lobby_participants, check_ins, push_notifications.
+- RLS attiva su 9 tabelle pubbliche su 10; 10.130 courts da `scripts/seed_courts.sql` (tutti `approved`).
+- RPC anonima `nearby_courts` e SELECT anonima su courts verificate funzionanti via REST.
+
+## Auth staging
+
+- Site URL `https://drop-in-stage.vercel.app`; redirect aggiuntivi `https://drop-in-stage.vercel.app/**` e `https://*-andrea-fioris-projects-14d416c7.vercel.app/**`.
+- Conferme email disabilitate (solo staging: la signup logga subito).
+- Google OAuth NON configurato: per abilitarlo aggiungere `https://ygnjqqgnxdmgpeeidkbn.supabase.co/auth/v1/callback` al client OAuth Google e attivare il provider nel progetto staging.
+- `/api/auth/callback` deriva l'origin per-request (`new URL(request.url).origin`): qualunque hostname preview allowlisted funziona.
+
+## Limiti e trappole (stato 2026)
+
+Vercel Hobby: 100 deploy/giorno, 1 build alla volta, cap build 45 min, 100 GB fast data transfer, 1M edge request, 4 CPU-h active CPU; oltre la quota il progetto va in pausa e il ripristino richiede ticket al supporto (non automatico). Cron minimo 1/giorno (non usato: i cron stanno in Supabase). Hobby solo uso non commerciale. Preview dietro Vercel Authentication di default; Shareable Link max 1 per account su Hobby.
+
+Supabase Free: 2 progetti attivi per owner (prod + staging li esauriscono; i pausati non contano), 500 MB DB, 1 GB storage con max 50 MB/file e niente trasformazioni immagini, 10 GB banda totale (5 cached + 5 uncached), 200 connessioni realtime di picco / 2M messaggi al mese, 50k MAU auth, nessun backup automatico (solo `supabase db dump`), niente PITR, branching solo Pro, pausa dopo ~7 giorni di scarsa attività DB con resume solo da Dashboard ("Resume project"), email built-in max 2/ora.
+
+Connessioni DB dirette su Free solo IPv6, le function Vercel sono solo IPv4: da Vercel solo Supavisor (session 5432, mai transaction 6543) o client REST/JS. Questa app usa solo il client JS.
+
+Solo locali: `test:rls` e `npm run types` (docker exec / `gen types --local`). Unico check remote-aware: `scripts/db-check.mjs`, richiede `SUPABASE_PROJECT_REF` + `SUPABASE_ACCESS_TOKEN`.
+
+Gap realtime (noto, non bug staging): `components/report/reported-courts-indicator.tsx` ascolta `court_reports`, fuori publication: non scatta mai.
+
+Debito accettato: PostGIS in schema `public` (migrazione 001 con `CREATE EXTENSION` non qualificato); il security advisor segnalerà `spatial_ref_sys`. Supabase raccomanda `extensions`.
+
+## Procedure
+
+### 1. Nuova migrazione su staging
+
+Da worktree/checkout dedicato, mai da feature branch a metà modifica:
+
+```bash
+npx supabase link --project-ref ygnjqqgnxdmgpeeidkbn
+npx supabase db push --remote --dry-run
+# backup pg_dump prima del push
+npx supabase db push --remote --yes
+npx supabase db query --remote --read-only "select version from supabase_migrations.schema_migrations order by version desc limit 1"
+```
+
+`--read-only` obbligatorio per i SELECT in agent mode; le mutation vogliono `--yes`.
+
+### 2. Promozione stage → prod
+
+Merge su `master` solo dopo smoke test verde sullo stage; push migrazioni su prod nella stessa finestra; dump di prod prima del push (niente PITR su Free). Mai push da feature branch.
+
+### 3. Modifiche auth/config sul progetto staging
+
+```bash
+npx supabase config diff --workdir <tmp>/supabase --remote=ygnjqqgnxdmgpeeidkbn
+# poi config push con config.toml minimo che dichiara SOLO le proprietà
+# modificate (le non dichiarate restano invariate)
+```
+
+Mai pushare il `supabase/config.toml` del repo così com'è: contiene localhost:3000 e il redirect URI Google locale.
+
+### 4. Rotazione chiavi
+
+Dashboard Supabase → Project Settings → API (oppure `npx supabase projects api-keys --remote=<ref>`) → aggiorna la env Vercel dello scope giusto (`vercel env add NAME --environment preview|production --type config --value <v> --yes --force`) → redeploy → verifica che il login via `/api/auth/callback` funzioni ancora. `NEXT_PUBLIC_*` pubblici per definizione; la service role key mai in `NEXT_PUBLIC_*` (questa app non ha admin client: su Vercel non serve).
+
+### 5. Keep-alive anti-pausa (opzionale)
+
+Una banale richiesta autenticata/giornaliera al DB (es. `select 1` schedulato via REST) tiene attivo il progetto free secondo la doc Supabase. Se il traffico keep-alive automatizzato violi i ToS non è documentato: pratica tollerata ma non garantita; in alternativa accettare il rischio pausa.
+
+### 6. Deploy dello stage
+
+Funziona via Git: ogni push su `stage` (e ogni PR) genera un deploy preview con lo scope "Preview". Il branch ha due URL, entrambi vivi:
+
+| URL | Comportamento |
+|---|---|
+| `drop-in-git-stage-andrea-fioris-projects-14d416c7.vercel.app` | alias per-branch di Vercel: si aggiorna da solo a ogni push |
+| `drop-in-stage.vercel.app` | alias leggibile, incatenato al precedente |
+
+Se una build Git non parte (visto una volta subito dopo il collegamento del repo), fallback manuale:
+
+```bash
+npx vercel deploy --yes   # preview
+npx vercel alias set <deployment-url> drop-in-stage.vercel.app
+```
+
+Per rilanciare la build del branch senza modifiche: `git commit --allow-empty -m "chore: rebuild stage" && git push origin HEAD:stage`.
+
+## Decisioni
+
+- Progetto Supabase free separato invece di database branching (branching solo Pro e fatturato a ore).
+- Stage sullo scope Vercel Preview con alias fisso (custom environment solo Pro).
+- Nessuna service-role key da nessuna parte.
+
+## Fonti (recuperate 2026-11-11)
+
+- https://vercel.com/docs/limits
+- https://vercel.com/docs/plans/hobby
+- https://vercel.com/docs/git
+- https://vercel.com/docs/deployment-protection/usage-and-pricing
+- https://vercel.com/docs/environment-variables
+- https://vercel.com/docs/deployments/generated-urls
+- https://supabase.com/docs/guides/platform/billing-on-supabase
+- https://supabase.com/docs/guides/platform/free-project-pausing
+- https://supabase.com/docs/guides/deployment
+- https://supabase.com/docs/guides/local-development/cli-workflows
+- https://supabase.com/docs/guides/database/connecting-to-postgres
+- https://supabase.com/docs/guides/storage/buckets/creating-buckets
+- https://supabase.com/docs/guides/auth/redirect-urls
+- https://supabase.com/docs/guides/auth/rate-limits

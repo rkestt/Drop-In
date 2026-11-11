@@ -1,15 +1,15 @@
 # Database: workflow senza branching (piano Supabase free)
 
-Il piano free dà **un progetto per database e nessun database branch**. Quindi
-non esistono "remoto di sviluppo" e "remoto di produzione" separati: il remoto
-è uno solo ed è trattato come produzione. Il branching lo facciamo con **git +
-database locale**.
+Il piano free dà **2 progetti attivi per owner e nessun database branch**. Quei
+due posti sono occupati da produzione e staging; il branching lo facciamo con
+**git + database locale**. Dettaglio ambienti e limiti: `docs/staging.md`.
 
-## Ruoli dei due database
+## Ruoli dei tre database
 
 | Dove | Cos'è | Chi ci scrive |
 |---|---|---|
 | Locale (`npx supabase start`, Docker) | ambiente di sviluppo: reset libero, seed demo, test | chiunque, su qualunque branch git |
+| Staging (`ygnjqqgnxdmgpeeidkbn`) | remake del remoto per provare migration e PR, stesso schema | solo `supabase db push`, solo dal branch `stage` |
 | Remoto (`jeuqmmiebzeqtdctmtzj`) | produzione, schema reale, dati reali | solo `supabase db push`, solo da `design/1.5`/`master` allineati |
 
 Regola: **una migration si scrive e si prova in locale, si revisiona via PR, e
