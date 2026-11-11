@@ -23,7 +23,9 @@ Prossima sessione: partire da qui, non dalla chat precedente.
 
 Fuori scope: i18n (#64), layout desktop (`docs/design/ideas/desktop-layout.md`), admin UI, push delivery.
 
-## Fase B — dettaglio (audit già fatto, prove nel codice)
+## Fase B — dettaglio (audit fatto, prove nel codice)
+
+> Snapshot scritto prima del lavoro, conservato come traccia dell'audit. Tutte le voci sotto sono chiuse: vedi "Stato aggiornato" più in basso per cosa è stato fatto e con quale test.
 
 1. **#48 (M)** — La home `/` chiama `open_lobbies(p_sport, 20)` senza coordinate e mostra lobby di tutta Italia; il filtro raggio esiste solo in `/lobbies` (`components/lobby/nearby-lobbies.tsx` + `lib/lobbies/nearby.ts`). Inoltre "Vicine" non filtra per sport. **Decisione aperta**: raggio dalla posizione utente/centro mappa, oppure "lobby dei campi visibili in mappa".
 2. **#54 (S)** — `supabase/migrations/012_moderation_hardening.sql:182-195` maschera solo `id`/`name`: `lat`, `lng`, `distance_m`, `moderation_status` restano esposti. Stessa classe di problema di #55 (il form riceve `id` null proprio perché mascherato).
