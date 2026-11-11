@@ -29,3 +29,12 @@ Ogni riga è un debito esplicito: o si chiude (rimozione prevista) o resta docum
 ```md
 | AAAA-MM-GG | file o token | perché è un'eccezione | @owner | cosa la chiude |
 ```
+
+## 2026-11-11 — Mismatch di idratazione sugli attributi (solo dev, styleguide)
+
+`/styleguide` può loggare "A tree hydrated but some attributes of the server
+rendered HTML didn't match" sotto carico parallelo: coinvolge il `DialogTrigger`
+di Base UI dentro `LibraryShowcase`. Non si riproduce in isolamento né con
+`next build`/`next start`. Il tracker console degli e2e ignora **solo** quel
+messaggio (pattern esatto in `tests/e2e/helpers/console.ts`); ogni altro errore
+resta un fallimento. Da riverificare quando Base UI o React cambiano versione.

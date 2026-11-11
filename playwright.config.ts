@@ -39,13 +39,15 @@ export default defineConfig({
   },
   projects: [
     {
+      // E2E normali: fuori i visual, che hanno progetti propri (suffisso
+      // di snapshot diverso e, per `visual-full`, il database).
       name: "e2e",
-      testIgnore: ["**/screens-visual.spec.ts"],
+      testIgnore: ["**/screens-visual.spec.ts", "**/screens-visual-full.spec.ts", "**/styleguide-visual.spec.ts"],
     },
     {
       // Senza Supabase: gira anche in CI (vedi job visual-static).
       name: "visual-static",
-      testMatch: ["**/screens-visual.spec.ts"],
+      testMatch: ["**/screens-visual.spec.ts", "**/styleguide-visual.spec.ts"],
       use: {
         timezoneId: "Europe/Rome",
         locale: "it-IT",
