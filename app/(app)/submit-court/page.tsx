@@ -9,7 +9,7 @@ export default function SubmitCourtPage() {
   const [showLogin, setShowLogin] = useState(false);
 
   return (
-    <main className="flex-1 bg-[var(--bg-base)]">
+    <main id="contenuto" tabIndex={-1} className="flex-1 bg-[var(--bg-base)]">
       <div className="max-w-[720px] mx-auto px-4 py-6 pb-24">
         <div className="flex items-center gap-3 mb-6">
           <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[var(--accent-subtle)] text-[var(--accent)]">

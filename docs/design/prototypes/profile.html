@@ -1,0 +1,1497 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Profilo — prototipo Drop-In</title>
+<!--
+  Pipeline: design system 1.5 — schermata Profilo (ticket d11).
+  Passo: prototipo statico con gli 8 stati del ticket.
+  Prossimo passo: review HITL su questo file, poi implementazione in d19.
+  Non è una route dell'app: nessun import di codice dall'app, nessuna fetch,
+  nessun dato reale. Syne e Source Sans 3 arrivano da proto.css (font
+  self-hosted del progetto, nessun base64 duplicato nei prototipi).
+-->
+<link rel="stylesheet" href="proto.css">
+<style>
+  /* La cornice dei prototipi usa display:flex su .phone: senza questa regola
+     l'attributo hidden verrebbe sovrascritto e tutti gli stati resterebbero visibili. */
+  [data-state][hidden] {
+    display: none !important;
+  }
+
+  .proto-shell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Identità                                                            */
+  /* ------------------------------------------------------------------ */
+
+  .content--profile {
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .identity {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    align-items: center;
+    gap: 4px 14px;
+  }
+
+  .avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-chip);
+    background: var(--accent-subtle);
+    color: var(--text-primary);
+    font-family: var(--font-syne);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .avatar--empty {
+    border-color: var(--border-strong);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+  }
+
+  .avatar--empty svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .identity__text {
+    min-width: 0;
+  }
+
+  .identity__name {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+
+  .identity__email {
+    margin: 3px 0 0;
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 14px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .identity__hint {
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.4;
+    text-wrap: pretty;
+  }
+
+  .identity__cta {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Karma                                                               */
+  /* ------------------------------------------------------------------ */
+
+  .karma {
+    position: relative;
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  .karma::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    background: var(--accent);
+  }
+
+  .karma--danger::before {
+    background: var(--danger);
+  }
+
+  .karma__score {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .karma__max {
+    color: var(--text-muted);
+    font-family: var(--font-syne);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .meter {
+    position: relative;
+    height: 10px;
+    overflow: hidden;
+    border-radius: var(--radius-chip);
+    background: var(--bg-elevated);
+  }
+
+  .meter__fill {
+    display: block;
+    width: var(--value, 0%);
+    height: 100%;
+    border-radius: inherit;
+    background: var(--accent);
+  }
+
+  .meter--danger .meter__fill {
+    background: var(--danger);
+  }
+
+  /* Soglia reale: sotto 50 scatta la sospensione di 7 giorni. */
+  .meter__threshold {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    background: var(--bg-base);
+  }
+
+  .karma__rule {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+    text-wrap: pretty;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Statistiche                                                         */
+  /* ------------------------------------------------------------------ */
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    padding: 0 12px;
+    border-left: 1px solid var(--border);
+  }
+
+  .stat:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .stat:last-child {
+    padding-right: 0;
+  }
+
+  .stat__value {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat__value--muted {
+    color: var(--text-secondary);
+  }
+
+  .stat__label {
+    min-height: 28px;
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--text-label);
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .stats-empty {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+    text-wrap: pretty;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Scorciatoie                                                         */
+  /* ------------------------------------------------------------------ */
+
+  .shortcuts {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+  }
+
+  .shortcut {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    padding: 0 16px;
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+
+  .shortcut + .shortcut {
+    border-top: 1px solid var(--border);
+  }
+
+  .shortcut:hover {
+    background: var(--bg-elevated);
+  }
+
+  .shortcut:hover .shortcut__icon {
+    background: var(--bg-surface);
+  }
+
+  .shortcut:active {
+    background: var(--bg-elevated);
+  }
+
+  .shortcut:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+  }
+
+  .shortcut__icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-control-sm);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+  }
+
+  .shortcut__title {
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .shortcut__chev {
+    display: inline-flex;
+    margin-left: auto;
+    color: var(--text-muted);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Banner sospensione                                                  */
+  /* ------------------------------------------------------------------ */
+
+  .ban {
+    align-items: flex-start;
+  }
+
+  .ban__icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin-top: 1px;
+  }
+
+  .ban__text p {
+    margin: 0;
+  }
+
+  .ban__title {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .ban__body {
+    margin-top: 2px !important;
+    line-height: 1.45;
+    text-wrap: pretty;
+  }
+
+  .ban__hint {
+    margin-top: 4px !important;
+    font-size: 13px;
+    line-height: 1.4;
+    opacity: 0.9;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Drawer nickname                                                     */
+  /* ------------------------------------------------------------------ */
+
+  .sheet__panel {
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+
+  .drawer-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .drawer-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .drawer-actions .btn {
+    flex: 1;
+  }
+
+  /* Con il focus l'anello accent dice dove sei, il bordo danger dice che
+     il valore non va: proto.css fa vincere il bordo accent sul focus. */
+  .input--error:focus-visible {
+    border-color: var(--danger);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Toast                                                               */
+  /* ------------------------------------------------------------------ */
+
+  .toast {
+    position: absolute;
+    right: 16px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    left: 16px;
+    z-index: 60;
+    align-items: center;
+    padding: 12px 14px;
+    background: var(--bg-elevated);
+    box-shadow: 0 12px 32px var(--overlay);
+    font-weight: 600;
+  }
+
+  .toast svg {
+    flex: 0 0 auto;
+  }
+
+  .toast p {
+    margin: 0;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Loading skeleton                                                    */
+  /* ------------------------------------------------------------------ */
+
+  .sk {
+    background: var(--bg-elevated);
+  }
+
+  .sk-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: var(--radius-chip);
+  }
+
+  .sk-name {
+    width: 112px;
+    height: 24px;
+  }
+
+  .sk-email {
+    width: 168px;
+    height: 12px;
+    margin-top: 8px;
+  }
+
+  .sk-cta {
+    grid-column: 1 / -1;
+    height: 48px;
+    margin-top: 4px;
+    border-radius: var(--radius-control);
+  }
+
+  .sk-label {
+    width: 56px;
+    height: 10px;
+  }
+
+  .sk-value {
+    width: 104px;
+    height: 38px;
+  }
+
+  .sk-bar {
+    width: 100%;
+    height: 10px;
+  }
+
+  .sk-rule {
+    width: 100%;
+    height: 30px;
+  }
+
+  .sk-title {
+    width: 116px;
+    height: 16px;
+  }
+
+  .sk-stat-value {
+    width: 44px;
+    height: 20px;
+  }
+
+  .sk-stat-label {
+    width: 72px;
+    height: 10px;
+    margin-top: 4px;
+  }
+
+  .sk-shortcut {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    padding: 0 16px;
+  }
+
+  .sk-shortcut + .sk-shortcut {
+    border-top: 1px solid var(--border);
+  }
+
+  .sk-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  .sk-name-row {
+    width: 104px;
+    height: 14px;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Navigazione                                                         */
+  /* ------------------------------------------------------------------ */
+
+  .bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .bottom-nav__item:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  @media (max-width: 380px) {
+    .content--profile {
+      gap: 12px;
+    }
+  }
+</style>
+</head>
+<body>
+<main class="proto-shell" data-state-group data-initial="default">
+  <header class="proto-head">
+    <p class="proto-head__title">Profilo — prototipo</p>
+    <p class="proto-head__meta">d11 · 8 stati · 360px prima, 768px la stessa schermata</p>
+  </header>
+
+  <div class="proto-toolbar" role="group" aria-label="Stati del prototipo">
+    <span class="proto-toolbar__label">Stati</span>
+    <button class="proto-switch" type="button" data-show="default">Predefinito</button>
+    <button class="proto-switch" type="button" data-show="loading">Caricamento</button>
+    <button class="proto-switch" type="button" data-show="banned">Bannato</button>
+    <button class="proto-switch" type="button" data-show="nickname-mancante">Senza nickname</button>
+    <button class="proto-switch" type="button" data-show="edit-drawer">Modifica</button>
+    <button class="proto-switch" type="button" data-show="edit-error">Errore</button>
+    <button class="proto-switch" type="button" data-show="stats-vuote">Statistiche vuote</button>
+    <button class="proto-switch" type="button" data-show="toast-salvato">Salvato</button>
+  </div>
+
+  <!-- 1. Predefinito -------------------------------------------------- -->
+  <section class="phone phone--tall" data-state="default">
+    <div class="screen">
+      <header class="appbar">
+        <h1 class="appbar__title">Profilo</h1>
+      </header>
+
+      <div class="content content--profile">
+        <div class="identity">
+          <div class="avatar" aria-hidden="true">LB</div>
+          <div class="identity__text">
+            <p class="identity__name">LucaB</p>
+            <p class="identity__email">luca.bianchi@email.it</p>
+          </div>
+          <button class="btn btn--primary identity__cta" type="button" data-open-state="edit-drawer">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+            </svg>
+            Modifica
+          </button>
+        </div>
+
+        <section class="card karma" aria-label="Karma">
+          <p class="label" aria-hidden="true">Karma</p>
+          <p class="karma__score">
+            <span class="display-lg number" aria-hidden="true">87</span>
+            <span class="karma__max" aria-hidden="true">/ 100</span>
+            <span class="sr-only">Karma: 87 su 100.</span>
+          </p>
+          <div class="meter" aria-hidden="true">
+            <span class="meter__fill" style="--value: 87%"></span>
+            <span class="meter__threshold"></span>
+          </div>
+          <p class="karma__rule">+1 a ogni check-in, −3 se salti una lobby. Sotto 50 la partecipazione si sospende per 7 giorni.</p>
+        </section>
+
+        <section class="card" aria-labelledby="stats-title-1">
+          <h2 class="card__title" id="stats-title-1">I tuoi numeri</h2>
+          <div class="stats">
+            <div class="stat">
+              <p class="stat__value number">24</p>
+              <p class="stat__label">Check-in</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number">9</p>
+              <p class="stat__label">Lobby create</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number">17</p>
+              <p class="stat__label">Lobby giocate</p>
+            </div>
+          </div>
+        </section>
+
+        <nav class="card card--flush shortcuts" aria-label="Scorciatoie">
+          <a class="shortcut" href="/lobbies">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Le tue lobby</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+          <a class="shortcut" href="/notifications">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Notifiche</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+          <a class="shortcut" href="/settings">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Impostazioni</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+        </nav>
+      </div>
+
+      <nav class="bottom-nav" aria-label="Navigazione principale">
+        <a class="bottom-nav__item" href="/" aria-label="Mappa campi">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span>Mappa</span>
+        </a>
+        <a class="bottom-nav__item" href="/profile" aria-current="page" aria-label="Profilo utente">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span>Profilo</span>
+        </a>
+      </nav>
+    </div>
+  </section>
+
+  <!-- 2. Caricamento -------------------------------------------------- -->
+  <section class="phone phone--tall" data-state="loading" hidden>
+    <div class="screen">
+      <header class="appbar">
+        <h1 class="appbar__title">Profilo</h1>
+      </header>
+
+      <div class="content content--profile" aria-busy="true">
+        <p class="sr-only" role="status">Caricamento del profilo…</p>
+
+        <div class="identity" aria-hidden="true">
+          <div class="skeleton sk sk-avatar"></div>
+          <div class="identity__text">
+            <div class="skeleton sk sk-name"></div>
+            <div class="skeleton sk sk-email"></div>
+          </div>
+          <div class="skeleton sk sk-cta"></div>
+        </div>
+
+        <div class="card" aria-hidden="true">
+          <div class="skeleton sk sk-label"></div>
+          <div class="skeleton sk sk-value"></div>
+          <div class="skeleton sk sk-bar"></div>
+          <div class="skeleton sk sk-rule"></div>
+        </div>
+
+        <div class="card" aria-hidden="true">
+          <div class="skeleton sk sk-title"></div>
+          <div class="stats">
+            <div class="stat">
+              <div class="skeleton sk sk-stat-value"></div>
+              <div class="skeleton sk sk-stat-label"></div>
+            </div>
+            <div class="stat">
+              <div class="skeleton sk sk-stat-value"></div>
+              <div class="skeleton sk sk-stat-label"></div>
+            </div>
+            <div class="stat">
+              <div class="skeleton sk sk-stat-value"></div>
+              <div class="skeleton sk sk-stat-label"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card card--flush" aria-hidden="true">
+          <div class="sk-shortcut">
+            <div class="skeleton sk sk-icon"></div>
+            <div class="skeleton sk sk-name-row"></div>
+          </div>
+          <div class="sk-shortcut">
+            <div class="skeleton sk sk-icon"></div>
+            <div class="skeleton sk sk-name-row"></div>
+          </div>
+          <div class="sk-shortcut">
+            <div class="skeleton sk sk-icon"></div>
+            <div class="skeleton sk sk-name-row"></div>
+          </div>
+        </div>
+      </div>
+
+      <nav class="bottom-nav" aria-label="Navigazione principale">
+        <a class="bottom-nav__item" href="/" aria-label="Mappa campi">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span>Mappa</span>
+        </a>
+        <a class="bottom-nav__item" href="/profile" aria-current="page" aria-label="Profilo utente">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span>Profilo</span>
+        </a>
+      </nav>
+    </div>
+  </section>
+
+  <!-- 3. Bannato ------------------------------------------------------ -->
+  <section class="phone phone--tall" data-state="banned" hidden>
+    <div class="screen">
+      <header class="appbar">
+        <h1 class="appbar__title">Profilo</h1>
+      </header>
+
+      <div class="content content--profile">
+        <div class="identity">
+          <div class="avatar" aria-hidden="true">LB</div>
+          <div class="identity__text">
+            <p class="identity__name">LucaB</p>
+            <p class="identity__email">luca.bianchi@email.it</p>
+          </div>
+          <button class="btn btn--primary identity__cta" type="button" data-open-state="edit-drawer">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+            </svg>
+            Modifica
+          </button>
+        </div>
+
+        <div class="banner banner--danger ban" role="status">
+          <span class="ban__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>
+              <path d="M12 9v4M12 17h.01"/>
+            </svg>
+          </span>
+          <div class="ban__text">
+            <p class="ban__title">Partecipazione sospesa</p>
+            <p class="ban__body">Karma sotto 50: puoi partecipare di nuovo dal <strong>16 novembre 2026</strong>.</p>
+            <p class="ban__hint">Nel frattempo puoi consultare i campi e le tue lobby.</p>
+          </div>
+        </div>
+
+        <section class="card karma karma--danger" aria-label="Karma">
+          <p class="label" aria-hidden="true">Karma</p>
+          <p class="karma__score">
+            <span class="display-lg number" aria-hidden="true">43</span>
+            <span class="karma__max" aria-hidden="true">/ 100</span>
+            <span class="sr-only">Karma: 43 su 100.</span>
+          </p>
+          <div class="meter meter--danger" aria-hidden="true">
+            <span class="meter__fill" style="--value: 43%"></span>
+            <span class="meter__threshold"></span>
+          </div>
+          <p class="karma__rule">+1 a ogni check-in, −3 se salti una lobby. Sotto 50 la partecipazione si sospende per 7 giorni.</p>
+        </section>
+
+        <section class="card" aria-labelledby="stats-title-3">
+          <h2 class="card__title" id="stats-title-3">I tuoi numeri</h2>
+          <div class="stats">
+            <div class="stat">
+              <p class="stat__value number">18</p>
+              <p class="stat__label">Check-in</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number">6</p>
+              <p class="stat__label">Lobby create</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number">12</p>
+              <p class="stat__label">Lobby giocate</p>
+            </div>
+          </div>
+        </section>
+
+        <nav class="card card--flush shortcuts" aria-label="Scorciatoie">
+          <a class="shortcut" href="/lobbies">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Le tue lobby</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+          <a class="shortcut" href="/notifications">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Notifiche</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+          <a class="shortcut" href="/settings">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Impostazioni</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+        </nav>
+      </div>
+
+      <nav class="bottom-nav" aria-label="Navigazione principale">
+        <a class="bottom-nav__item" href="/" aria-label="Mappa campi">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span>Mappa</span>
+        </a>
+        <a class="bottom-nav__item" href="/profile" aria-current="page" aria-label="Profilo utente">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span>Profilo</span>
+        </a>
+      </nav>
+    </div>
+  </section>
+
+  <!-- 4. Senza nickname ----------------------------------------------- -->
+  <section class="phone phone--tall" data-state="nickname-mancante" hidden>
+    <div class="screen">
+      <header class="appbar">
+        <h1 class="appbar__title">Profilo</h1>
+      </header>
+
+      <div class="content content--profile">
+        <div class="identity">
+          <div class="avatar avatar--empty" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div class="identity__text">
+            <p class="identity__name">Nessun nickname</p>
+            <p class="identity__email">luca.bianchi@email.it</p>
+            <p class="identity__hint">Scegli come ti vedono gli altri in lobby.</p>
+          </div>
+          <button class="btn btn--primary identity__cta" type="button" data-open-state="edit-drawer" data-clear-input="nickname-drawer-5">
+            Imposta nickname
+          </button>
+        </div>
+
+        <section class="card karma" aria-label="Karma">
+          <p class="label" aria-hidden="true">Karma</p>
+          <p class="karma__score">
+            <span class="display-lg number" aria-hidden="true">87</span>
+            <span class="karma__max" aria-hidden="true">/ 100</span>
+            <span class="sr-only">Karma: 87 su 100.</span>
+          </p>
+          <div class="meter" aria-hidden="true">
+            <span class="meter__fill" style="--value: 87%"></span>
+            <span class="meter__threshold"></span>
+          </div>
+          <p class="karma__rule">+1 a ogni check-in, −3 se salti una lobby. Sotto 50 la partecipazione si sospende per 7 giorni.</p>
+        </section>
+
+        <section class="card" aria-labelledby="stats-title-4">
+          <h2 class="card__title" id="stats-title-4">I tuoi numeri</h2>
+          <div class="stats">
+            <div class="stat">
+              <p class="stat__value number">24</p>
+              <p class="stat__label">Check-in</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number">9</p>
+              <p class="stat__label">Lobby create</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number">17</p>
+              <p class="stat__label">Lobby giocate</p>
+            </div>
+          </div>
+        </section>
+
+        <nav class="card card--flush shortcuts" aria-label="Scorciatoie">
+          <a class="shortcut" href="/lobbies">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Le tue lobby</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+          <a class="shortcut" href="/notifications">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Notifiche</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+          <a class="shortcut" href="/settings">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Impostazioni</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+        </nav>
+      </div>
+
+      <nav class="bottom-nav" aria-label="Navigazione principale">
+        <a class="bottom-nav__item" href="/" aria-label="Mappa campi">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span>Mappa</span>
+        </a>
+        <a class="bottom-nav__item" href="/profile" aria-current="page" aria-label="Profilo utente">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span>Profilo</span>
+        </a>
+      </nav>
+    </div>
+  </section>
+
+  <!-- 5. Drawer modifica nickname ------------------------------------- -->
+  <section class="phone phone--tall" data-state="edit-drawer" hidden>
+    <div class="screen" inert>
+      <header class="appbar">
+        <h1 class="appbar__title">Profilo</h1>
+      </header>
+
+      <div class="content content--profile">
+        <div class="identity">
+          <div class="avatar" aria-hidden="true">LB</div>
+          <div class="identity__text">
+            <p class="identity__name">LucaB</p>
+            <p class="identity__email">luca.bianchi@email.it</p>
+          </div>
+          <button class="btn btn--secondary identity__cta" type="button">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+            </svg>
+            Modifica
+          </button>
+        </div>
+
+        <section class="card karma" aria-label="Karma">
+          <p class="label" aria-hidden="true">Karma</p>
+          <p class="karma__score">
+            <span class="display-lg number" aria-hidden="true">87</span>
+            <span class="karma__max" aria-hidden="true">/ 100</span>
+            <span class="sr-only">Karma: 87 su 100.</span>
+          </p>
+          <div class="meter" aria-hidden="true">
+            <span class="meter__fill" style="--value: 87%"></span>
+            <span class="meter__threshold"></span>
+          </div>
+          <p class="karma__rule">+1 a ogni check-in, −3 se salti una lobby. Sotto 50 la partecipazione si sospende per 7 giorni.</p>
+        </section>
+
+        <section class="card" aria-labelledby="stats-title-5">
+          <h2 class="card__title" id="stats-title-5">I tuoi numeri</h2>
+          <div class="stats">
+            <div class="stat">
+              <p class="stat__value number">24</p>
+              <p class="stat__label">Check-in</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number">9</p>
+              <p class="stat__label">Lobby create</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number">17</p>
+              <p class="stat__label">Lobby giocate</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <nav class="bottom-nav" aria-label="Navigazione principale">
+        <a class="bottom-nav__item" href="/" aria-label="Mappa campi">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span>Mappa</span>
+        </a>
+        <a class="bottom-nav__item" href="/profile" aria-current="page" aria-label="Profilo utente">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span>Profilo</span>
+        </a>
+      </nav>
+    </div>
+
+    <div class="sheet" data-sheet role="dialog" aria-modal="true" aria-labelledby="edit-title-5">
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <h2 class="sheet__title" id="edit-title-5">Modifica nickname</h2>
+        <form class="drawer-form" data-proto-form novalidate>
+          <div class="field">
+            <label class="field__label" for="nickname-drawer-5">Nickname</label>
+            <input class="input" id="nickname-drawer-5" name="nickname" type="text" value="LucaB" autocomplete="nickname" aria-describedby="nickname-hint-5" data-autofocus>
+            <p class="field__hint" id="nickname-hint-5">Massimo 30 caratteri. Lo vedono gli altri giocatori.</p>
+          </div>
+          <div class="drawer-actions">
+            <button class="btn btn--secondary grow" type="button" data-close-sheet>Annulla</button>
+            <button class="btn btn--primary grow" type="submit">Salva</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Errore nickname ---------------------------------------------- -->
+  <section class="phone phone--tall" data-state="edit-error" hidden>
+    <div class="screen" inert>
+      <header class="appbar">
+        <h1 class="appbar__title">Profilo</h1>
+      </header>
+
+      <div class="content content--profile">
+        <div class="identity">
+          <div class="avatar" aria-hidden="true">LB</div>
+          <div class="identity__text">
+            <p class="identity__name">LucaB</p>
+            <p class="identity__email">luca.bianchi@email.it</p>
+          </div>
+          <button class="btn btn--secondary identity__cta" type="button">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+            </svg>
+            Modifica
+          </button>
+        </div>
+
+        <section class="card karma" aria-label="Karma">
+          <p class="label" aria-hidden="true">Karma</p>
+          <p class="karma__score">
+            <span class="display-lg number" aria-hidden="true">87</span>
+            <span class="karma__max" aria-hidden="true">/ 100</span>
+            <span class="sr-only">Karma: 87 su 100.</span>
+          </p>
+          <div class="meter" aria-hidden="true">
+            <span class="meter__fill" style="--value: 87%"></span>
+            <span class="meter__threshold"></span>
+          </div>
+          <p class="karma__rule">+1 a ogni check-in, −3 se salti una lobby. Sotto 50 la partecipazione si sospende per 7 giorni.</p>
+        </section>
+
+        <section class="card" aria-labelledby="stats-title-6">
+          <h2 class="card__title" id="stats-title-6">I tuoi numeri</h2>
+          <div class="stats">
+            <div class="stat">
+              <p class="stat__value number">24</p>
+              <p class="stat__label">Check-in</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number">9</p>
+              <p class="stat__label">Lobby create</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number">17</p>
+              <p class="stat__label">Lobby giocate</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <nav class="bottom-nav" aria-label="Navigazione principale">
+        <a class="bottom-nav__item" href="/" aria-label="Mappa campi">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span>Mappa</span>
+        </a>
+        <a class="bottom-nav__item" href="/profile" aria-current="page" aria-label="Profilo utente">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span>Profilo</span>
+        </a>
+      </nav>
+    </div>
+
+    <div class="sheet" data-sheet role="dialog" aria-modal="true" aria-labelledby="edit-title-6">
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <h2 class="sheet__title" id="edit-title-6">Modifica nickname</h2>
+        <form class="drawer-form" data-proto-form novalidate>
+          <div class="field">
+            <label class="field__label" for="nickname-drawer-6">Nickname</label>
+            <input class="input input--error" id="nickname-drawer-6" name="nickname" type="text" value="" autocomplete="nickname" aria-invalid="true" aria-describedby="nickname-error-6 nickname-hint-6" data-autofocus>
+            <p class="field__error" id="nickname-error-6">Scrivi un nickname per continuare.</p>
+            <p class="field__hint" id="nickname-hint-6">Massimo 30 caratteri. Lo vedono gli altri giocatori.</p>
+          </div>
+          <div class="drawer-actions">
+            <button class="btn btn--secondary grow" type="button" data-close-sheet>Annulla</button>
+            <button class="btn btn--primary grow" type="submit">Salva</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. Statistiche vuote -------------------------------------------- -->
+  <section class="phone phone--tall" data-state="stats-vuote" hidden>
+    <div class="screen">
+      <header class="appbar">
+        <h1 class="appbar__title">Profilo</h1>
+      </header>
+
+      <div class="content content--profile">
+        <div class="identity">
+          <div class="avatar" aria-hidden="true">LB</div>
+          <div class="identity__text">
+            <p class="identity__name">LucaB</p>
+            <p class="identity__email">luca.bianchi@email.it</p>
+          </div>
+          <button class="btn btn--primary identity__cta" type="button" data-open-state="edit-drawer">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+            </svg>
+            Modifica
+          </button>
+        </div>
+
+        <section class="card karma" aria-label="Karma">
+          <p class="label" aria-hidden="true">Karma</p>
+          <p class="karma__score">
+            <span class="display-lg number" aria-hidden="true">90</span>
+            <span class="karma__max" aria-hidden="true">/ 100</span>
+            <span class="sr-only">Karma: 90 su 100.</span>
+          </p>
+          <div class="meter" aria-hidden="true">
+            <span class="meter__fill" style="--value: 90%"></span>
+            <span class="meter__threshold"></span>
+          </div>
+          <p class="karma__rule">+1 a ogni check-in, −3 se salti una lobby. Sotto 50 la partecipazione si sospende per 7 giorni.</p>
+        </section>
+
+        <section class="card" aria-labelledby="stats-title-7">
+          <h2 class="card__title" id="stats-title-7">I tuoi numeri</h2>
+          <div class="stats">
+            <div class="stat">
+              <p class="stat__value number stat__value--muted">0</p>
+              <p class="stat__label">Check-in</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number stat__value--muted">0</p>
+              <p class="stat__label">Lobby create</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number stat__value--muted">0</p>
+              <p class="stat__label">Lobby giocate</p>
+            </div>
+          </div>
+          <p class="stats-empty">Ancora nessun check-in, nessuna lobby. Quando giochi, i numeri compaiono qui.</p>
+        </section>
+
+        <nav class="card card--flush shortcuts" aria-label="Scorciatoie">
+          <a class="shortcut" href="/lobbies">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Le tue lobby</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+          <a class="shortcut" href="/notifications">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Notifiche</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+          <a class="shortcut" href="/settings">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Impostazioni</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+        </nav>
+      </div>
+
+      <nav class="bottom-nav" aria-label="Navigazione principale">
+        <a class="bottom-nav__item" href="/" aria-label="Mappa campi">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span>Mappa</span>
+        </a>
+        <a class="bottom-nav__item" href="/profile" aria-current="page" aria-label="Profilo utente">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span>Profilo</span>
+        </a>
+      </nav>
+    </div>
+  </section>
+
+  <!-- 8. Nickname salvato --------------------------------------------- -->
+  <section class="phone phone--tall" data-state="toast-salvato" hidden>
+    <div class="screen">
+      <header class="appbar">
+        <h1 class="appbar__title">Profilo</h1>
+      </header>
+
+      <div class="content content--profile">
+        <div class="identity">
+          <div class="avatar" aria-hidden="true">LB</div>
+          <div class="identity__text">
+            <p class="identity__name">LucaB</p>
+            <p class="identity__email">luca.bianchi@email.it</p>
+          </div>
+          <button class="btn btn--primary identity__cta" type="button" data-open-state="edit-drawer">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+            </svg>
+            Modifica
+          </button>
+        </div>
+
+        <section class="card karma" aria-label="Karma">
+          <p class="label" aria-hidden="true">Karma</p>
+          <p class="karma__score">
+            <span class="display-lg number" aria-hidden="true">87</span>
+            <span class="karma__max" aria-hidden="true">/ 100</span>
+            <span class="sr-only">Karma: 87 su 100.</span>
+          </p>
+          <div class="meter" aria-hidden="true">
+            <span class="meter__fill" style="--value: 87%"></span>
+            <span class="meter__threshold"></span>
+          </div>
+          <p class="karma__rule">+1 a ogni check-in, −3 se salti una lobby. Sotto 50 la partecipazione si sospende per 7 giorni.</p>
+        </section>
+
+        <section class="card" aria-labelledby="stats-title-8">
+          <h2 class="card__title" id="stats-title-8">I tuoi numeri</h2>
+          <div class="stats">
+            <div class="stat">
+              <p class="stat__value number">24</p>
+              <p class="stat__label">Check-in</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number">9</p>
+              <p class="stat__label">Lobby create</p>
+            </div>
+            <div class="stat">
+              <p class="stat__value number">17</p>
+              <p class="stat__label">Lobby giocate</p>
+            </div>
+          </div>
+        </section>
+
+        <nav class="card card--flush shortcuts" aria-label="Scorciatoie">
+          <a class="shortcut" href="/lobbies">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Le tue lobby</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+          <a class="shortcut" href="/notifications">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Notifiche</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+          <a class="shortcut" href="/settings">
+            <span class="shortcut__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>
+              </svg>
+            </span>
+            <span class="shortcut__title">Impostazioni</span>
+            <span class="shortcut__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </span>
+          </a>
+        </nav>
+      </div>
+
+      <nav class="bottom-nav" aria-label="Navigazione principale">
+        <a class="bottom-nav__item" href="/" aria-label="Mappa campi">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span>Mappa</span>
+        </a>
+        <a class="bottom-nav__item" href="/profile" aria-current="page" aria-label="Profilo utente">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span>Profilo</span>
+        </a>
+      </nav>
+    </div>
+
+    <div class="toast banner banner--success" role="status" aria-live="polite">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 6 9 17l-5-5"/>
+      </svg>
+      <p>Nickname salvato</p>
+    </div>
+  </section>
+
+  <p class="note">Prototipo statico d11 · profilo. Gli 8 stati si cambiano dalla toolbar; ?state=edit-drawer apre direttamente uno stato per gli screenshot. Nessun dato reale, nessuna route dell'app.</p>
+</main>
+
+<script src="proto.js"></script>
+<script>
+  (function () {
+    "use strict";
+
+    function press(id) {
+      var button = document.querySelector('.proto-toolbar [data-show="' + id + '"]');
+      if (button) button.click();
+    }
+
+    function visibleDrawer() {
+      return document.querySelector('[data-state="edit-drawer"]:not([hidden]), [data-state="edit-error"]:not([hidden])');
+    }
+
+    var returnState = "default";
+
+    function closeSheet() {
+      press(returnState);
+      var opener = document.querySelector('[data-state="' + returnState + '"] [data-open-state]');
+      if (opener) opener.focus({ preventScroll: true });
+    }
+
+    document.querySelectorAll("[data-close-sheet]").forEach(function (button) {
+      button.addEventListener("click", closeSheet);
+    });
+
+    document.querySelectorAll("[data-sheet]").forEach(function (sheet) {
+      sheet.addEventListener("click", function (event) {
+        if (event.target === sheet) closeSheet();
+      });
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && visibleDrawer()) closeSheet();
+    });
+
+    document.querySelectorAll("[data-open-state]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var active = button.closest("[data-state]");
+        if (active) returnState = active.getAttribute("data-state");
+
+        var clearId = button.getAttribute("data-clear-input");
+        if (clearId) {
+          var input = document.getElementById(clearId);
+          if (input) input.value = "";
+        } else {
+          var drawer = document.querySelector('[data-state="edit-drawer"]');
+          var field = drawer && drawer.querySelector('input[name="nickname"]');
+          if (field) field.value = field.defaultValue;
+        }
+        press(button.getAttribute("data-open-state"));
+      });
+    });
+
+    document.querySelectorAll("[data-proto-form]").forEach(function (form) {
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var invalid = form.querySelector('[aria-invalid="true"]');
+        if (invalid) {
+          invalid.focus({ preventScroll: true });
+          return;
+        }
+        press("toast-salvato");
+      });
+    });
+
+    // Il focus va sul campo quando il drawer si apre, anche cambiando stato
+    // dalla toolbar o da ?state=.
+    var observer = new MutationObserver(function () {
+      var drawer = visibleDrawer();
+      if (!drawer) return;
+      var input = drawer.querySelector("input[data-autofocus]");
+      if (input && document.activeElement !== input) {
+        input.focus({ preventScroll: true });
+      }
+    });
+    document.querySelectorAll("[data-state]").forEach(function (state) {
+      observer.observe(state, { attributes: true, attributeFilter: ["hidden"] });
+    });
+
+    // Solo per gli screenshot di review: profile.html?state=edit-drawer
+    var requested = new URLSearchParams(window.location.search).get("state");
+    if (requested) press(requested);
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Check-in — prototipo Drop-In</title>
+
+  <!--
+    Pipeline: check-in — un solo passo, nessuno stepper.
+    Dove siamo: prototipo d13, 8 stati del ticket + reduced motion.
+    Prossimo passo: review HITL (d13) → implementazione d21.
+
+    Statico: nessun import da app/ o components/, nessuna fetch, nessuna
+    geolocalizzazione reale. Gli stati si cambiano dalla toolbar.
+    La scadenza è calcolata da ora check-in + 2 ore (auto-checkout).
+    Ora simulata: 17:40 per il successo, 18:02 per "già dentro".
+  -->
+
+  <link rel="stylesheet" href="proto.css">
+
+  <style>
+    /* ---------------------------------------------------------------- */
+    /* Cornice: toolbar + telefono nello stesso gruppo di stati.         */
+    /* ---------------------------------------------------------------- */
+
+    .proto-group {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .proto-toolbar .proto-switch {
+      min-width: 44px;
+      padding: 0 10px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 767px) {
+      .proto-toolbar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .proto-toolbar .proto-switch {
+        padding: 0 4px;
+        font-size: 12px;
+      }
+    }
+
+    /* proto.js usa l'attributo hidden: va reso più forte di ogni display. */
+    [data-state][hidden],
+    .sheet[hidden] {
+      display: none !important;
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Schermata sotto il drawer                                         */
+    /* ---------------------------------------------------------------- */
+
+    .screen {
+      position: relative;
+    }
+
+    .appbar__back:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border: 0;
+      border-radius: var(--radius-control);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .icon-btn:hover {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+    }
+
+    .icon-btn:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .court-map {
+      flex: 0 0 170px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Il campo visto dall'alto: solo geometria, nessun colore nuovo. */
+    .map__pin {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 150px;
+      height: 150px;
+      border: 1px dashed var(--accent);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .map__pin::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 88px;
+      height: 54px;
+      border: 2px solid var(--bg-base);
+      border-radius: 2px;
+      opacity: 0.22;
+      transform: translate(-50%, -50%);
+    }
+
+    .map__pin::after {
+      content: "";
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--text-primary);
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 6px var(--accent-subtle);
+    }
+
+    .court {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 10px;
+      padding: 18px 20px 20px;
+    }
+
+    .court__name {
+      margin: 0;
+      font-family: var(--font-syne);
+      font-size: var(--text-display-sm);
+      font-weight: 700;
+      line-height: 1.15;
+      text-wrap: balance;
+    }
+
+    .court__address {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 10px 0 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .court__address svg {
+      flex: 0 0 auto;
+      color: var(--text-muted);
+    }
+
+    /* La CTA di ingresso sta in fondo: il drawer la copre in ogni stato. */
+    .court__actions {
+      margin-top: auto;
+      padding-top: 8px;
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Drawer                                                            */
+    /* ---------------------------------------------------------------- */
+
+    .sheet__panel {
+      max-height: calc(100% - 24px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    /* A 360 l'idle è alto 424px: a 768 il testo va a capo meno, lo sheet
+       scenderebbe di 19px e taglierebbe l'indirizzo. Resta alla stessa altezza. */
+    .sheet--idle .sheet__panel {
+      min-height: 424px;
+    }
+
+    .sheet__head {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .sheet__heading {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .sheet__court {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .sheet__court svg {
+      flex: 0 0 auto;
+      color: var(--text-muted);
+    }
+
+    .sheet__close {
+      flex: 0 0 auto;
+      margin: -10px -10px 0 auto;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    /* Finestra del check-in */
+    .stint {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      background: var(--bg-surface);
+    }
+
+    .stint__icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-control-sm);
+      background: var(--accent-subtle);
+      color: var(--accent);
+    }
+
+    .stint__title {
+      margin: 0;
+      font-weight: 600;
+    }
+
+    .stint__meta {
+      margin: 2px 0 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .gps {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius-card);
+    }
+
+    .gps svg {
+      flex: 0 0 auto;
+      margin-top: 2px;
+      color: var(--accent);
+    }
+
+    .gps p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    /* Blocco errore: causa + recovery nello stesso banner */
+    .status {
+      align-items: flex-start;
+    }
+
+    .status__icon {
+      flex: 0 0 auto;
+      margin-top: 1px;
+    }
+
+    .status__title {
+      margin: 0;
+      color: var(--text-primary);
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .status__body {
+      margin: 4px 0 0;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .status__hint {
+      margin: 8px 0 0;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    /* Loading */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 2px 0;
+    }
+
+    .loading p {
+      margin: 0;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+      border: 2px solid var(--accent-foreground);
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: proto-spin 700ms linear infinite;
+    }
+
+    @keyframes proto-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Fuori raggio */
+    .distance {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+
+    .distance__head {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .distance__value {
+      margin: 0;
+      font-family: var(--font-syne);
+      font-size: var(--text-display-lg);
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+
+    .distance__value span {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .meter {
+      position: relative;
+      height: 10px;
+      overflow: hidden;
+      border-radius: var(--radius-chip);
+      background: var(--bg-base);
+    }
+
+    .meter__safe {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 33.333%;
+      background: var(--accent-subtle);
+    }
+
+    .meter__over {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 33.333%;
+      width: 46.667%;
+      background: var(--danger);
+      opacity: 0.55;
+    }
+
+    .meter__mark {
+      position: absolute;
+      top: 50%;
+      left: 80%;
+      width: 14px;
+      height: 14px;
+      margin: -7px 0 0 -7px;
+      border: 2px solid var(--bg-elevated);
+      border-radius: 50%;
+      background: var(--danger);
+    }
+
+    .meter__labels {
+      position: relative;
+      height: 16px;
+      margin-top: 6px;
+      color: var(--danger-dark);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .meter__labels span {
+      position: absolute;
+      top: 0;
+    }
+
+    .meter__labels span:first-child {
+      left: 0;
+    }
+
+    .meter__labels span:nth-child(2) {
+      left: 33.333%;
+      transform: translateX(-50%);
+      font-weight: 600;
+    }
+
+    .meter__labels span:last-child {
+      right: 0;
+    }
+
+    .distance__caption {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    /* Successo */
+    .success {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 16px;
+      border-radius: var(--radius-card);
+    }
+
+    .success__icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      margin-bottom: 2px;
+      border-radius: 50%;
+      background: var(--success);
+      color: var(--accent-foreground);
+    }
+
+    .success__label {
+      margin: 0;
+      color: var(--success-dark);
+      font-size: var(--text-label);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .success__time {
+      margin: 0;
+      color: var(--text-primary);
+      font-family: var(--font-syne);
+      font-size: var(--text-display-sm);
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .success__body {
+      margin: 2px 0 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .success__body .number {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* Già dentro */
+    .onsite {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--success);
+      border-radius: var(--radius-card);
+      background: var(--bg-surface);
+    }
+
+    .onsite__top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .onsite__dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    .onsite__line {
+      margin: 0;
+      color: var(--text-primary);
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    .onsite__line .number {
+      font-weight: 600;
+    }
+
+    .onsite__sub {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .badge__dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    /* Come fare */
+    .disclosure {
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-control);
+      background: var(--bg-surface);
+    }
+
+    .disclosure summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 48px;
+      padding: 0 14px;
+      border-radius: inherit;
+      color: var(--text-primary);
+      font-weight: 600;
+      list-style: none;
+      cursor: pointer;
+    }
+
+    .disclosure summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .disclosure summary:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .disclosure summary svg {
+      flex: 0 0 auto;
+      color: var(--text-muted);
+      transition: transform var(--motion-fast) var(--ease-standard);
+    }
+
+    .disclosure[open] summary svg {
+      transform: rotate(180deg);
+    }
+
+    .disclosure[open] summary {
+      border-bottom: 1px solid var(--border);
+      border-radius: var(--radius-control) var(--radius-control) 0 0;
+    }
+
+    .disclosure__body {
+      padding: 12px 14px 14px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .disclosure__body ol {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .disclosure__body p {
+      margin: 10px 0 0;
+    }
+
+    /* Nota di review dentro lo stato reduced motion */
+    .proto-annotation {
+      padding: 12px;
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius-card);
+    }
+
+    .proto-annotation__label {
+      margin: 0 0 4px;
+      color: var(--text-muted);
+      font-size: var(--text-label);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .proto-annotation__text {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+
+<body>
+  <header class="proto-head">
+    <h1 class="proto-head__title">Check-in</h1>
+    <p class="proto-head__meta">d13 · 9 stati · un passo · review HITL</p>
+  </header>
+
+  <div class="proto-group" data-state-group data-initial="idle">
+    <nav class="proto-toolbar" aria-label="Stati del prototipo">
+      <button type="button" class="proto-switch" data-show="idle" aria-pressed="true">Idle</button>
+      <button type="button" class="proto-switch" data-show="loading" aria-pressed="false">Attesa</button>
+      <button type="button" class="proto-switch" data-show="denied" aria-pressed="false">Permesso</button>
+      <button type="button" class="proto-switch" data-show="range" aria-pressed="false">Distanza</button>
+      <button type="button" class="proto-switch" data-show="unavailable" aria-pressed="false">Posizione</button>
+      <button type="button" class="proto-switch" data-show="inside" aria-pressed="false">Già dentro</button>
+      <button type="button" class="proto-switch" data-show="success" aria-pressed="false">Successo</button>
+      <button type="button" class="proto-switch" data-show="server" aria-pressed="false">Salvataggio</button>
+      <button type="button" class="proto-switch" data-show="reduced" aria-pressed="false">Senza pop</button>
+    </nav>
+
+    <div class="phone phone--tall">
+      <div class="screen" id="app-screen">
+        <header class="appbar">
+          <button type="button" class="appbar__back" aria-label="Torna alla mappa">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="M19 12H5"></path>
+              <path d="m12 19-7-7 7-7"></path>
+            </svg>
+          </button>
+          <h2 class="appbar__title">Campo</h2>
+          <div class="appbar__action">
+            <button type="button" class="icon-btn" aria-label="Condividi il campo">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <path d="m8.6 13.5 6.8 4"></path>
+                <path d="m15.4 6.5-6.8 4"></path>
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="map court-map" aria-hidden="true">
+          <span class="map__water"></span>
+          <span class="map__pin"></span>
+        </div>
+
+        <div class="court">
+          <p class="label">Basket · all'aperto</p>
+          <h3 class="court__name">Campetto di Piazza Vittorio</h3>
+          <p class="court__address">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+            Piazza Vittorio Emanuele II, Roma
+          </p>
+          <div class="court__actions">
+            <button type="button" class="btn btn--primary btn--block" id="open-checkin" aria-haspopup="dialog">
+              Fai check-in
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <section class="sheet" id="checkin-sheet" role="dialog" aria-modal="true" aria-labelledby="checkin-title" aria-describedby="checkin-court">
+        <div class="sheet__panel">
+          <div class="handle" aria-hidden="true"></div>
+
+          <header class="sheet__head">
+            <div class="sheet__heading">
+              <h2 class="sheet__title" id="checkin-title">Check-in</h2>
+              <p class="sheet__court" id="checkin-court">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                Campetto di Piazza Vittorio
+              </p>
+            </div>
+            <button type="button" class="icon-btn sheet__close" id="close-checkin" aria-label="Chiudi il check-in" data-close>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <path d="M18 6 6 18"></path>
+                <path d="M6 6l12 12"></path>
+              </svg>
+            </button>
+          </header>
+
+          <!-- 1. Idle -->
+          <section data-state="idle">
+            <div class="stack">
+              <div class="stint">
+                <span class="stint__icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M12 7v5l3 2"></path>
+                  </svg>
+                </span>
+                <div>
+                  <p class="stint__title">Check-in aperto ora</p>
+                  <p class="stint__meta">Resta attivo 2 ore, poi si chiude da solo.</p>
+                </div>
+              </div>
+
+              <div class="gps">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <circle cx="12" cy="12" r="4"></circle>
+                  <path d="M12 3v2M12 19v2M3 12h2M19 12h2"></path>
+                </svg>
+                <p>Serve il GPS: ti verifichiamo entro 50 m dal campo.</p>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button type="button" class="btn btn--primary btn--block">Fai check-in</button>
+              <button type="button" class="btn btn--secondary btn--block" data-close>Annulla</button>
+            </div>
+          </section>
+
+          <!-- 2. Loading -->
+          <section data-state="loading" aria-busy="true">
+            <div class="stack">
+              <div class="loading" role="status" aria-live="polite">
+                <p class="body">Controlliamo che tu sia entro 50 m dal campo.</p>
+                <p class="muted">Ci vuole qualche secondo.</p>
+              </div>
+              <button type="button" class="btn btn--primary btn--block" disabled aria-busy="true">
+                <span class="spinner" aria-hidden="true"></span>
+                Verifica posizione…
+              </button>
+            </div>
+          </section>
+
+          <!-- 3. Permesso negato -->
+          <section data-state="denied">
+            <div class="stack">
+              <div class="banner banner--danger status" role="alert" aria-live="assertive">
+                <span class="status__icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <path d="M12 9v4"></path>
+                    <path d="M12 17h.01"></path>
+                    <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path>
+                  </svg>
+                </span>
+                <div>
+                  <p class="status__title">Permesso posizione negato</p>
+                  <p class="status__body">Abilitalo nelle impostazioni e riprova.</p>
+                </div>
+              </div>
+
+              <details class="disclosure">
+                <summary>
+                  Come fare
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="m6 9 6 6 6-6"></path>
+                  </svg>
+                </summary>
+                <div class="disclosure__body">
+                  <ol>
+                    <li>Apri le Impostazioni del telefono.</li>
+                    <li>Cerca Drop-In e apri la voce Posizione.</li>
+                    <li>Scegli «Consenti» e torna qui.</li>
+                  </ol>
+                  <p>Poi tocca Riprova.</p>
+                </div>
+              </details>
+            </div>
+
+            <div class="actions">
+              <button type="button" class="btn btn--primary btn--block">Riprova</button>
+            </div>
+          </section>
+
+          <!-- 4. Fuori raggio -->
+          <section data-state="range">
+            <div class="stack">
+              <div class="banner banner--danger distance" role="alert" aria-live="assertive">
+                <div class="distance__head">
+                  <span class="status__icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                      <path d="M12 9v4"></path>
+                      <path d="M12 17h.01"></path>
+                      <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path>
+                    </svg>
+                  </span>
+                  <div>
+                    <p class="status__title">Fuori raggio</p>
+                    <p class="status__body">Sei a 120 m dal campo. Avvicinati e riprova.</p>
+                  </div>
+                </div>
+
+                <p class="distance__value" aria-hidden="true">120 <span>m</span></p>
+
+                <div aria-hidden="true">
+                  <div class="meter">
+                    <span class="meter__safe"></span>
+                    <span class="meter__over"></span>
+                    <span class="meter__mark"></span>
+                  </div>
+                  <div class="meter__labels">
+                    <span>0</span>
+                    <span>50 m</span>
+                    <span>150 m</span>
+                  </div>
+                </div>
+
+                <p class="distance__caption">Il check-in parte entro 50 m dal campo.</p>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button type="button" class="btn btn--primary btn--block">Aggiorna posizione</button>
+            </div>
+          </section>
+
+          <!-- 5. Posizione non disponibile / timeout -->
+          <section data-state="unavailable">
+            <div class="stack">
+              <div class="banner banner--warning status" role="alert" aria-live="assertive">
+                <span class="status__icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <path d="M12 9v4"></path>
+                    <path d="M12 17h.01"></path>
+                    <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path>
+                  </svg>
+                </span>
+                <div>
+                  <p class="status__title">Posizione non disponibile</p>
+                  <p class="status__body">Non riusciamo a leggere la posizione. Esci all'aperto e riprova.</p>
+                  <p class="status__hint">Controlla anche che il GPS del telefono sia attivo.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button type="button" class="btn btn--primary btn--block">Riprova</button>
+            </div>
+          </section>
+
+          <!-- 6. Già dentro -->
+          <section data-state="inside">
+            <div class="stack">
+              <div class="onsite">
+                <div class="onsite__top">
+                  <span class="badge badge--success"><span class="badge__dot" aria-hidden="true"></span>Sei qui</span>
+                </div>
+                <p class="onsite__line">
+                  Sei qui dalle <span class="number">18:02</span>, check-in attivo fino alle
+                  <span class="number" data-expiry-from="18:02">20:02</span>.
+                </p>
+                <p class="onsite__sub">Il check-in si chiude da solo alle 20:02. Fai check-out se te ne vai prima.</p>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button type="button" class="btn btn--secondary btn--block" data-close>Fai check-out</button>
+            </div>
+          </section>
+
+          <!-- 7. Successo -->
+          <section data-state="success">
+            <div class="stack">
+              <div class="banner banner--success success pop" role="status" aria-live="polite">
+                <span class="success__icon" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <path d="M20 6 9 17l-5-5"></path>
+                  </svg>
+                </span>
+                <p class="success__label">Check-in attivo</p>
+                <p class="success__time">fino alle <span class="number" data-expiry-from="17:40">19:40</span></p>
+                <p class="success__body">Sei dentro per 2 ore. Puoi fare check-out dalla scheda del campo quando vuoi.</p>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button type="button" class="btn btn--primary btn--block" data-close>Chiudi</button>
+            </div>
+          </section>
+
+          <!-- 8. Errore server -->
+          <section data-state="server">
+            <div class="stack">
+              <div class="banner banner--danger status" role="alert" aria-live="assertive">
+                <span class="status__icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <path d="M12 9v4"></path>
+                    <path d="M12 17h.01"></path>
+                    <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path>
+                  </svg>
+                </span>
+                <div>
+                  <p class="status__title">Check-in non salvato</p>
+                  <p class="status__body">Non siamo riusciti a salvare il check-in. Riprova.</p>
+                  <p class="status__hint">La posizione letta resta valida: riprova senza rifare tutto.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button type="button" class="btn btn--primary btn--block">Riprova</button>
+            </div>
+          </section>
+
+          <!-- 9. Reduced motion: stesso successo, senza pop -->
+          <section data-state="reduced">
+            <div class="stack">
+              <div class="banner banner--success success" role="status" aria-live="polite">
+                <span class="success__icon" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <path d="M20 6 9 17l-5-5"></path>
+                  </svg>
+                </span>
+                <p class="success__label">Check-in attivo</p>
+                <p class="success__time">fino alle <span class="number" data-expiry-from="17:40">19:40</span></p>
+                <p class="success__body">Sei dentro per 2 ore. Puoi fare check-out dalla scheda del campo quando vuoi.</p>
+              </div>
+
+              <aside class="proto-annotation" aria-label="Nota del prototipo">
+                <p class="proto-annotation__label">Nota prototipo</p>
+                <p class="proto-annotation__text">Con «riduci movimento» il pop non c'è: restano il testo, il bordo success e il focus. La media query è già attiva nel file.</p>
+              </aside>
+            </div>
+
+            <div class="actions">
+              <button type="button" class="btn btn--primary btn--block" data-close>Chiudi</button>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <p class="note">
+    Prototipo statico. La scadenza è calcolata dal check-in + 2 ore. Le CTA sono
+    stati visivi: il flusso si cambia dalla toolbar. Nessuna geolocalizzazione reale.
+  </p>
+
+  <script src="proto.js"></script>
+  <script>
+    (function () {
+      "use strict";
+
+      var sheet = document.getElementById("checkin-sheet");
+      var panel = document.querySelector(".sheet__panel");
+      var screen = document.getElementById("app-screen");
+      var openButton = document.getElementById("open-checkin");
+      var closeButton = document.getElementById("close-checkin");
+      var idleSwitch = document.querySelector('.proto-switch[data-show="idle"]');
+
+      function setOpen(open, moveFocus) {
+        sheet.hidden = !open;
+        if (screen) screen.inert = open;
+        if (open) {
+          if (panel) panel.scrollTop = 0;
+          if (moveFocus && closeButton) closeButton.focus();
+        }
+      }
+
+      function closeSheet() {
+        setOpen(false, false);
+        if (openButton) openButton.focus();
+      }
+
+      function keepIdleHeight(state) {
+        sheet.classList.toggle("sheet--idle", state === "idle");
+      }
+
+      // Il drawer è già aperto all'avvio: nessun focus rubato allo screenshot.
+      setOpen(true, false);
+      keepIdleHeight("idle");
+
+      Array.prototype.forEach.call(document.querySelectorAll(".proto-switch"), function (button) {
+        button.addEventListener("click", function () {
+          keepIdleHeight(button.getAttribute("data-show"));
+          setOpen(true, false);
+          if (panel) panel.scrollTop = 0;
+        });
+      });
+
+      Array.prototype.forEach.call(document.querySelectorAll("[data-close]"), function (button) {
+        button.addEventListener("click", closeSheet);
+      });
+
+      sheet.addEventListener("click", function (event) {
+        if (event.target === sheet) closeSheet();
+      });
+
+      if (openButton) {
+        openButton.addEventListener("click", function () {
+          if (idleSwitch) idleSwitch.click();
+          setOpen(true, true);
+        });
+      }
+
+      // Focus trap + Esc. La toolbar resta raggiungibile chiudendo con Esc.
+      document.addEventListener("keydown", function (event) {
+        if (sheet.hidden) return;
+
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeSheet();
+          return;
+        }
+
+        if (event.key !== "Tab") return;
+
+        var focusable = Array.prototype.filter.call(
+          sheet.querySelectorAll('button:not([disabled]), summary, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+          function (element) {
+            return !element.closest("[hidden]");
+          }
+        );
+
+        if (focusable.length === 0) return;
+
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+
+        if (!sheet.contains(document.activeElement)) {
+          event.preventDefault();
+          first.focus();
+        } else if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      });
+
+      // Scadenza = ora del check-in + 2 ore, formattata it-IT.
+      Array.prototype.forEach.call(document.querySelectorAll("[data-expiry-from]"), function (element) {
+        var parts = (element.getAttribute("data-expiry-from") || "").split(":");
+        if (parts.length !== 2) return;
+        var date = new Date();
+        date.setHours(Number(parts[0]), Number(parts[1]) + 120, 0, 0);
+        element.textContent = date.toLocaleTimeString("it-IT", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

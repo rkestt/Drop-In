@@ -4,6 +4,14 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MAP_PROVIDER, MAP_STYLE_URL, MAP_ATTRIBUTION } from "@/lib/map/provider";
+import {
+  BOLLARD_CLASSES,
+  BOLLARD_ICON_ID,
+  GATE_CLASSES,
+  GATE_ICON_ID,
+  registerBarrierIcons,
+  type BarrierIconUris,
+} from "@/lib/map/icons";
 
 interface CourtMapProps {
   courts?: Array<{ id: string; name: string; lat: number; lng: number; address?: string | null }>;
@@ -16,6 +24,96 @@ interface CourtMapProps {
 }
 
 const ROME_CENTER: [number, number] = [12.5113, 41.8919];
+
+declare global {
+  interface Window {
+    __dropinMap?: maplibregl.Map | null;
+    __dropinBarrierIconUris?: BarrierIconUris | null;
+  }
+}
+
+let barrierSetupWarned = false;
+
+function warnBarrierSetupOnce(message: string): void {
+  if (barrierSetupWarned) return;
+  barrierSetupWarned = true;
+  console.warn(message);
+}
+
+const BARRIER_LAYER_ID = "dropin-barriers";
+
+// Gap-filler sopra i tile OpenFreeMap (maxzoom 14, overzoom oltre): lo
+// stile Liberty mostra i POI barriera per rank (poi_r7 a z16 copre solo
+// rank 7-19), quindi a z16 quasi tutte le barriere mancherebbero. Questo
+// layer le disegna tutte da z16 con le icone inline. A z17+ c'e' doppio
+// disegno con poi_r20: stessa immagine e ancora; size 0.8 vs 1.0 stock e
+// overlap nostro: a z17 le icone stock crescono e possono cullare, il
+// nostro layer resta sotto — salto lieve accettato.
+function addBarrierLayer(map: maplibregl.Map): void {
+  const spec = {
+    id: BARRIER_LAYER_ID,
+    type: "symbol",
+    source: "openmaptiles",
+    "source-layer": "poi",
+    minzoom: 16,
+    filter: [
+      "match",
+      ["get", "class"],
+      [...GATE_CLASSES, ...BOLLARD_CLASSES],
+      true,
+      false,
+    ],
+    layout: {
+      "icon-image": [
+        "match",
+        ["get", "class"],
+        [...GATE_CLASSES],
+        GATE_ICON_ID,
+        BOLLARD_ICON_ID,
+      ],
+      "icon-size": 0.8,
+      "icon-allow-overlap": true,
+    },
+  } as unknown as maplibregl.LayerSpecification;
+  // I marker dei campi sono DOM (sempre sopra il canvas); il layer va
+  // comunque sotto le etichette di luogo per non coprirle.
+  const beforeId = map
+    .getStyle()
+    ?.layers.find((layer) => layer.type === "symbol")?.id;
+  if (beforeId) map.addLayer(spec, beforeId);
+  else map.addLayer(spec);
+}
+
+// Registra le icone inline gate/bollard e aggiunge il layer
+// dropin-barriers. Idempotente e mai fatale: se le icone o la sorgente
+// mancano, la mappa continua a funzionare senza il layer.
+function setupBarrierLayer(map: maplibregl.Map): void {
+  if (MAP_PROVIDER !== "openfreemap") return;
+  window.__dropinMap = map;
+  // Prima le icone, poi il layer: aggiungerlo prima causerebbe
+  // "Image gate/bollard could not be loaded" in console.
+  void registerBarrierIcons(map)
+    .then((uris) => {
+      window.__dropinBarrierIconUris = uris;
+      try {
+        if (map.getLayer(BARRIER_LAYER_ID)) return;
+        if (!map.hasImage(GATE_ICON_ID) || !map.hasImage(BOLLARD_ICON_ID)) {
+          warnBarrierSetupOnce("[map] barrier icons missing, skipping dropin-barriers");
+          return;
+        }
+        if (!map.getSource("openmaptiles")) {
+          warnBarrierSetupOnce("[map] openmaptiles source missing, skipping dropin-barriers");
+          return;
+        }
+        addBarrierLayer(map);
+      } catch {
+        warnBarrierSetupOnce("[map] could not add dropin-barriers layer");
+      }
+    })
+    .catch(() => {
+      warnBarrierSetupOnce("[map] barrier icon registration failed");
+    });
+}
 
 export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedCourtIds = [], userLocation = null, locationError = null, ariaLabel = "Mappa dei campi" }: CourtMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -88,6 +186,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     };
     instance.on("load", () => {
       loadedRef.current = true;
+      setupBarrierLayer(instance);
       fireBounds();
       requestAnimationFrame(() => instance.resize());
     });
@@ -110,6 +209,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     if (mapContainer.current) resizeObserver.observe(mapContainer.current);
 
     instance.on("remove", () => {
+      if (window.__dropinMap === instance) window.__dropinMap = null;
       window.removeEventListener("resize", resizeHandler);
       resizeObserver.disconnect();
       canvas.removeEventListener("webglcontextlost", onContextLost);
@@ -172,7 +272,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
       const iconColor = isReported ? "#ffffff" : "white";
 
       const el = document.createElement("div");
-      el.className = "court-marker w-10 h-10 rounded-full flex items-center justify-center cursor-pointer shadow-md border-2 border-white transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2";
+      el.className = "court-marker w-11 h-11 rounded-full flex items-center justify-center cursor-pointer shadow-md border-2 border-white transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2";
       el.style.backgroundColor = bgColor;
       el.setAttribute("role", "button");
       el.setAttribute("tabindex", "0");
@@ -213,10 +313,17 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
   }, [removeCourtMarkers]);
 
   return (
-    <div className="absolute inset-0" role="region" aria-label={ariaLabel}>
+    <div
+      className="absolute inset-0"
+      role="region"
+      aria-label={ariaLabel}
+      // Screenshot visual: canvas WebGL, tile di rete, marker e controlli
+      // non sono deterministici → il confronto li ignora (grigio uniforme).
+      data-visual-mask
+    >
       <div ref={mapContainer} className="w-full h-full" />
       {locationError && (
-        <div className="absolute top-4 left-4 right-4 bg-[var(--bg-elevated)] rounded-xl p-3 shadow-lg z-10" role="alert" aria-live="polite">
+        <div className="absolute top-4 start-4 end-4 bg-[var(--bg-elevated)] rounded-card p-3 shadow-lg z-10" role="alert" aria-live="polite">
           <p className="text-sm text-[var(--text-secondary)]">{locationError}</p>
         </div>
       )}
@@ -224,7 +331,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
         <div className="absolute inset-0 flex items-center justify-center bg-[var(--bg-elevated)] z-20">
           <div className="text-center space-y-3">
             <p className="text-sm text-[var(--text-secondary)]">{mapError}</p>
-            <button type="button" onClick={handleRetry} className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm">
+            <button type="button" onClick={handleRetry} className="px-4 py-2 rounded-control-sm bg-[var(--accent)] text-[var(--accent-foreground)] text-sm">
               Riprova
             </button>
           </div>

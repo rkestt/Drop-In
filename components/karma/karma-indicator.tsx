@@ -24,7 +24,7 @@ export function KarmaIndicator({ score, size = "md" }: KarmaIndicatorProps) {
           {
             "bg-[var(--accent-subtle)] text-[var(--accent)]": status === "high",
             "bg-[var(--warning)]/15 text-[var(--warning)]": status === "medium",
-            "bg-[var(--danger)]/15 text-[var(--danger)]": status === "low",
+            "bg-[var(--danger)]/15 text-[var(--danger-dark)]": status === "low",
           }
         )}
       >

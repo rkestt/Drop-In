@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Review prototipi — Drop-In design 1.5</title>
+    <link rel="stylesheet" href="proto.css" />
+    <style>
+      body {
+        padding: 24px 16px 56px;
+        max-width: 960px;
+        margin: 0 auto;
+      }
+      header {
+        margin-bottom: 24px;
+      }
+      h1 {
+        font-family: var(--font-syne);
+        font-size: 28px;
+        line-height: 1.15;
+        margin: 0 0 8px;
+      }
+      .lead {
+        color: var(--text-secondary);
+        max-width: 62ch;
+      }
+      .note {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--bg-surface);
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+        margin-top: 24px;
+      }
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--bg-surface);
+      }
+      .card h2 {
+        font-family: var(--font-syne);
+        font-size: 18px;
+        margin: 0;
+      }
+      .meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .chip {
+        padding: 2px 8px;
+        border-radius: var(--radius-chip);
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+      }
+      .card p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+      .card ul {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+      .card li + li {
+        margin-top: 4px;
+      }
+      .card a.open {
+        margin-top: auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 16px;
+        border-radius: var(--radius-control);
+        background: var(--accent);
+        color: var(--accent-foreground);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .card a.open:focus-visible {
+        outline: 2px solid var(--focus-ring);
+        outline-offset: 2px;
+      }
+      footer {
+        margin-top: 32px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+      code {
+        font-family: var(--font-source-sans);
+        background: var(--bg-elevated);
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Review prototipi — design 1.5</h1>
+      <p class="lead">
+        Otto schermate, otto file statici. In ognuno la barra in cima cambia
+        stato: guarda tutti gli stati, non solo il primo. Il copy qui è
+        definitivo: l'implementazione (`d17`–`d24`) non reinventa testi,
+        spazi o gerarchia.
+      </p>
+      <div class="note">
+        Come guardarli: apri un prototipo, prova la barra degli stati, poi
+        riduci a 360&nbsp;px (DevTools) — devono restare leggibili e senza
+        scroll orizzontale. Se qualcosa non va, dimmi schermata + stato: lo
+        correggo nel prototipo, non in implementazione.
+      </div>
+    </header>
+
+    <main class="grid">
+      <article class="card">
+        <h2>Primo avvio</h2>
+        <div class="meta">
+          <span class="chip">d9</span>
+          <span class="chip">5 stati</span>
+          <span class="chip">in review</span>
+        </div>
+        <p>Tre passi sopra la mappa, skippabili, più il coach mark sulla scheda campo.</p>
+        <ul>
+          <li>Copy dei 3 passi e tono delle CTA</li>
+          <li>Altezza del drawer (mai oltre il 70%) e peso dello scrim</li>
+          <li>Posizione del coach mark e del banner di chiusura</li>
+        </ul>
+        <a class="open" href="onboarding.html">Apri onboarding</a>
+      </article>
+
+      <article class="card">
+        <h2>Impostazioni</h2>
+        <div class="meta">
+          <span class="chip">d10</span>
+          <span class="chip">8 stati</span>
+          <span class="chip">in review</span>
+        </div>
+        <p>Notifiche, posizione, account, uscita. Include permessi negati e push non disponibile.</p>
+        <ul>
+          <li>Gerarchia a 360&nbsp;px</li>
+          <li>Copy della riga notifiche/push</li>
+          <li>Drawer “Esci” e switch del pallino</li>
+        </ul>
+        <a class="open" href="settings.html">Apri impostazioni</a>
+      </article>
+
+      <article class="card">
+        <h2>Profilo</h2>
+        <div class="meta">
+          <span class="chip">d11</span>
+          <span class="chip">8 stati</span>
+          <span class="chip">in review</span>
+        </div>
+        <p>Nickname, karma, statistiche, modifica in drawer, banner ban.</p>
+        <ul>
+          <li>Gerarchia nome/karma rispetto alle statistiche</li>
+          <li>Banner ban: data e cosa fare</li>
+          <li>Drawer che lascia visibili header e karma; toast sopra la bottom nav</li>
+        </ul>
+        <a class="open" href="profile.html">Apri profilo</a>
+      </article>
+
+      <article class="card">
+        <h2>Lobby</h2>
+        <div class="meta">
+          <span class="chip">d12</span>
+          <span class="chip">12 stati</span>
+          <span class="chip">in review</span>
+        </div>
+        <p>Lista (tue/vicine), dettaglio aperta/piena/in corso/chiusa, crea, join.</p>
+        <ul>
+          <li>Card come unico focus stop: “Unisciti” è affordance visiva, il join parte dal dettaglio</li>
+          <li>Join ottimistico e stato “Sei dentro”</li>
+          <li>CTA dello stato “Al completo”</li>
+        </ul>
+        <a class="open" href="lobby.html">Apri lobby</a>
+      </article>
+
+      <article class="card">
+        <h2>Check-in</h2>
+        <div class="meta">
+          <span class="chip">d13</span>
+          <span class="chip">9 stati</span>
+          <span class="chip">in review</span>
+        </div>
+        <p>Permesso, fuori raggio, posizione assente, già dentro, successo con scadenza.</p>
+        <ul>
+          <li>Copy del successo: “Check-in attivo fino alle …” senza “Operazione completata”</li>
+          <li>Fuori raggio: 120&nbsp;m con soglia 50, il testo resta la fonte</li>
+          <li>Ordine “Come fare” → “Riprova”: va bene o va invertito?</li>
+        </ul>
+        <a class="open" href="checkin.html">Apri check-in</a>
+      </article>
+
+      <article class="card">
+        <h2>Notifiche</h2>
+        <div class="meta">
+          <span class="chip">d14</span>
+          <span class="chip">9 stati</span>
+          <span class="chip">in review</span>
+        </div>
+        <p>Centro notifiche con letto/non letto, arrivo in tempo reale, permesso push, offline.</p>
+        <ul>
+          <li>Come si distingue una notifica non letta</li>
+          <li>Evidenza dell'arrivo (ring accent): basta?</li>
+          <li>Meteo campo: tenerlo o tagliarlo (non c'è evento sorgente nel DB)</li>
+        </ul>
+        <a class="open" href="notifications.html">Apri notifiche</a>
+      </article>
+
+      <article class="card">
+        <h2>Segnala un campo</h2>
+        <div class="meta">
+          <span class="chip">d15</span>
+          <span class="chip">7 stati</span>
+          <span class="chip">in review</span>
+        </div>
+        <p>Categorie, descrizione, invio, già segnalato, errore rete.</p>
+        <ul>
+          <li>CTA attiva a form vuoto: teniamo così o disabilitiamo?</li>
+          <li>Stato “già segnalato” con due report attivi</li>
+          <li>Scadenza scritta nel copy</li>
+        </ul>
+        <a class="open" href="report.html">Apri segnala</a>
+      </article>
+
+      <article class="card">
+        <h2>Offline / errore / vuoto</h2>
+        <div class="meta">
+          <span class="chip">d16</span>
+          <span class="chip">13 stati</span>
+          <span class="chip">in review</span>
+        </div>
+        <p>Offline con e senza cache, retry, errore route, errore critico, cinque stati vuoti.</p>
+        <ul>
+          <li>Copy senza gergo: “campi salvati”, non “cache”</li>
+          <li>Errore critico: colori e font di sistema, deve sopravvivere al CSS mancante</li>
+          <li>Vuoto notifiche è l'unico stato senza CTA primaria</li>
+        </ul>
+        <a class="open" href="offline.html">Apri offline</a>
+      </article>
+    </main>
+
+    <footer>
+      Regole e checklist complete in <code>docs/design/prototypes/README.md</code>.
+      I prototipi non sono route dell'app: nessun import da <code>app/</code>,
+      nessuna rete, nessun dato reale.
+    </footer>
+  </body>
+</html>

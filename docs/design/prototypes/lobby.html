@@ -1,0 +1,2028 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drop-In — Lobby (prototipo)</title>
+<link rel="stylesheet" href="proto.css">
+<style>
+  :root { color-scheme: dark; }
+
+  /* proto.js nasconde gli stati con l'attributo [hidden], ma le classi
+     display:flex di proto.css battono lo stile UA: senza questa riga
+     tutti gli stati restano impilati dentro .phone. */
+  [hidden] { display: none !important; }
+
+  /* Il gruppo di proto.js contiene toolbar e telefono: display:contents
+     lo toglie dal layout, così body resta la colonna flex della cornice. */
+  .proto-group { display: contents; }
+
+  /* --- Lista ------------------------------------------------------- */
+
+  .btn { text-decoration: none; }
+
+  .appbar__meta {
+    margin: 0 0 0 auto;
+    color: var(--text-muted);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-base);
+  }
+
+  .tab {
+    min-height: 48px;
+    padding: 0 12px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .tab:hover { color: var(--text-primary); }
+
+  .tab[aria-selected="true"] {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  .tab__count {
+    margin-left: 4px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tab[aria-selected="true"] .tab__count { color: var(--accent); }
+
+  .content--scroll {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .lobby-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .lobby-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    text-decoration: none;
+    transition:
+      background-color var(--motion-fast) var(--ease-standard),
+      border-color var(--motion-fast) var(--ease-standard);
+  }
+
+  .lobby-card:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-elevated);
+  }
+
+  .lobby-card:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .lobby-card__top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .lobby-card__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .lobby-card__name {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .lobby-card__meta {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .lobby-card__top .badge {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  .lobby-card__bottom {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .lobby-card__fact {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lobby-card__go {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .lobby-card__you {
+    margin-left: auto;
+    padding: 2px 8px;
+    border-radius: var(--radius-chip);
+    background: var(--accent-subtle);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* --- Dettaglio --------------------------------------------------- */
+
+  .detail { gap: 16px; }
+
+  .detail__sport {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .when {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .when__time {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: var(--text-display-lg);
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .when__meta {
+    margin: 3px 0 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .players__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .avatars {
+    display: flex;
+    flex: 0 0 auto;
+  }
+
+  .avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .avatar + .avatar { margin-left: -10px; }
+
+  .avatar--you {
+    border-color: var(--accent);
+    color: var(--text-primary);
+  }
+
+  .players__count {
+    margin: 0 0 0 2px;
+    font-family: var(--font-syne);
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .players__unit {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .players__names {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .facts {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .fact {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .fact + .fact { border-top: 1px solid var(--border); }
+
+  .fact__icon {
+    flex: 0 0 auto;
+    margin-top: 2px;
+    color: var(--text-muted);
+  }
+
+  .fact__label {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .fact__value {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .link-arrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    min-height: 44px;
+    color: var(--accent);
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .link-arrow:hover { text-decoration: underline; }
+
+  .link-arrow:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  .appbar__back:focus-visible,
+  .bottom-nav__item:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-control);
+  }
+
+  .actionbar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 16px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-base);
+  }
+
+  .status-note {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .status-note__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .status-note__text {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  /* --- Drawer ------------------------------------------------------ */
+
+  .sheet__scrim {
+    position: absolute;
+    inset: 0;
+  }
+
+  .sheet__panel {
+    position: relative;
+    max-height: 96%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sheet__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .sheet__head .sheet__title { flex: 1; }
+
+  .sheet__title:focus { outline: none; }
+
+  .sheet__close {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin: -8px -8px 0 0;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .sheet__close:hover {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+  }
+
+  .sheet__close:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .sheet__sub {
+    margin: -6px 0 0;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .stepper__btn {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .stepper__btn:hover { background: var(--bg-elevated); }
+
+  .stepper__btn:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .stepper__input {
+    width: 72px;
+    min-height: 48px;
+    padding: 0 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-family: var(--font-syne);
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  .stepper__input::-webkit-outer-spin-button,
+  .stepper__input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .stepper__input:focus-visible {
+    border-color: var(--accent);
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+  }
+
+  .stepper__input.input--error { border-color: var(--danger); }
+
+  .stepper__unit {
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .note-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .note-box p { margin: 0; font-size: 14px; }
+
+  .summary {
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .summary__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .summary__row + .summary__row { border-top: 1px solid var(--border); }
+
+  .summary__row dt {
+    margin: 0;
+    color: var(--text-muted);
+  }
+
+  .summary__row dd {
+    margin: 0;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .banner--stack {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .banner--stack p { margin: 0; }
+
+  .banner__title { font-weight: 600; }
+
+  .sheet__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 4px;
+  }
+
+  /* --- Skeleton ---------------------------------------------------- */
+
+  .skeleton-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .skeleton-card .skeleton { background: var(--bg-elevated); }
+
+  .sk-line { height: 14px; }
+  .sk-line--title { width: 62%; height: 18px; }
+  .sk-line--meta { width: 84%; }
+  .sk-line--short { width: 42%; }
+
+  .sk-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .sk-pill {
+    width: 64px;
+    height: 24px;
+    border-radius: var(--radius-chip);
+  }
+
+  /* --- Vuoti ------------------------------------------------------- */
+
+  .empty--page {
+    justify-content: center;
+    min-height: 320px;
+    flex: 1;
+  }
+
+  .empty .btn {
+    width: 100%;
+    max-width: 240px;
+    margin-top: 8px;
+  }
+
+  .empty__title {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 20px;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  .empty .body { max-width: 240px; }
+</style>
+</head>
+<body>
+
+<!--
+  Drop-In — prototipo statico dell'area Lobby (ticket d12).
+
+  PIPELINE: lista → dettaglio → join. Crea parte dal dettaglio del campo.
+  CONTENITORI: lista e dettaglio sono pagine; crea e join sono drawer.
+  PASSI: join e crea sono a un passo (nessuno stepper).
+  PROSSIMO PASSO UNICO: "Unisciti" (lobby aperta), "Crea lobby" (lobby piena),
+  "Entra" (join), "Crea lobby" (crea). Ogni stato ha una sola CTA primaria.
+
+  12 stati, tutti dalla toolbar in cima. Nessun import dall'app, nessuna fetch,
+  nessun dato reale: i nomi, gli orari e il karma sono inventati ma plausibili.
+-->
+
+<header class="proto-head">
+  <h1 class="proto-head__title">Lobby</h1>
+  <p class="proto-head__meta">Lista, dettaglio, crea e join · 12 stati dalla toolbar · 360px</p>
+</header>
+
+<div class="proto-group" data-state-group data-initial="lista">
+<nav class="proto-toolbar" aria-label="Stati del prototipo">
+  <span class="proto-toolbar__label">Stati</span>
+  <button class="proto-switch" type="button" data-show="lista">Lista</button>
+  <button class="proto-switch" type="button" data-show="lista-vuota">Lista vuota</button>
+  <button class="proto-switch" type="button" data-show="lista-loading">Caricamento</button>
+  <button class="proto-switch" type="button" data-show="dettaglio-aperta">Dettaglio</button>
+  <button class="proto-switch" type="button" data-show="dettaglio-piena">Piena</button>
+  <button class="proto-switch" type="button" data-show="dettaglio-in-corso">In corso</button>
+  <button class="proto-switch" type="button" data-show="dettaglio-chiusa">Chiusa</button>
+  <button class="proto-switch" type="button" data-show="crea">Crea</button>
+  <button class="proto-switch" type="button" data-show="crea-errore">Crea errore</button>
+  <button class="proto-switch" type="button" data-show="join">Join</button>
+  <button class="proto-switch" type="button" data-show="join-ottimistico">Sei dentro</button>
+  <button class="proto-switch" type="button" data-show="join-pieno">Posti esauriti</button>
+</nav>
+
+<main class="phone phone--tall">
+
+  <!-- ============================================================ -->
+  <!-- 1. Lista                                                     -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="lista" aria-label="Lista lobby">
+    <header class="appbar">
+      <h2 class="appbar__title">Lobby</h2>
+      <p class="appbar__meta">Roma · lun 9 nov</p>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Lobby">
+      <button class="tab" type="button" role="tab" id="tab-lista-mine"
+              aria-controls="panel-lista-mine" aria-selected="true">
+        Le tue <span class="tab__count">3</span>
+      </button>
+      <button class="tab" type="button" role="tab" id="tab-lista-near"
+              aria-controls="panel-lista-near" aria-selected="false">
+        Vicine <span class="tab__count">3</span>
+      </button>
+    </div>
+
+    <div class="content content--tight content--scroll">
+      <div class="stack" role="tabpanel" id="panel-lista-mine"
+           aria-labelledby="tab-lista-mine" data-tabpanel>
+        <ul class="lobby-list">
+          <li>
+            <a class="lobby-card" href="#" data-goto="join-ottimistico"
+               aria-label="Lobby al Campo del Pineto, ore 21:00, 4 su 5, aperta, sei dentro">
+              <span class="lobby-card__top">
+                <span class="lobby-card__text">
+                  <span class="lobby-card__name">Campo del Pineto</span>
+                  <span class="lobby-card__meta">Basket 3×3 · 2,4 km</span>
+                </span>
+                <span class="badge badge--accent">Aperta</span>
+              </span>
+              <span class="lobby-card__bottom">
+                <span class="lobby-card__fact">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       aria-hidden="true" focusable="false">
+                    <circle cx="8" cy="8" r="6.25"></circle>
+                    <path d="M8 4.75V8l2.25 1.4"></path>
+                  </svg>
+                  21:00
+                </span>
+                <span class="lobby-card__fact">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       aria-hidden="true" focusable="false">
+                    <circle cx="6" cy="5.25" r="2.25"></circle>
+                    <path d="M2 13.25c0-2.2 1.8-4 4-4s4 1.8 4 4"></path>
+                    <path d="M11 3.5a2.25 2.25 0 0 1 0 4.1M12.2 9.9c1.1.6 1.8 1.8 1.8 3.35"></path>
+                  </svg>
+                  4/5
+                </span>
+                <span class="lobby-card__you">Sei dentro</span>
+              </span>
+            </a>
+          </li>
+
+          <li>
+            <a class="lobby-card" href="#" data-goto="dettaglio-in-corso"
+               aria-label="Lobby al Parco del Colle Oppio, ore 19:30, 4 su 5, in corso, sei dentro">
+              <span class="lobby-card__top">
+                <span class="lobby-card__text">
+                  <span class="lobby-card__name">Parco del Colle Oppio</span>
+                  <span class="lobby-card__meta">Basket 5×5 · Via Labicana</span>
+                </span>
+                <span class="badge badge--warning">In corso</span>
+              </span>
+              <span class="lobby-card__bottom">
+                <span class="lobby-card__fact">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       aria-hidden="true" focusable="false">
+                    <circle cx="8" cy="8" r="6.25"></circle>
+                    <path d="M8 4.75V8l2.25 1.4"></path>
+                  </svg>
+                  19:30
+                </span>
+                <span class="lobby-card__fact">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       aria-hidden="true" focusable="false">
+                    <circle cx="6" cy="5.25" r="2.25"></circle>
+                    <path d="M2 13.25c0-2.2 1.8-4 4-4s4 1.8 4 4"></path>
+                    <path d="M11 3.5a2.25 2.25 0 0 1 0 4.1M12.2 9.9c1.1.6 1.8 1.8 1.8 3.35"></path>
+                  </svg>
+                  4/5
+                </span>
+                <span class="lobby-card__you">Sei dentro</span>
+              </span>
+            </a>
+          </li>
+
+          <li>
+            <a class="lobby-card" href="#" data-goto="dettaglio-chiusa"
+               aria-label="Lobby al Campo della Caffarella, ieri alle 21:00, 5 su 5, chiusa">
+              <span class="lobby-card__top">
+                <span class="lobby-card__text">
+                  <span class="lobby-card__name">Campo della Caffarella</span>
+                  <span class="lobby-card__meta">Basket 5×5 · Via della Caffarella</span>
+                </span>
+                <span class="badge">Chiusa</span>
+              </span>
+              <span class="lobby-card__bottom">
+                <span class="lobby-card__fact">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       aria-hidden="true" focusable="false">
+                    <circle cx="8" cy="8" r="6.25"></circle>
+                    <path d="M8 4.75V8l2.25 1.4"></path>
+                  </svg>
+                  Ieri · 21:00
+                </span>
+                <span class="lobby-card__fact">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       aria-hidden="true" focusable="false">
+                    <circle cx="6" cy="5.25" r="2.25"></circle>
+                    <path d="M2 13.25c0-2.2 1.8-4 4-4s4 1.8 4 4"></path>
+                    <path d="M11 3.5a2.25 2.25 0 0 1 0 4.1M12.2 9.9c1.1.6 1.8 1.8 1.8 3.35"></path>
+                  </svg>
+                  5/5
+                </span>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="stack" role="tabpanel" id="panel-lista-near"
+           aria-labelledby="tab-lista-near" data-tabpanel hidden>
+        <ul class="lobby-list">
+          <li>
+            <a class="lobby-card" href="#"
+               aria-label="Lobby al Campetto di Villa Borghese, ore 20:00, 3 su 5, aperta">
+              <span class="lobby-card__top">
+                <span class="lobby-card__text">
+                  <span class="lobby-card__name">Campetto di Villa Borghese</span>
+                  <span class="lobby-card__meta">Basket 3×3 · 400 m</span>
+                </span>
+                <span class="badge badge--accent">Aperta</span>
+              </span>
+              <span class="lobby-card__bottom">
+                <span class="lobby-card__fact">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       aria-hidden="true" focusable="false">
+                    <circle cx="8" cy="8" r="6.25"></circle>
+                    <path d="M8 4.75V8l2.25 1.4"></path>
+                  </svg>
+                  20:00
+                </span>
+                <span class="lobby-card__fact">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       aria-hidden="true" focusable="false">
+                    <circle cx="6" cy="5.25" r="2.25"></circle>
+                    <path d="M2 13.25c0-2.2 1.8-4 4-4s4 1.8 4 4"></path>
+                    <path d="M11 3.5a2.25 2.25 0 0 1 0 4.1M12.2 9.9c1.1.6 1.8 1.8 1.8 3.35"></path>
+                  </svg>
+                  3/5
+                </span>
+                <span class="lobby-card__go">
+                  Unisciti
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="m6 3 5 5-5 5"></path>
+                  </svg>
+                </span>
+              </span>
+            </a>
+          </li>
+
+          <li>
+            <a class="lobby-card" href="#"
+               aria-label="Lobby al Campo di Piazza Vittorio, ore 20:30, 3 su 5, aperta">
+              <span class="lobby-card__top">
+                <span class="lobby-card__text">
+                  <span class="lobby-card__name">Campo di Piazza Vittorio</span>
+                  <span class="lobby-card__meta">Basket 3×3 · 1,2 km</span>
+                </span>
+                <span class="badge badge--accent">Aperta</span>
+              </span>
+              <span class="lobby-card__bottom">
+                <span class="lobby-card__fact">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       aria-hidden="true" focusable="false">
+                    <circle cx="8" cy="8" r="6.25"></circle>
+                    <path d="M8 4.75V8l2.25 1.4"></path>
+                  </svg>
+                  20:30
+                </span>
+                <span class="lobby-card__fact">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       aria-hidden="true" focusable="false">
+                    <circle cx="6" cy="5.25" r="2.25"></circle>
+                    <path d="M2 13.25c0-2.2 1.8-4 4-4s4 1.8 4 4"></path>
+                    <path d="M11 3.5a2.25 2.25 0 0 1 0 4.1M12.2 9.9c1.1.6 1.8 1.8 1.8 3.35"></path>
+                  </svg>
+                  3/5
+                </span>
+                <span class="lobby-card__go">
+                  Unisciti
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="m6 3 5 5-5 5"></path>
+                  </svg>
+                </span>
+              </span>
+            </a>
+          </li>
+
+          <li>
+            <a class="lobby-card" href="#" data-goto="dettaglio-aperta"
+               aria-label="Lobby al Campo del Pineto, ore 21:00, 3 su 5, aperta">
+              <span class="lobby-card__top">
+                <span class="lobby-card__text">
+                  <span class="lobby-card__name">Campo del Pineto</span>
+                  <span class="lobby-card__meta">Basket 3×3 · 2,4 km</span>
+                </span>
+                <span class="badge badge--accent">Aperta</span>
+              </span>
+              <span class="lobby-card__bottom">
+                <span class="lobby-card__fact">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       aria-hidden="true" focusable="false">
+                    <circle cx="8" cy="8" r="6.25"></circle>
+                    <path d="M8 4.75V8l2.25 1.4"></path>
+                  </svg>
+                  21:00
+                </span>
+                <span class="lobby-card__fact">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       aria-hidden="true" focusable="false">
+                    <circle cx="6" cy="5.25" r="2.25"></circle>
+                    <path d="M2 13.25c0-2.2 1.8-4 4-4s4 1.8 4 4"></path>
+                    <path d="M11 3.5a2.25 2.25 0 0 1 0 4.1M12.2 9.9c1.1.6 1.8 1.8 1.8 3.35"></path>
+                  </svg>
+                  3/5
+                </span>
+                <span class="lobby-card__go">
+                  Unisciti
+                  <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                       stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="m6 3 5 5-5 5"></path>
+                  </svg>
+                </span>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <a class="bottom-nav__item" href="#">
+        <svg class="icon" width="20" height="20" viewBox="0 0 20 20" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M10 17s6-5 6-9.5A6 6 0 0 0 4 7.5C4 12 10 17 10 17Z"></path>
+          <circle cx="10" cy="7.5" r="2"></circle>
+        </svg>
+        Mappa
+      </a>
+      <a class="bottom-nav__item" href="#" aria-current="page">
+        <svg class="icon" width="20" height="20" viewBox="0 0 20 20" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="10" cy="10" r="7.5"></circle>
+          <path d="M10 2.5v15M2.5 10h15M4.7 4.7l10.6 10.6M15.3 4.7 4.7 15.3"></path>
+        </svg>
+        Lobby
+      </a>
+      <a class="bottom-nav__item" href="#">
+        <svg class="icon" width="20" height="20" viewBox="0 0 20 20" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+             aria-hidden="true" focusable="false">
+          <circle cx="10" cy="6.5" r="3"></circle>
+          <path d="M4 17c0-3.1 2.7-5.5 6-5.5s6 2.4 6 5.5"></path>
+        </svg>
+        Profilo
+      </a>
+    </nav>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 2. Lista vuota                                               -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="lista-vuota" aria-label="Lista lobby vuota">
+    <header class="appbar">
+      <h2 class="appbar__title">Lobby</h2>
+      <p class="appbar__meta">Roma · lun 9 nov</p>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Lobby">
+      <button class="tab" type="button" role="tab" id="tab-vuota-mine"
+              aria-controls="panel-vuota-mine" aria-selected="true">
+        Le tue <span class="tab__count">0</span>
+      </button>
+      <button class="tab" type="button" role="tab" id="tab-vuota-near"
+              aria-controls="panel-vuota-near" aria-selected="false">
+        Vicine <span class="tab__count">0</span>
+      </button>
+    </div>
+
+    <div class="content content--tight">
+      <div class="empty empty--page" role="tabpanel" id="panel-vuota-mine"
+           aria-labelledby="tab-vuota-mine" data-tabpanel>
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false" style="color: var(--text-muted)">
+          <rect x="3.5" y="5" width="17" height="15" rx="2.5"></rect>
+          <path d="M3.5 10h17M8 3v4M16 3v4"></path>
+        </svg>
+        <h2 class="empty__title">Non hai lobby attive</h2>
+        <p class="body">Creane una dal campo.</p>
+        <a class="btn btn--primary" href="#">Trova un campo</a>
+      </div>
+
+      <div class="empty empty--page" role="tabpanel" id="panel-vuota-near"
+           aria-labelledby="tab-vuota-near" data-tabpanel hidden>
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false" style="color: var(--text-muted)">
+          <path d="M12 21s7-5.5 7-11a7 7 0 0 0-14 0c0 5.5 7 11 7 11Z"></path>
+          <circle cx="12" cy="10" r="2.5"></circle>
+        </svg>
+        <h2 class="empty__title">Nessuna lobby qui intorno</h2>
+        <p class="body">Sii il primo.</p>
+        <a class="btn btn--primary" href="#">Trova un campo</a>
+      </div>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <a class="bottom-nav__item" href="#">
+        <svg class="icon" width="20" height="20" viewBox="0 0 20 20" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M10 17s6-5 6-9.5A6 6 0 0 0 4 7.5C4 12 10 17 10 17Z"></path>
+          <circle cx="10" cy="7.5" r="2"></circle>
+        </svg>
+        Mappa
+      </a>
+      <a class="bottom-nav__item" href="#" aria-current="page">
+        <svg class="icon" width="20" height="20" viewBox="0 0 20 20" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="10" cy="10" r="7.5"></circle>
+          <path d="M10 2.5v15M2.5 10h15M4.7 4.7l10.6 10.6M15.3 4.7 4.7 15.3"></path>
+        </svg>
+        Lobby
+      </a>
+      <a class="bottom-nav__item" href="#">
+        <svg class="icon" width="20" height="20" viewBox="0 0 20 20" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+             aria-hidden="true" focusable="false">
+          <circle cx="10" cy="6.5" r="3"></circle>
+          <path d="M4 17c0-3.1 2.7-5.5 6-5.5s6 2.4 6 5.5"></path>
+        </svg>
+        Profilo
+      </a>
+    </nav>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 3. Lista in caricamento                                      -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="lista-loading" aria-label="Lista lobby in caricamento">
+    <header class="appbar">
+      <h2 class="appbar__title">Lobby</h2>
+      <p class="appbar__meta">Roma · lun 9 nov</p>
+    </header>
+
+    <div class="content content--tight content--scroll">
+      <p class="sr-only" role="status">Caricamento lobby…</p>
+      <div class="lobby-list" aria-busy="true" aria-hidden="true">
+        <div class="skeleton-card">
+          <div class="skeleton sk-line sk-line--title"></div>
+          <div class="skeleton sk-line sk-line--meta"></div>
+          <div class="sk-row">
+            <div class="skeleton sk-pill"></div>
+            <div class="skeleton sk-pill"></div>
+          </div>
+        </div>
+        <div class="skeleton-card">
+          <div class="skeleton sk-line sk-line--title"></div>
+          <div class="skeleton sk-line sk-line--meta"></div>
+          <div class="sk-row">
+            <div class="skeleton sk-pill"></div>
+            <div class="skeleton sk-pill"></div>
+          </div>
+        </div>
+        <div class="skeleton-card">
+          <div class="skeleton sk-line sk-line--title"></div>
+          <div class="skeleton sk-line sk-line--meta"></div>
+          <div class="sk-row">
+            <div class="skeleton sk-pill"></div>
+            <div class="skeleton sk-pill"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <a class="bottom-nav__item" href="#">
+        <svg class="icon" width="20" height="20" viewBox="0 0 20 20" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M10 17s6-5 6-9.5A6 6 0 0 0 4 7.5C4 12 10 17 10 17Z"></path>
+          <circle cx="10" cy="7.5" r="2"></circle>
+        </svg>
+        Mappa
+      </a>
+      <a class="bottom-nav__item" href="#" aria-current="page">
+        <svg class="icon" width="20" height="20" viewBox="0 0 20 20" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="10" cy="10" r="7.5"></circle>
+          <path d="M10 2.5v15M2.5 10h15M4.7 4.7l10.6 10.6M15.3 4.7 4.7 15.3"></path>
+        </svg>
+        Lobby
+      </a>
+      <a class="bottom-nav__item" href="#">
+        <svg class="icon" width="20" height="20" viewBox="0 0 20 20" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+             aria-hidden="true" focusable="false">
+          <circle cx="10" cy="6.5" r="3"></circle>
+          <path d="M4 17c0-3.1 2.7-5.5 6-5.5s6 2.4 6 5.5"></path>
+        </svg>
+        Profilo
+      </a>
+    </nav>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 4. Dettaglio — aperta                                        -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="dettaglio-aperta" aria-label="Dettaglio lobby aperta">
+    <header class="appbar">
+      <button class="appbar__back" type="button" data-goto="lista" aria-label="Torna alle lobby">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m12 4-6 6 6 6"></path>
+        </svg>
+      </button>
+      <h2 class="appbar__title">Lobby</h2>
+    </header>
+
+    <div class="content content--scroll detail">
+      <div>
+        <p class="label">Oggi, lunedì 9 novembre</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Basket 3×3 · Via della Pineta Sacchetti</p>
+      </div>
+
+      <div class="when">
+        <div>
+          <p class="when__time number">21:00</p>
+          <p class="when__meta">Si chiude alle 21:30</p>
+        </div>
+        <span class="badge badge--accent">Aperta</span>
+      </div>
+
+      <div class="card">
+        <div class="players__row">
+          <div class="avatars" aria-hidden="true">
+            <span class="avatar">MR</span>
+            <span class="avatar">GL</span>
+            <span class="avatar">AC</span>
+          </div>
+          <p class="players__count">3/5</p>
+          <p class="players__unit">giocatori</p>
+        </div>
+        <p class="players__names">Marco R., Giulia L., Andrea C.</p>
+        <p class="muted">2 posti liberi</p>
+      </div>
+
+      <div class="facts">
+        <div class="fact">
+          <svg class="fact__icon" width="18" height="18" viewBox="0 0 18 18" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+               stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M9 2.5 15.5 14h-13L9 2.5Z"></path>
+            <path d="M9 7v3.5M9 12.7v.1"></path>
+          </svg>
+          <div>
+            <p class="fact__label">Karma richiesto</p>
+            <p class="fact__value">70 o più · il tuo è 82</p>
+          </div>
+        </div>
+        <div class="fact">
+          <svg class="fact__icon" width="18" height="18" viewBox="0 0 18 18" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+               aria-hidden="true" focusable="false">
+            <circle cx="9" cy="9" r="7"></circle>
+            <path d="M9 5.5V9l2.5 1.5"></path>
+          </svg>
+          <div>
+            <p class="fact__label">Iscrizioni</p>
+            <p class="fact__value">Chiudono alle 21:30</p>
+          </div>
+        </div>
+      </div>
+
+      <a class="link-arrow" href="#">
+        Apri il campo
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m6 3 5 5-5 5"></path>
+        </svg>
+      </a>
+    </div>
+
+    <div class="actionbar">
+      <button class="btn btn--primary btn--block" type="button" data-goto="join">Unisciti</button>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 5. Dettaglio — piena                                         -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="dettaglio-piena" aria-label="Dettaglio lobby al completo">
+    <header class="appbar">
+      <button class="appbar__back" type="button" data-goto="lista" aria-label="Torna alle lobby">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m12 4-6 6 6 6"></path>
+        </svg>
+      </button>
+      <h2 class="appbar__title">Lobby</h2>
+    </header>
+
+    <div class="content content--scroll detail">
+      <div>
+        <p class="label">Oggi, lunedì 9 novembre</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Basket 3×3 · Via della Pineta Sacchetti</p>
+      </div>
+
+      <div class="when">
+        <div>
+          <p class="when__time number">21:00</p>
+          <p class="when__meta">Si chiude alle 21:30</p>
+        </div>
+        <span class="badge">Al completo</span>
+      </div>
+
+      <div class="card">
+        <div class="players__row">
+          <div class="avatars" aria-hidden="true">
+            <span class="avatar">MR</span>
+            <span class="avatar">GL</span>
+            <span class="avatar">AC</span>
+            <span class="avatar">SF</span>
+            <span class="avatar">LB</span>
+          </div>
+          <p class="players__count">5/5</p>
+          <p class="players__unit">giocatori</p>
+        </div>
+        <p class="players__names">Marco R., Giulia L., Andrea C., Sara F., Luca B.</p>
+        <p class="muted">Nessun posto libero</p>
+      </div>
+
+      <div class="banner" role="status">
+        <span>Al completo: 5/5. Crea la tua lobby.</span>
+      </div>
+
+      <div class="facts">
+        <div class="fact">
+          <svg class="fact__icon" width="18" height="18" viewBox="0 0 18 18" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+               stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M9 2.5 15.5 14h-13L9 2.5Z"></path>
+            <path d="M9 7v3.5M9 12.7v.1"></path>
+          </svg>
+          <div>
+            <p class="fact__label">Karma richiesto</p>
+            <p class="fact__value">70 o più · il tuo è 82</p>
+          </div>
+        </div>
+        <div class="fact">
+          <svg class="fact__icon" width="18" height="18" viewBox="0 0 18 18" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+               aria-hidden="true" focusable="false">
+            <circle cx="9" cy="9" r="7"></circle>
+            <path d="M9 5.5V9l2.5 1.5"></path>
+          </svg>
+          <div>
+            <p class="fact__label">Iscrizioni</p>
+            <p class="fact__value">Chiuse alle 21:30</p>
+          </div>
+        </div>
+      </div>
+
+      <a class="link-arrow" href="#">
+        Apri il campo
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m6 3 5 5-5 5"></path>
+        </svg>
+      </a>
+    </div>
+
+    <div class="actionbar">
+      <button class="btn btn--primary btn--block" type="button" data-goto="crea">Crea lobby</button>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 6. Dettaglio — in corso                                      -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="dettaglio-in-corso" aria-label="Dettaglio lobby in corso">
+    <header class="appbar">
+      <button class="appbar__back" type="button" data-goto="lista" aria-label="Torna alle lobby">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m12 4-6 6 6 6"></path>
+        </svg>
+      </button>
+      <h2 class="appbar__title">Lobby</h2>
+    </header>
+
+    <div class="content content--scroll detail">
+      <div>
+        <p class="label">Oggi, lunedì 9 novembre</p>
+        <h2 class="display-sm">Parco del Colle Oppio</h2>
+        <p class="detail__sport">Basket 5×5 · Via Labicana</p>
+      </div>
+
+      <div class="when">
+        <div>
+          <p class="when__time number">19:30</p>
+          <p class="when__meta">Si chiude alle 20:00</p>
+        </div>
+        <span class="badge badge--warning">In corso</span>
+      </div>
+
+      <div class="card">
+        <div class="players__row">
+          <div class="avatars" aria-hidden="true">
+            <span class="avatar">MR</span>
+            <span class="avatar">GL</span>
+            <span class="avatar">AC</span>
+            <span class="avatar avatar--you">TU</span>
+          </div>
+          <p class="players__count">4/5</p>
+          <p class="players__unit">giocatori</p>
+        </div>
+        <p class="players__names">Marco R., Giulia L., Andrea C. + tu</p>
+        <p class="muted">1 posto libero, ma le iscrizioni sono chiuse</p>
+      </div>
+
+      <div class="status-note">
+        <p class="status-note__title">In corso dalle 19:30</p>
+        <p class="status-note__text">Le iscrizioni sono chiuse. La lobby si chiude alle 20:00.</p>
+      </div>
+
+      <a class="link-arrow" href="#">
+        Apri il campo
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m6 3 5 5-5 5"></path>
+        </svg>
+      </a>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 7. Dettaglio — chiusa                                        -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="dettaglio-chiusa" aria-label="Dettaglio lobby chiusa">
+    <header class="appbar">
+      <button class="appbar__back" type="button" data-goto="lista" aria-label="Torna alle lobby">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m12 4-6 6 6 6"></path>
+        </svg>
+      </button>
+      <h2 class="appbar__title">Lobby</h2>
+    </header>
+
+    <div class="content content--scroll detail">
+      <div>
+        <p class="label">Ieri, domenica 8 novembre</p>
+        <h2 class="display-sm">Campo della Caffarella</h2>
+        <p class="detail__sport">Basket 5×5 · Via della Caffarella</p>
+      </div>
+
+      <div class="when">
+        <div>
+          <p class="when__time number">21:00</p>
+          <p class="when__meta">Chiusa alle 21:30</p>
+        </div>
+        <span class="badge">Chiusa</span>
+      </div>
+
+      <div class="card">
+        <div class="players__row">
+          <div class="avatars" aria-hidden="true">
+            <span class="avatar">MR</span>
+            <span class="avatar">GL</span>
+            <span class="avatar">AC</span>
+            <span class="avatar">SF</span>
+            <span class="avatar">LB</span>
+          </div>
+          <p class="players__count">5/5</p>
+          <p class="players__unit">giocatori</p>
+        </div>
+        <p class="players__names">Marco R., Giulia L., Andrea C., Sara F., Luca B.</p>
+      </div>
+
+      <div class="status-note">
+        <p class="status-note__title">Chiusa.</p>
+        <p class="status-note__text">La lobby si è chiusa alle 21:30. I check-in sono chiusi.</p>
+      </div>
+
+      <a class="link-arrow" href="#">
+        Apri il campo
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m6 3 5 5-5 5"></path>
+        </svg>
+      </a>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 8. Crea lobby (drawer)                                       -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="crea" aria-label="Crea lobby">
+    <header class="appbar">
+      <button class="appbar__back" type="button" data-goto="dettaglio-piena" aria-label="Torna al campo">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m12 4-6 6 6 6"></path>
+        </svg>
+      </button>
+      <h2 class="appbar__title">Campo del Pineto</h2>
+    </header>
+
+    <div class="content content--scroll detail">
+      <div>
+        <p class="label">Basket 3×3</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Via della Pineta Sacchetti · Roma</p>
+      </div>
+
+      <div class="facts">
+        <div class="fact">
+          <svg class="fact__icon" width="18" height="18" viewBox="0 0 18 18" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+               aria-hidden="true" focusable="false">
+            <circle cx="9" cy="9" r="7"></circle>
+            <path d="M9 5.5V9l2.5 1.5"></path>
+          </svg>
+          <div>
+            <p class="fact__label">Orari</p>
+            <p class="fact__value">Aperto fino alle 23:00</p>
+          </div>
+        </div>
+        <div class="fact">
+          <svg class="fact__icon" width="18" height="18" viewBox="0 0 18 18" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+               stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M2.5 15.5h13M4 15.5V8M14 15.5V8M2.5 8h13L9 3 2.5 8Z"></path>
+          </svg>
+          <div>
+            <p class="fact__label">Ingresso</p>
+            <p class="fact__value">Libero</p>
+          </div>
+        </div>
+      </div>
+
+      <p class="muted">Le lobby si creano dal campo: gli altri si uniscono da qui.</p>
+    </div>
+
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="crea-title">
+      <div class="sheet__scrim" data-scrim></div>
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <div class="sheet__head">
+          <h2 class="sheet__title" id="crea-title" tabindex="-1">Crea una lobby</h2>
+          <button class="sheet__close" type="button" data-goto="dettaglio-piena" aria-label="Chiudi">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <p class="sheet__sub">Campo del Pineto · Basket 3×3</p>
+
+        <form class="form" novalidate>
+          <div class="field">
+            <label class="field__label" for="crea-orario">Quando giocate</label>
+            <input class="input" id="crea-orario" name="orario" type="datetime-local"
+                   value="2026-11-09T21:00" aria-describedby="crea-orario-hint">
+            <p class="field__hint" id="crea-orario-hint">Oggi, lunedì 9 novembre.</p>
+          </div>
+
+          <div class="field">
+            <span class="field__label" id="crea-max-label">Quanti giocatori al massimo</span>
+            <div class="stepper" data-stepper role="group" aria-labelledby="crea-max-label">
+              <button class="stepper__btn" type="button" data-step="-1"
+                      aria-label="Togli un giocatore">−</button>
+              <input class="stepper__input" id="crea-max" name="max" type="number"
+                     inputmode="numeric" min="2" max="30" value="5"
+                     aria-labelledby="crea-max-label" aria-describedby="crea-max-hint">
+              <button class="stepper__btn" type="button" data-step="1"
+                      aria-label="Aggiungi un giocatore">+</button>
+              <span class="stepper__unit">giocatori</span>
+            </div>
+            <p class="field__hint" id="crea-max-hint">Da 2 a 30. Conta anche te.</p>
+          </div>
+
+          <div class="note-box">
+            <p>La lobby scade 30 minuti dopo l'orario.</p>
+            <p class="muted">
+              Inizio <span class="number" id="crea-inizio">21:00</span> ·
+              chiusura <span class="number" id="crea-chiusura">21:30</span>
+            </p>
+          </div>
+
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button">Crea lobby</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 9. Crea lobby — errore                                       -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="crea-errore" aria-label="Crea lobby con errori">
+    <header class="appbar">
+      <button class="appbar__back" type="button" data-goto="dettaglio-piena" aria-label="Torna al campo">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m12 4-6 6 6 6"></path>
+        </svg>
+      </button>
+      <h2 class="appbar__title">Campo del Pineto</h2>
+    </header>
+
+    <div class="content content--scroll detail">
+      <div>
+        <p class="label">Basket 3×3</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Via della Pineta Sacchetti · Roma</p>
+      </div>
+      <p class="muted">Le lobby si creano dal campo: gli altri si uniscono da qui.</p>
+    </div>
+
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="creaerrore-title">
+      <div class="sheet__scrim" data-scrim></div>
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <div class="sheet__head">
+          <h2 class="sheet__title" id="creaerrore-title" tabindex="-1">Crea una lobby</h2>
+          <button class="sheet__close" type="button" data-goto="dettaglio-piena" aria-label="Chiudi">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <p class="sheet__sub">Campo del Pineto · Basket 3×3</p>
+
+        <form class="form" novalidate>
+          <div class="field">
+            <label class="field__label" for="creaerrore-orario">Quando giocate</label>
+            <input class="input input--error" id="creaerrore-orario" name="orario"
+                   type="datetime-local" value="2026-11-09T19:00" aria-invalid="true"
+                   aria-describedby="creaerrore-orario-error">
+            <p class="field__error" id="creaerrore-orario-error">
+              Questo orario è già passato. Scegli un orario futuro.
+            </p>
+          </div>
+
+          <div class="field">
+            <span class="field__label" id="creaerrore-max-label">Quanti giocatori al massimo</span>
+            <div class="stepper" data-stepper role="group" aria-labelledby="creaerrore-max-label">
+              <button class="stepper__btn" type="button" data-step="-1"
+                      aria-label="Togli un giocatore">−</button>
+              <input class="stepper__input input--error" id="creaerrore-max" name="max"
+                     type="number" inputmode="numeric" min="2" max="30" value="1"
+                     aria-labelledby="creaerrore-max-label" aria-invalid="true"
+                     aria-describedby="creaerrore-max-error">
+              <button class="stepper__btn" type="button" data-step="1"
+                      aria-label="Aggiungi un giocatore">+</button>
+              <span class="stepper__unit">giocatori</span>
+            </div>
+            <p class="field__error" id="creaerrore-max-error">Da 2 a 30 giocatori.</p>
+          </div>
+
+          <div class="note-box">
+            <p>La lobby scade 30 minuti dopo l'orario.</p>
+            <p class="muted">
+              Inizio <span class="number" id="creaerrore-inizio">19:00</span> ·
+              chiusura <span class="number" id="creaerrore-chiusura">19:30</span>
+            </p>
+          </div>
+
+          <div class="banner banner--danger banner--stack" role="alert">
+            <p class="banner__title">Non puoi creare lobby adesso</p>
+            <p>Sei sospeso fino a lunedì 16 novembre: due check-in non rispettati.</p>
+            <p>Karma 46, sotto la soglia di 50. Torna sopra 50 con un check-in rispettato.</p>
+          </div>
+
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" disabled
+                    aria-describedby="creaerrore-block">Crea lobby</button>
+            <p class="field__hint" id="creaerrore-block">
+              Si sblocca quando la sospensione finisce e il karma torna sopra 50.
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 10. Join (drawer)                                            -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="join" aria-label="Unisciti alla lobby">
+    <header class="appbar">
+      <button class="appbar__back" type="button" data-goto="lista" aria-label="Torna alle lobby">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m12 4-6 6 6 6"></path>
+        </svg>
+      </button>
+      <h2 class="appbar__title">Lobby</h2>
+    </header>
+
+    <div class="content content--scroll detail">
+      <div>
+        <p class="label">Oggi, lunedì 9 novembre</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Basket 3×3 · Via della Pineta Sacchetti</p>
+      </div>
+      <div class="when">
+        <div>
+          <p class="when__time number">21:00</p>
+          <p class="when__meta">Si chiude alle 21:30</p>
+        </div>
+        <span class="badge badge--accent">Aperta</span>
+      </div>
+      <div class="card">
+        <div class="players__row">
+          <div class="avatars" aria-hidden="true">
+            <span class="avatar">MR</span>
+            <span class="avatar">GL</span>
+            <span class="avatar">AC</span>
+          </div>
+          <p class="players__count">3/5</p>
+          <p class="players__unit">giocatori</p>
+        </div>
+        <p class="muted">2 posti liberi</p>
+      </div>
+    </div>
+
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="join-title">
+      <div class="sheet__scrim" data-scrim></div>
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <div class="sheet__head">
+          <h2 class="sheet__title" id="join-title" tabindex="-1">Unisciti alla lobby</h2>
+          <button class="sheet__close" type="button" data-goto="dettaglio-aperta" aria-label="Chiudi">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <p class="sheet__sub">Campo del Pineto · Basket 3×3</p>
+
+        <dl class="summary">
+          <div class="summary__row">
+            <dt>Campo</dt>
+            <dd>Campo del Pineto</dd>
+          </div>
+          <div class="summary__row">
+            <dt>Orario</dt>
+            <dd>Oggi, 21:00</dd>
+          </div>
+          <div class="summary__row">
+            <dt>Posti liberi</dt>
+            <dd>2 su 5</dd>
+          </div>
+          <div class="summary__row">
+            <dt>Karma richiesto</dt>
+            <dd>70 o più</dd>
+          </div>
+        </dl>
+
+        <p class="muted">Il tuo karma è 82: puoi entrare. Se non ti presenti perdi 3 punti.</p>
+
+        <div class="sheet__actions">
+          <button class="btn btn--primary btn--block" type="button" data-goto="join-ottimistico">
+            Entra
+          </button>
+          <button class="btn btn--secondary btn--block" type="button" data-goto="dettaglio-aperta">
+            Annulla
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 11. Join — ottimistico (sei dentro)                          -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="join-ottimistico" aria-label="Lobby dopo il join">
+    <header class="appbar">
+      <button class="appbar__back" type="button" data-goto="lista" aria-label="Torna alle lobby">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m12 4-6 6 6 6"></path>
+        </svg>
+      </button>
+      <h2 class="appbar__title">Lobby</h2>
+    </header>
+
+    <div class="content content--scroll detail">
+      <div class="banner banner--success" role="status" aria-live="polite">
+        <span>Sei dentro. Ci vediamo alle 21:00 al Campo del Pineto.</span>
+      </div>
+
+      <div>
+        <p class="label">Oggi, lunedì 9 novembre</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Basket 3×3 · Via della Pineta Sacchetti</p>
+      </div>
+
+      <div class="when">
+        <div>
+          <p class="when__time number">21:00</p>
+          <p class="when__meta">Si chiude alle 21:30</p>
+        </div>
+        <span class="badge badge--accent">Sei dentro</span>
+      </div>
+
+      <div class="card pop">
+        <div class="players__row">
+          <div class="avatars" aria-hidden="true">
+            <span class="avatar">MR</span>
+            <span class="avatar">GL</span>
+            <span class="avatar">AC</span>
+            <span class="avatar avatar--you">TU</span>
+          </div>
+          <p class="players__count">4/5</p>
+          <p class="players__unit">giocatori</p>
+        </div>
+        <p class="players__names">Marco R., Giulia L., Andrea C. + tu</p>
+        <p class="muted">1 posto libero</p>
+      </div>
+
+      <div class="facts">
+        <div class="fact">
+          <svg class="fact__icon" width="18" height="18" viewBox="0 0 18 18" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+               stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M9 2.5 15.5 14h-13L9 2.5Z"></path>
+            <path d="M9 7v3.5M9 12.7v.1"></path>
+          </svg>
+          <div>
+            <p class="fact__label">Karma richiesto</p>
+            <p class="fact__value">70 o più · il tuo è 82</p>
+          </div>
+        </div>
+        <div class="fact">
+          <svg class="fact__icon" width="18" height="18" viewBox="0 0 18 18" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+               aria-hidden="true" focusable="false">
+            <circle cx="9" cy="9" r="7"></circle>
+            <path d="M9 5.5V9l2.5 1.5"></path>
+          </svg>
+          <div>
+            <p class="fact__label">Iscrizioni</p>
+            <p class="fact__value">Chiudono alle 21:30</p>
+          </div>
+        </div>
+      </div>
+
+      <a class="link-arrow" href="#">
+        Apri il campo
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m6 3 5 5-5 5"></path>
+        </svg>
+      </a>
+    </div>
+
+    <div class="actionbar">
+      <button class="btn btn--secondary btn--block" type="button" data-goto="dettaglio-aperta">
+        Esci dalla lobby
+      </button>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 12. Join — posti esauriti                                    -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="join-pieno" aria-label="Posti esauriti">
+    <header class="appbar">
+      <button class="appbar__back" type="button" data-goto="lista" aria-label="Torna alle lobby">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m12 4-6 6 6 6"></path>
+        </svg>
+      </button>
+      <h2 class="appbar__title">Lobby</h2>
+    </header>
+
+    <div class="content content--scroll detail">
+      <div>
+        <p class="label">Oggi, lunedì 9 novembre</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Basket 3×3 · Via della Pineta Sacchetti</p>
+      </div>
+      <div class="when">
+        <div>
+          <p class="when__time number">21:00</p>
+          <p class="when__meta">Si chiude alle 21:30</p>
+        </div>
+        <span class="badge">Al completo</span>
+      </div>
+      <div class="card">
+        <div class="players__row">
+          <div class="avatars" aria-hidden="true">
+            <span class="avatar">MR</span>
+            <span class="avatar">GL</span>
+            <span class="avatar">AC</span>
+            <span class="avatar">SF</span>
+            <span class="avatar">LB</span>
+          </div>
+          <p class="players__count">5/5</p>
+          <p class="players__unit">giocatori</p>
+        </div>
+        <p class="muted">Nessun posto libero</p>
+      </div>
+    </div>
+
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="joinpieno-title">
+      <div class="sheet__scrim" data-scrim></div>
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <div class="sheet__head">
+          <h2 class="sheet__title" id="joinpieno-title" tabindex="-1">Unisciti alla lobby</h2>
+          <button class="sheet__close" type="button" data-goto="dettaglio-piena" aria-label="Chiudi">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <p class="sheet__sub">Campo del Pineto · Basket 3×3</p>
+
+        <div class="banner banner--danger banner--stack" role="alert">
+          <p class="banner__title">Posti esauriti</p>
+          <p>La lobby si è riempita mentre decidevi: l'ultimo posto è stato preso alle 19:41.</p>
+        </div>
+
+        <dl class="summary">
+          <div class="summary__row">
+            <dt>Campo</dt>
+            <dd>Campo del Pineto</dd>
+          </div>
+          <div class="summary__row">
+            <dt>Orario</dt>
+            <dd>Oggi, 21:00</dd>
+          </div>
+          <div class="summary__row">
+            <dt>Posti liberi</dt>
+            <dd>0 su 5</dd>
+          </div>
+        </dl>
+
+        <p class="muted">Puoi creare una lobby nello stesso campo e scegliere tu l'orario.</p>
+
+        <div class="sheet__actions">
+          <button class="btn btn--primary btn--block" type="button" data-goto="crea">
+            Crea la tua lobby
+          </button>
+          <button class="btn btn--secondary btn--block" type="button" data-goto="dettaglio-piena">
+            Chiudi
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<p class="note">
+  Prototipo statico, non una route dell'app. I 12 stati si cambiano dalla toolbar:
+  lista e dettaglio sono pagine, crea e join sono drawer. Nessun dato reale.
+</p>
+
+<script src="proto.js"></script>
+<script>
+  (function () {
+    "use strict";
+
+    var phone = document.querySelector(".phone");
+
+    /* I link "#" sono segnaposto del prototipo: non devono saltare in cima. */
+    document.querySelectorAll('a[href="#"]').forEach(function (link) {
+      link.addEventListener("click", function (event) {
+        event.preventDefault();
+      });
+    });
+
+    /* --- Cambio stato da un controllo dentro la schermata ----------- */
+    var lastTrigger = null;
+
+    document.querySelectorAll("[data-goto]").forEach(function (el) {
+      el.addEventListener("click", function (event) {
+        if (el.tagName === "A") event.preventDefault();
+        if (!el.closest(".sheet")) lastTrigger = el;
+        var target = el.getAttribute("data-goto");
+        var sw = document.querySelector('.proto-toolbar [data-show="' + target + '"]');
+        if (sw) sw.click();
+      });
+    });
+
+    /* --- Tab della lista (scope: la schermata che le contiene) ------ */
+    document.querySelectorAll('[role="tablist"]').forEach(function (list) {
+      var screen = list.closest(".screen");
+      var tabs = Array.prototype.slice.call(list.querySelectorAll('[role="tab"]'));
+
+      function activate(tab) {
+        tabs.forEach(function (t) {
+          var selected = t === tab;
+          t.setAttribute("aria-selected", String(selected));
+          t.tabIndex = selected ? 0 : -1;
+        });
+        var panelId = tab.getAttribute("aria-controls");
+        screen.querySelectorAll("[data-tabpanel]").forEach(function (panel) {
+          panel.hidden = panel.id !== panelId;
+        });
+      }
+
+      tabs.forEach(function (tab, index) {
+        tab.tabIndex = tab.getAttribute("aria-selected") === "true" ? 0 : -1;
+        tab.addEventListener("click", function () { activate(tab); });
+        tab.addEventListener("keydown", function (event) {
+          var dir = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+          if (!dir) return;
+          event.preventDefault();
+          var next = tabs[(index + dir + tabs.length) % tabs.length];
+          next.focus();
+          activate(next);
+        });
+      });
+    });
+
+    /* --- Stepper giocatori ------------------------------------------ */
+    document.querySelectorAll("[data-stepper]").forEach(function (wrap) {
+      var input = wrap.querySelector("input");
+      if (!input) return;
+      wrap.querySelectorAll("[data-step]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var step = Number(btn.getAttribute("data-step"));
+          var min = Number(input.min) || 2;
+          var max = Number(input.max) || 30;
+          var value = Number(input.value) || min;
+          input.value = String(Math.min(max, Math.max(min, value + step)));
+        });
+      });
+    });
+
+    /* --- Riepilogo crea: orario di chiusura -------------------------- */
+    function updateSummary(prefix) {
+      var time = document.getElementById(prefix + "-orario");
+      var start = document.getElementById(prefix + "-inizio");
+      var close = document.getElementById(prefix + "-chiusura");
+      if (!time || !close) return;
+      var date = new Date(time.value);
+      if (isNaN(date.getTime())) {
+        close.textContent = "—";
+        return;
+      }
+      var fmt = { hour: "2-digit", minute: "2-digit" };
+      if (start) start.textContent = date.toLocaleTimeString("it-IT", fmt);
+      date.setMinutes(date.getMinutes() + 30);
+      close.textContent = date.toLocaleTimeString("it-IT", fmt);
+    }
+
+    ["crea", "creaerrore"].forEach(function (prefix) {
+      var input = document.getElementById(prefix + "-orario");
+      if (input) input.addEventListener("input", function () { updateSummary(prefix); });
+      updateSummary(prefix);
+    });
+
+    /* --- Drawer: backdrop, Esc, focus trap, restore focus ----------- */
+    function visibleSheet() {
+      var state = phone.querySelector("[data-state]:not([hidden])");
+      return state ? state.querySelector(".sheet") : null;
+    }
+
+    document.querySelectorAll("[data-scrim]").forEach(function (scrim) {
+      scrim.addEventListener("click", function () {
+        var sheet = scrim.closest(".sheet");
+        var close = sheet && sheet.querySelector(".sheet__close");
+        if (close) close.click();
+      });
+    });
+
+    document.addEventListener("keydown", function (event) {
+      var sheet = visibleSheet();
+      if (!sheet) return;
+
+      if (event.key === "Escape") {
+        var close = sheet.querySelector(".sheet__close");
+        if (close) {
+          event.preventDefault();
+          close.click();
+        }
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      var items = Array.prototype.slice.call(
+        sheet.querySelectorAll(
+          'button:not([disabled]), a[href], input:not([disabled]), [tabindex="0"]'
+        )
+      ).filter(function (el) {
+        return el.offsetParent !== null;
+      });
+      if (items.length === 0) return;
+
+      var first = items[0];
+      var last = items[items.length - 1];
+      if (!items.includes(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+
+    /* Fokus sul titolo del drawer quando compare; ripristino alla
+       chiusura sul controllo che lo ha aperto. */
+    var observer = new MutationObserver(function () {
+      var state = phone.querySelector("[data-state]:not([hidden])");
+      if (!state) return;
+      var sheet = state.querySelector(".sheet");
+      if (sheet) {
+        if (!sheet.contains(document.activeElement)) {
+          var title = sheet.querySelector(".sheet__title");
+          if (title) title.focus({ preventScroll: true });
+        }
+        return;
+      }
+      if (lastTrigger && state.contains(lastTrigger)) {
+        lastTrigger.focus({ preventScroll: true });
+        lastTrigger = null;
+      }
+    });
+
+    if (phone) {
+      observer.observe(phone, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["hidden"]
+      });
+    }
+  })();
+</script>
+</body>
+</html>

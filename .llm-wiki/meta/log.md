@@ -32,3 +32,6 @@
 - relevance: "high"
 - details: {'before': 'git dirty 11M+12U, AGENTS.md drift (no test framework), tracker triplo (taskman/wayfinder/openspec), lint 3 warnings, no CI, hound 13.0, no husky, canary non globale', 'after': 'git 5 commit puliti (tracker, map feat, test infra, gitignore, canary) + husky/lint-staged + lint 0 warnings + tsc pulito + vitest 13/13 + build verde + CI yaml + hound 13.2 + ponytail lock + wayfinder FROZEN + canary globale', 'metrics': {'commits': 5, 'lint_warnings_before': 3, 'lint_warnings_after': 0, 'tsc_before': 'clean ma non verificato', 'tsc_after': 'clean', 'vitest': '13/13', 'build': 'verde standalone + serwist sw 43K', 'hound': '13.2', 'husky': 'pre-commit lint-staged+tsc'}}
 
+## 2026-11-09
+
+- **retro**: {"slug":"visual-regression-falso-verde-font-non-applicati","title":"Visual regression: falso verde quando next/font non applica i font"}

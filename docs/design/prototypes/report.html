@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Segnala un campo — prototipo d15</title>
+<link rel="stylesheet" href="proto.css">
+<!--
+  Pipeline: F2 — prototipi statici (docs/design/1.5.md)
+  Passo: d15 — segnalazione di un campo dal dettaglio campo.
+  Prossimo passo: review HITL su categorie, scadenza 48 ore e stato "già segnalato".
+  Poi: d23 — implementazione in components/report/**.
+-->
+<style>
+  /* Solo ciò che è specifico di questa schermata. Colori, radius, motion e
+     famiglie tipografiche vengono da proto.css. */
+
+  [data-state-group] {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+
+  .icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+  }
+
+  .icon--sm {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Dettaglio campo, dietro il drawer                                 */
+  /* ---------------------------------------------------------------- */
+
+  .court-head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .court-addr {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+  }
+
+  .court-addr .icon {
+    color: var(--text-muted);
+  }
+
+  .row--wrap {
+    flex-wrap: wrap;
+  }
+
+  .report-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .report-list__item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .report-list__cat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .report-list__date {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Drawer                                                            */
+  /* ---------------------------------------------------------------- */
+
+  .sheet.is-closed {
+    display: none;
+  }
+
+  .sheet__panel {
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sheet__head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .sheet__title:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 4px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  .appbar__back:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .sheet__court {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .sheet__court .icon {
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
+  }
+
+  .sheet__lead {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .sheet__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .handle {
+    width: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+
+  .handle:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+    border-radius: var(--radius-control);
+  }
+
+  .btn--quiet {
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
+  .btn--quiet:hover {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+  }
+
+  /* Chip come radio: il punto dice lo stato anche senza colore. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition:
+      background-color var(--motion-fast) var(--ease-standard),
+      border-color var(--motion-fast) var(--ease-standard),
+      color var(--motion-fast) var(--ease-standard);
+  }
+
+  .chip__dot {
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid var(--text-muted);
+    border-radius: 50%;
+  }
+
+  .chip[aria-pressed="true"] .chip__dot {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+
+  .chip:hover {
+    border-color: var(--text-muted);
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+  }
+
+  .chip[aria-pressed="true"]:hover {
+    border-color: var(--accent);
+    background: var(--accent-subtle);
+  }
+
+  .chip:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .chip[disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .chips:focus {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 4px;
+    border-radius: var(--radius-card);
+  }
+
+  .field__label {
+    margin: 0;
+  }
+
+  .field__foot {
+    display: flex;
+    justify-content: flex-end;
+    margin: 0;
+  }
+
+  .counter {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .counter--over {
+    color: var(--danger-dark);
+    font-weight: 600;
+  }
+
+  .field__error--inline {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .field__error--inline .icon {
+    width: 16px;
+    height: 16px;
+    margin-top: 1px;
+  }
+
+  .textarea {
+    resize: none;
+  }
+
+  .textarea[readonly] {
+    color: var(--text-secondary);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Esiti                                                             */
+  /* ---------------------------------------------------------------- */
+
+  .banner__body {
+    min-width: 0;
+  }
+
+  .banner__title {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .banner__text {
+    margin: 2px 0 0;
+    font-size: 13px;
+  }
+
+  .result {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .result__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--success);
+    border-radius: 50%;
+    color: var(--success-dark);
+  }
+
+  .result__title {
+    margin: 0;
+    color: var(--text-primary);
+    font-family: var(--font-syne);
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .result__text {
+    margin: 0;
+    color: var(--text-secondary);
+  }
+
+  .result__text strong {
+    color: var(--text-primary);
+  }
+
+  .result__hint {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .notice {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .notice .icon {
+    margin-top: 1px;
+    color: var(--text-secondary);
+  }
+
+  .notice__title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .notice__text {
+    margin: 2px 0 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Loading                                                           */
+  /* ---------------------------------------------------------------- */
+
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--accent-foreground);
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: report-spin 700ms linear infinite;
+  }
+
+  @keyframes report-spin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+</style>
+</head>
+<body>
+
+<header class="proto-head">
+  <h1 class="proto-head__title">Segnala un campo</h1>
+  <p class="proto-head__meta">d15 · 7 stati</p>
+</header>
+
+<div data-state-group data-initial="report-empty">
+
+  <div class="proto-toolbar" role="group" aria-label="Stati del prototipo">
+    <button class="proto-switch" type="button" data-show="report-empty" aria-pressed="false">Vuoto</button>
+    <button class="proto-switch" type="button" data-show="report-selected" aria-pressed="false">Scelto</button>
+    <button class="proto-switch" type="button" data-show="report-error" aria-pressed="false">Errore</button>
+    <button class="proto-switch" type="button" data-show="report-loading" aria-pressed="false">Invio</button>
+    <button class="proto-switch" type="button" data-show="report-success" aria-pressed="false">Inviato</button>
+    <button class="proto-switch" type="button" data-show="report-reported" aria-pressed="false">Già segnalato</button>
+    <button class="proto-switch" type="button" data-show="report-network" aria-pressed="false">Errore rete</button>
+  </div>
+
+  <!-- 1 · Drawer vuoto ------------------------------------------------ -->
+  <section data-state="report-empty">
+    <div class="phone phone--tall">
+      <div class="screen" id="screen-1" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campo di Piazza Vittorio</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Piazza Vittorio Emanuele II, Roma · 1,2 km
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Esterno</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="card">
+            <p class="label">Segnalazioni attive</p>
+            <ul class="report-list">
+              <li class="report-list__item">
+                <span class="report-list__cat">Canestro rotto</span>
+                <span class="report-list__date">Scade il 16 nov, 19:40</span>
+              </li>
+              <li class="report-list__item">
+                <span class="report-list__cat">Campo bagnato</span>
+                <span class="report-list__date">Scade l'11 nov, 08:15</span>
+              </li>
+            </ul>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button" aria-expanded="true" aria-controls="sheet-1" data-open>
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>
+            Segnala
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title-1" aria-describedby="sheet-lead-1" id="sheet-1">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="sheet-title-1">Segnala un campo</h2>
+            <p class="sheet__court">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Campo di Piazza Vittorio
+            </p>
+          </div>
+          <p class="sheet__lead" id="sheet-lead-1">Vale per le prossime 48 ore: non è una recensione del campo.</p>
+          <div class="field">
+            <p class="field__label" id="cat-label-1">Cosa non va</p>
+            <div class="chips" role="group" aria-labelledby="cat-label-1" tabindex="-1" data-category>
+              <button class="chip" type="button" aria-pressed="false" data-value="broken_hoop"><span class="chip__dot" aria-hidden="true"></span>Canestro rotto</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="wet_court"><span class="chip__dot" aria-hidden="true"></span>Campo bagnato</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="lighting"><span class="chip__dot" aria-hidden="true"></span>Illuminazione</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="occupied"><span class="chip__dot" aria-hidden="true"></span>Occupato</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="other"><span class="chip__dot" aria-hidden="true"></span>Altro</button>
+            </div>
+            <p class="field__error field__error--inline" id="cat-error-1" data-cat-error role="alert" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Scegli cosa non va
+            </p>
+          </div>
+          <div class="field">
+            <label class="field__label" for="desc-1">Dettagli (facoltativo)</label>
+            <textarea class="textarea" id="desc-1" data-details rows="3" placeholder="Es. il canestro di destra è senza net." aria-describedby="count-1"></textarea>
+            <p class="field__foot">
+              <span class="counter" id="count-1"><span aria-hidden="true" data-count-visual>0/280</span><span class="sr-only" data-count-sr>0 caratteri su 280</span></span>
+            </p>
+            <p class="field__error field__error--inline" id="desc-error-1" data-desc-error role="alert" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Accorcia il testo a 280 caratteri.
+            </p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-submit>Invia segnalazione</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · Categoria selezionata + testo ------------------------------- -->
+  <section data-state="report-selected" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" id="screen-2" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campo di Piazza Vittorio</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Piazza Vittorio Emanuele II, Roma · 1,2 km
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Esterno</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="card">
+            <p class="label">Segnalazioni attive</p>
+            <ul class="report-list">
+              <li class="report-list__item">
+                <span class="report-list__cat">Canestro rotto</span>
+                <span class="report-list__date">Scade il 16 nov, 19:40</span>
+              </li>
+              <li class="report-list__item">
+                <span class="report-list__cat">Campo bagnato</span>
+                <span class="report-list__date">Scade l'11 nov, 08:15</span>
+              </li>
+            </ul>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button" aria-expanded="true" aria-controls="sheet-2" data-open>
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>
+            Segnala
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title-2" aria-describedby="sheet-lead-2" id="sheet-2">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="sheet-title-2">Segnala un campo</h2>
+            <p class="sheet__court">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Campo di Piazza Vittorio
+            </p>
+          </div>
+          <p class="sheet__lead" id="sheet-lead-2">Vale per le prossime 48 ore: non è una recensione del campo.</p>
+          <div class="field">
+            <p class="field__label" id="cat-label-2">Cosa non va</p>
+            <div class="chips" role="group" aria-labelledby="cat-label-2" tabindex="-1" data-category>
+              <button class="chip" type="button" aria-pressed="true" data-value="broken_hoop"><span class="chip__dot" aria-hidden="true"></span>Canestro rotto</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="wet_court"><span class="chip__dot" aria-hidden="true"></span>Campo bagnato</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="lighting"><span class="chip__dot" aria-hidden="true"></span>Illuminazione</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="occupied"><span class="chip__dot" aria-hidden="true"></span>Occupato</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="other"><span class="chip__dot" aria-hidden="true"></span>Altro</button>
+            </div>
+            <p class="field__error field__error--inline" id="cat-error-2" data-cat-error role="alert" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Scegli cosa non va
+            </p>
+          </div>
+          <div class="field">
+            <label class="field__label" for="desc-2">Dettagli (facoltativo)</label>
+            <textarea class="textarea" id="desc-2" data-details rows="3" placeholder="Es. il canestro di destra è senza net." aria-describedby="count-2">Il canestro di sinistra non ha più il net e il tabellone è crepato.</textarea>
+            <p class="field__foot">
+              <span class="counter" id="count-2"><span aria-hidden="true" data-count-visual>67/280</span><span class="sr-only" data-count-sr>67 caratteri su 280</span></span>
+            </p>
+            <p class="field__error field__error--inline" id="desc-error-2" data-desc-error role="alert" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Accorcia il testo a 280 caratteri.
+            </p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-submit>Invia segnalazione</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · Errore di validazione --------------------------------------- -->
+  <section data-state="report-error" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" id="screen-3" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campo di Piazza Vittorio</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Piazza Vittorio Emanuele II, Roma · 1,2 km
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Esterno</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="card">
+            <p class="label">Segnalazioni attive</p>
+            <ul class="report-list">
+              <li class="report-list__item">
+                <span class="report-list__cat">Canestro rotto</span>
+                <span class="report-list__date">Scade il 16 nov, 19:40</span>
+              </li>
+              <li class="report-list__item">
+                <span class="report-list__cat">Campo bagnato</span>
+                <span class="report-list__date">Scade l'11 nov, 08:15</span>
+              </li>
+            </ul>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button" aria-expanded="true" aria-controls="sheet-3" data-open>
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>
+            Segnala
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title-3" aria-describedby="sheet-lead-3" id="sheet-3">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="sheet-title-3">Segnala un campo</h2>
+            <p class="sheet__court">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Campo di Piazza Vittorio
+            </p>
+          </div>
+          <p class="sheet__lead" id="sheet-lead-3">Vale per le prossime 48 ore: non è una recensione del campo.</p>
+          <div class="field">
+            <p class="field__label" id="cat-label-3">Cosa non va</p>
+            <div class="chips" role="group" aria-labelledby="cat-label-3" tabindex="-1" aria-invalid="true" aria-describedby="cat-error-3" data-category>
+              <button class="chip" type="button" aria-pressed="false" data-value="broken_hoop"><span class="chip__dot" aria-hidden="true"></span>Canestro rotto</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="wet_court"><span class="chip__dot" aria-hidden="true"></span>Campo bagnato</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="lighting"><span class="chip__dot" aria-hidden="true"></span>Illuminazione</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="occupied"><span class="chip__dot" aria-hidden="true"></span>Occupato</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="other"><span class="chip__dot" aria-hidden="true"></span>Altro</button>
+            </div>
+            <p class="field__error field__error--inline" id="cat-error-3" data-cat-error role="alert">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Scegli cosa non va
+            </p>
+          </div>
+          <div class="field">
+            <label class="field__label" for="desc-3">Dettagli (facoltativo)</label>
+            <textarea class="textarea input--error" id="desc-3" data-details rows="3" aria-invalid="true" aria-describedby="count-3 desc-error-3">Il canestro di sinistra non ha più il net, il tabellone è crepato e il ferro è pieno di ruggine. La sera la lampada sopra il campo resta spenta, quindi si gioca al buio. Il sabato mattina il campo è occupato da una partita di calcetto e non si riesce a entrare. Ho provato a parlarne con il custode ma non c'era.</textarea>
+            <p class="field__foot">
+              <span class="counter counter--over" id="count-3"><span aria-hidden="true" data-count-visual>312/280</span><span class="sr-only" data-count-sr>312 caratteri su 280</span></span>
+            </p>
+            <p class="field__error field__error--inline" id="desc-error-3" data-desc-error role="alert">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Accorcia il testo a 280 caratteri.
+            </p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-submit>Invia segnalazione</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · Loading ----------------------------------------------------- -->
+  <section data-state="report-loading" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" id="screen-4" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campo di Piazza Vittorio</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Piazza Vittorio Emanuele II, Roma · 1,2 km
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Esterno</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="card">
+            <p class="label">Segnalazioni attive</p>
+            <ul class="report-list">
+              <li class="report-list__item">
+                <span class="report-list__cat">Canestro rotto</span>
+                <span class="report-list__date">Scade il 16 nov, 19:40</span>
+              </li>
+              <li class="report-list__item">
+                <span class="report-list__cat">Campo bagnato</span>
+                <span class="report-list__date">Scade l'11 nov, 08:15</span>
+              </li>
+            </ul>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button" aria-expanded="true" aria-controls="sheet-4" data-open>
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>
+            Segnala
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title-4" aria-describedby="sheet-lead-4" id="sheet-4">
+        <div class="sheet__panel" aria-busy="true">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="sheet-title-4">Segnala un campo</h2>
+            <p class="sheet__court">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Campo di Piazza Vittorio
+            </p>
+          </div>
+          <p class="sheet__lead" id="sheet-lead-4">Vale per le prossime 48 ore: non è una recensione del campo.</p>
+          <div class="field">
+            <p class="field__label" id="cat-label-4">Cosa non va</p>
+            <div class="chips" role="group" aria-labelledby="cat-label-4" data-category>
+              <button class="chip" type="button" aria-pressed="true" data-value="broken_hoop" disabled><span class="chip__dot" aria-hidden="true"></span>Canestro rotto</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="wet_court" disabled><span class="chip__dot" aria-hidden="true"></span>Campo bagnato</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="lighting" disabled><span class="chip__dot" aria-hidden="true"></span>Illuminazione</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="occupied" disabled><span class="chip__dot" aria-hidden="true"></span>Occupato</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="other" disabled><span class="chip__dot" aria-hidden="true"></span>Altro</button>
+            </div>
+            <p class="field__error field__error--inline" id="cat-error-4" data-cat-error role="alert" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Scegli cosa non va
+            </p>
+          </div>
+          <div class="field">
+            <label class="field__label" for="desc-4">Dettagli (facoltativo)</label>
+            <textarea class="textarea" id="desc-4" data-details rows="3" readonly aria-describedby="count-4">Il canestro di sinistra non ha più il net e il tabellone è crepato.</textarea>
+            <p class="field__foot">
+              <span class="counter" id="count-4"><span aria-hidden="true" data-count-visual>67/280</span><span class="sr-only" data-count-sr>67 caratteri su 280</span></span>
+            </p>
+            <p class="field__error field__error--inline" id="desc-error-4" data-desc-error role="alert" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Accorcia il testo a 280 caratteri.
+            </p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-submit disabled>
+              <span class="spinner" aria-hidden="true"></span>
+              Invio…
+            </button>
+            <button class="btn btn--quiet btn--block" type="button" data-close disabled>Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · Successo ---------------------------------------------------- -->
+  <section data-state="report-success" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" id="screen-5" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campo di Piazza Vittorio</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Piazza Vittorio Emanuele II, Roma · 1,2 km
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Esterno</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="card">
+            <p class="label">Segnalazioni attive</p>
+            <ul class="report-list">
+              <li class="report-list__item">
+                <span class="report-list__cat">Canestro rotto</span>
+                <span class="report-list__date">Scade il 16 nov, 19:40</span>
+              </li>
+              <li class="report-list__item">
+                <span class="report-list__cat">Campo bagnato</span>
+                <span class="report-list__date">Scade l'11 nov, 08:15</span>
+              </li>
+            </ul>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button" aria-expanded="true" aria-controls="sheet-5" data-open>
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>
+            Segnala
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title-5" id="sheet-5">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="sheet-title-5">Segnala un campo</h2>
+            <p class="sheet__court">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Campo di Piazza Vittorio
+            </p>
+          </div>
+          <div class="result" role="status" aria-live="polite">
+            <span class="result__icon" aria-hidden="true">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="m5 12 5 5L20 6"/></svg>
+            </span>
+            <p class="result__title">Segnalazione inviata.</p>
+            <p class="result__text">Resta attiva fino al <strong>16 nov, 19:40</strong>.</p>
+            <p class="result__hint">Dopo quella data sparisce da sola: puoi segnalare di nuovo.</p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-close>Chiudi</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 · Già segnalato ----------------------------------------------- -->
+  <section data-state="report-reported" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" id="screen-6" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campo di Piazza Vittorio</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Piazza Vittorio Emanuele II, Roma · 1,2 km
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Esterno</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="card">
+            <p class="label">Segnalazioni attive</p>
+            <ul class="report-list">
+              <li class="report-list__item">
+                <span class="report-list__cat">Canestro rotto</span>
+                <span class="report-list__date">Scade il 16 nov, 19:40</span>
+              </li>
+              <li class="report-list__item">
+                <span class="report-list__cat">Campo bagnato</span>
+                <span class="report-list__date">Scade l'11 nov, 08:15</span>
+              </li>
+            </ul>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button" aria-expanded="true" aria-controls="sheet-6" data-open>
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>
+            Segnala
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title-6" id="sheet-6">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="sheet-title-6">Segnala un campo</h2>
+            <p class="sheet__court">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Campo di Piazza Vittorio
+            </p>
+          </div>
+          <div class="card">
+            <p class="label">Segnalazioni attive</p>
+            <ul class="report-list">
+              <li class="report-list__item">
+                <span class="report-list__cat">Canestro rotto <span class="badge badge--accent">Tua</span></span>
+                <span class="report-list__date">Scade il 16 nov, 19:40</span>
+              </li>
+              <li class="report-list__item">
+                <span class="report-list__cat">Campo bagnato</span>
+                <span class="report-list__date">Scade l'11 nov, 08:15</span>
+              </li>
+            </ul>
+          </div>
+          <div class="notice">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>
+            <div>
+              <p class="notice__title">Hai già segnalato questo campo</p>
+              <p class="notice__text">Puoi inviarne un'altra quando la tua scade.</p>
+            </div>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-close>Chiudi</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · Errore di rete ---------------------------------------------- -->
+  <section data-state="report-network" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" id="screen-7" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campo di Piazza Vittorio</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Piazza Vittorio Emanuele II, Roma · 1,2 km
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Esterno</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="card">
+            <p class="label">Segnalazioni attive</p>
+            <ul class="report-list">
+              <li class="report-list__item">
+                <span class="report-list__cat">Canestro rotto</span>
+                <span class="report-list__date">Scade il 16 nov, 19:40</span>
+              </li>
+              <li class="report-list__item">
+                <span class="report-list__cat">Campo bagnato</span>
+                <span class="report-list__date">Scade l'11 nov, 08:15</span>
+              </li>
+            </ul>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button" aria-expanded="true" aria-controls="sheet-7" data-open>
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>
+            Segnala
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title-7" id="sheet-7">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="sheet-title-7">Segnala un campo</h2>
+            <p class="sheet__court">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Campo di Piazza Vittorio
+            </p>
+          </div>
+          <div class="banner banner--danger" role="alert">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <div class="banner__body">
+              <p class="banner__title">Non siamo riusciti a inviare la segnalazione.</p>
+              <p class="banner__text">Categoria e dettagli sono ancora qui.</p>
+            </div>
+          </div>
+          <div class="field">
+            <p class="field__label" id="cat-label-7">Cosa non va</p>
+            <div class="chips" role="group" aria-labelledby="cat-label-7" tabindex="-1" data-category>
+              <button class="chip" type="button" aria-pressed="true" data-value="broken_hoop"><span class="chip__dot" aria-hidden="true"></span>Canestro rotto</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="wet_court"><span class="chip__dot" aria-hidden="true"></span>Campo bagnato</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="lighting"><span class="chip__dot" aria-hidden="true"></span>Illuminazione</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="occupied"><span class="chip__dot" aria-hidden="true"></span>Occupato</button>
+              <button class="chip" type="button" aria-pressed="false" data-value="other"><span class="chip__dot" aria-hidden="true"></span>Altro</button>
+            </div>
+            <p class="field__error field__error--inline" id="cat-error-7" data-cat-error role="alert" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Scegli cosa non va
+            </p>
+          </div>
+          <div class="field">
+            <label class="field__label" for="desc-7">Dettagli (facoltativo)</label>
+            <textarea class="textarea" id="desc-7" data-details rows="3" placeholder="Es. il canestro di destra è senza net." aria-describedby="count-7">Il canestro di sinistra non ha più il net e il tabellone è crepato.</textarea>
+            <p class="field__foot">
+              <span class="counter" id="count-7"><span aria-hidden="true" data-count-visual>67/280</span><span class="sr-only" data-count-sr>67 caratteri su 280</span></span>
+            </p>
+            <p class="field__error field__error--inline" id="desc-error-7" data-desc-error role="alert" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              Accorcia il testo a 280 caratteri.
+            </p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-submit>Riprova</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<p class="note">
+  Il drawer di ogni stato si chiude con backdrop, Esc, «Annulla» o la barra in alto;
+  il focus torna su «Segnala». «Invia» valida e porta al frame di successo.
+</p>
+
+<script src="proto.js"></script>
+<script>
+  (function () {
+    "use strict";
+
+    function all(selector, root) {
+      return Array.prototype.slice.call((root || document).querySelectorAll(selector));
+    }
+
+    // Categorie: una sola scelta per gruppo, errore che si spegne.
+    all(".chips[data-category]").forEach(function (group) {
+      var field = group.closest(".field");
+      var error = field ? field.querySelector("[data-cat-error]") : null;
+      var chips = all(".chip", group);
+
+      chips.forEach(function (chip) {
+        chip.addEventListener("click", function () {
+          if (chip.disabled) return;
+          chips.forEach(function (other) {
+            other.setAttribute("aria-pressed", String(other === chip));
+          });
+          group.removeAttribute("aria-invalid");
+          group.removeAttribute("aria-describedby");
+          if (error) error.hidden = true;
+        });
+      });
+    });
+
+    // Contatore: descritto al focus, non annunciato a ogni tasto.
+    all("textarea[data-details]").forEach(function (area) {
+      var field = area.closest(".field");
+      var counter = field.querySelector(".counter");
+      var visual = counter.querySelector("[data-count-visual]");
+      var sr = counter.querySelector("[data-count-sr]");
+      var error = field.querySelector("[data-desc-error]");
+
+      function sync() {
+        var n = area.value.length;
+        var over = n > 280;
+        visual.textContent = n + "/280";
+        sr.textContent = n + (n === 1 ? " carattere" : " caratteri") + " su 280";
+        counter.classList.toggle("counter--over", over);
+        if (error) error.hidden = !over;
+        if (over) {
+          area.setAttribute("aria-invalid", "true");
+        } else {
+          area.removeAttribute("aria-invalid");
+          area.classList.remove("input--error");
+        }
+        area.setAttribute("aria-describedby", over && error ? counter.id + " " + error.id : counter.id);
+      }
+
+      area.addEventListener("input", sync);
+      sync();
+    });
+
+    // Drawer: open/close, focus trap, restore focus.
+    all("[data-state] .phone").forEach(function (phone) {
+      var sheet = phone.querySelector(".sheet");
+      var screen = phone.querySelector(".screen");
+      var panel = sheet ? sheet.querySelector(".sheet__panel") : null;
+      var trigger = phone.querySelector("[data-open]");
+      var title = sheet ? sheet.querySelector(".sheet__title") : null;
+      if (!sheet || !panel || !trigger || !title) return;
+
+      function focusables() {
+        return all('button:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])', panel)
+          .filter(function (el) {
+            return el.offsetParent !== null;
+          });
+      }
+
+      function openSheet() {
+        if (!sheet.classList.contains("is-closed")) return;
+        sheet.classList.remove("is-closed");
+        if (screen) screen.setAttribute("inert", "");
+        trigger.setAttribute("aria-expanded", "true");
+        title.setAttribute("tabindex", "-1");
+        title.focus({ preventScroll: true });
+      }
+
+      function closeSheet() {
+        if (sheet.classList.contains("is-closed")) return;
+        sheet.classList.add("is-closed");
+        if (screen) screen.removeAttribute("inert");
+        trigger.setAttribute("aria-expanded", "false");
+        trigger.focus({ preventScroll: true });
+      }
+
+      trigger.addEventListener("click", openSheet);
+      all("[data-close]", sheet).forEach(function (button) {
+        button.addEventListener("click", closeSheet);
+      });
+      sheet.addEventListener("click", function (event) {
+        if (event.target === sheet) closeSheet();
+      });
+      sheet.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeSheet();
+          return;
+        }
+        if (event.key !== "Tab") return;
+        var items = focusables();
+        if (!items.length) return;
+        var first = items[0];
+        var last = items[items.length - 1];
+        var active = document.activeElement;
+        if (!panel.contains(active)) {
+          event.preventDefault();
+          (first || title).focus();
+          return;
+        }
+        if (event.shiftKey) {
+          if (active === first || active === title) {
+            event.preventDefault();
+            last.focus();
+          }
+        } else if (active === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      });
+    });
+
+    // Submit dimostrativo: valida e apre il frame di successo.
+    all("[data-submit]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var sheet = button.closest(".sheet");
+        var group = sheet.querySelector(".chips[data-category]");
+        var area = sheet.querySelector("textarea[data-details]");
+        var catError = sheet.querySelector("[data-cat-error]");
+        var selected = group ? group.querySelector('.chip[aria-pressed="true"]') : null;
+
+        if (group && !selected) {
+          if (catError) catError.hidden = false;
+          group.setAttribute("aria-invalid", "true");
+          if (catError) group.setAttribute("aria-describedby", catError.id);
+          group.focus();
+          return;
+        }
+        if (area && area.value.length > 280) {
+          area.focus();
+          return;
+        }
+        var success = document.querySelector('[data-show="report-success"]');
+        if (success) {
+          success.click();
+          window.requestAnimationFrame(function () {
+            var target = document.querySelector('[data-state="report-success"] .sheet__title');
+            if (target) {
+              target.setAttribute("tabindex", "-1");
+              target.focus({ preventScroll: true });
+            }
+          });
+        }
+      });
+    });
+  })();
+</script>
+</body>
+</html>

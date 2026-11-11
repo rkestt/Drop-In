@@ -1,35 +1,69 @@
 {
   "version": "1.0",
-  "last_updated": "2026-09-01T16:20:53.636478Z",
+  "last_updated": "2026-11-09T20:20:14.277Z",
   "pages": {
+    "sources/obs-2026-08-23-fix-grant-mancanti-su-courts-smoke-test-rivela-42501": {
+      "type": "source",
+      "title": "Observation: Fix GRANT mancanti su courts — smoke test rivela 42501",
+      "category": null,
+      "status": "observation",
+      "slug": "obs-2026-08-23-fix-grant-mancanti-su-courts-smoke-test-rivela-42501",
+      "created": "2026-08-23",
+      "updated": "2026-08-23"
+    },
     "sources/obs-2026-08-23-tooling-setup-ponytail-impeccable-installate-wiki-project-lo": {
       "type": "source",
-      "title": "Tooling setup: ponytail+impeccable installate, wiki project-local creata",
-      "relevance": "high",
-      "observed_at": "2026-08-23T11:22:53.510Z"
+      "title": "Observation: Tooling setup: ponytail+impeccable installate, wiki project-local creata",
+      "category": null,
+      "status": "observation",
+      "slug": "obs-2026-08-23-tooling-setup-ponytail-impeccable-installate-wiki-project-lo",
+      "created": "2026-08-23",
+      "updated": "2026-08-23"
+    },
+    "sources/obs-2026-08-23-wayfinder-map-drop-in-eseguita-build-verde-runtime-seeded-ma": {
+      "type": "source",
+      "title": "Observation: Wayfinder map Drop-In eseguita: build verde, runtime seeded, mappa viewport",
+      "category": null,
+      "status": "observation",
+      "slug": "obs-2026-08-23-wayfinder-map-drop-in-eseguita-build-verde-runtime-seeded-ma",
+      "created": "2026-08-23",
+      "updated": "2026-08-23"
+    },
+    "sources/obs-2026-09-01-harness-hardening-tracker-git-husky-ci-lint-zero": {
+      "type": "source",
+      "title": "⭐ Observation: Harness hardening — tracker, git, husky, lint zero, CI",
+      "category": null,
+      "status": null,
+      "slug": "obs-2026-09-01-harness-hardening-tracker-git-husky-ci-lint-zero",
+      "created": null,
+      "updated": null
+    },
+    "sources/obs-2026-09-01-test-wiki-arsenale-harness": {
+      "type": "source",
+      "title": "Observation: Test wiki arsenale harness",
+      "category": null,
+      "status": "observation",
+      "slug": "obs-2026-09-01-test-wiki-arsenale-harness",
+      "created": "2026-09-01",
+      "updated": "2026-09-01"
+    },
+    "sources/visual-regression-falso-verde-font-non-applicati": {
+      "type": "source",
+      "title": "Visual regression: falso verde quando next/font non applica i font",
+      "category": "source",
+      "status": "insight",
+      "slug": "visual-regression-falso-verde-font-non-applicati",
+      "created": "2026-11-09",
+      "updated": "2026-11-09"
     },
     "sources/wayfinder-subsession-orchestration": {
       "type": "source",
       "title": "Wayfinder map execution via parallel subsessions",
-      "category": "devops"
-    },
-    "sources/obs-2026-08-23-wayfinder-map-drop-in-eseguita-build-verde-runtime-seeded-ma": {
-      "type": "source",
-      "title": "Wayfinder map Drop-In eseguita: build verde, runtime seeded, mappa viewport",
-      "relevance": "medium",
-      "observed_at": "2026-08-23T13:34:56.182Z"
-    },
-    "sources/obs-2026-08-23-fix-grant-mancanti-su-courts-smoke-test-rivela-42501": {
-      "type": "source",
-      "title": "Fix GRANT mancanti su courts \u2014 smoke test rivela 42501",
-      "relevance": "high",
-      "observed_at": "2026-08-23T14:31:18.918Z"
-    },
-    "sources/obs-2026-09-01-harness-hardening-tracker-git-husky-ci-lint-zero": {
-      "type": "source",
-      "title": "Harness hardening: tracker unificato, git pulito, husky+lint-staged, lint zero, CI verde",
-      "relevance": "high",
-      "observed_at": "2026-09-01T16:20:53.636478Z"
+      "category": "devops",
+      "status": "insight",
+      "slug": "wayfinder-subsession-orchestration",
+      "created": "2026-08-23",
+      "updated": "2026-08-23"
     }
   }
 }

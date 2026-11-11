@@ -1,19 +1,24 @@
 import type { Metadata, Viewport } from "next";
-import { Syne, Source_Sans_3 } from "next/font/google";
-import { ToastProvider } from "@/components/notifications/toast-provider";
+import localFont from "next/font/local";
+import { Toaster } from "@/components/notifications/toaster";
+import { KarmaListener } from "@/components/notifications/karma-listener";
 import { SportProvider } from "@/lib/sport/sport-context";
 import "./globals.css";
 
-const syne = Syne({
+const syne = localFont({
+  src: "./fonts/Syne-variable.woff2",
   variable: "--font-syne",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: "400 800",
+  display: "swap",
+  adjustFontFallback: false,
 });
 
-const sourceSans = Source_Sans_3({
+const sourceSans = localFont({
+  src: "./fonts/SourceSans3-variable.woff2",
   variable: "--font-source-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: "400 700",
+  display: "swap",
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {
@@ -22,7 +27,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black",
     title: "Drop-In",
   },
 };
@@ -30,10 +35,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
   viewportFit: "cover",
-  themeColor: "#ffffff",
+  themeColor: "#141414",
 };
 
 export default function RootLayout({
@@ -49,7 +54,8 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-[var(--bg-base)] text-[var(--text-primary)] font-[family-name:var(--font-source-sans)]">
         <SportProvider>
           {children}
-          <ToastProvider />
+          <Toaster />
+          <KarmaListener />
         </SportProvider>
       </body>
     </html>

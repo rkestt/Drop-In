@@ -2,6 +2,12 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useForm, type FieldErrors } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  submitCourtSchema,
+  type SubmitCourtValues,
+} from "@/lib/validation/schemas";
 import { createClient } from "@/lib/supabase/client";
 import { useSport } from "@/lib/sport/sport-context";
 import { SPORTS, type Sport } from "@/lib/sport/sports";
@@ -66,9 +72,29 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
   const [user, setUser] = useState<{ id: string } | null>(null);
 
-  const [name, setName] = useState("");
-  const [selectedSport, setSelectedSport] = useState<Sport>(sport ?? "basketball");
-  const [surface, setSurface] = useState("");
+  // Testo del form in react-hook-form (schema zod = unica fonte).
+  // Restano useState solo per: file foto, loading, errori di rete/DB, successo.
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    setFocus,
+    formState: { errors },
+  } = useForm<SubmitCourtValues>({
+    resolver: zodResolver(submitCourtSchema),
+    mode: "onSubmit",
+    reValidateMode: "onChange",
+    defaultValues: {
+      name: "",
+      sport: sport ?? "basketball",
+      surface: "",
+      hasPhoto: false,
+    },
+  });
+  const draftName = watch("name");
+  const draftSport = watch("sport");
+  const draftSurface = watch("surface");
 
   const [location, setLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(
     null
@@ -110,9 +136,9 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
   useEffect(() => {
     if (sport) {
-      setSelectedSport(sport);
+      setValue("sport", sport);
     }
-  }, [sport]);
+  }, [sport, setValue]);
 
   // Ripristino bozza dopo un reload (es. fotocamera su Android). Dichiarato
   // DOPO la sincronizzazione con lo sport globale così al mount vince la
@@ -122,14 +148,14 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
       if (!raw) return;
       const draft = JSON.parse(raw) as Partial<SubmitCourtDraft>;
-      if (typeof draft.name === "string") setName(draft.name);
+      if (typeof draft.name === "string") setValue("name", draft.name);
       if (
         typeof draft.selectedSport === "string" &&
         SPORTS.some((s) => s.value === draft.selectedSport)
       ) {
-        setSelectedSport(draft.selectedSport as Sport);
+        setValue("sport", draft.selectedSport as Sport);
       }
-      if (typeof draft.surface === "string") setSurface(draft.surface);
+      if (typeof draft.surface === "string") setValue("surface", draft.surface);
       const loc = draft.location;
       if (
         loc &&
@@ -146,15 +172,15 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
     } catch {
       // Bozza corrotta o storage non disponibile: si parte da form vuoto.
     }
-  }, []);
+  }, [setValue]);
 
   // Salvataggio bozza a ogni modifica (solo testo + posizione, mai la foto).
   useEffect(() => {
     try {
       const draft: SubmitCourtDraft = {
-        name,
-        selectedSport,
-        surface,
+        name: draftName,
+        selectedSport: draftSport,
+        surface: draftSurface,
         location,
         dedupConfirmed,
       };
@@ -162,7 +188,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
     } catch {
       // Storage pieno o non disponibile: il form resta comunque usabile.
     }
-  }, [name, selectedSport, surface, location, dedupConfirmed]);
+  }, [draftName, draftSport, draftSurface, location, dedupConfirmed]);
 
   useEffect(() => {
     return () => {
@@ -278,6 +304,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
     setPhotoLoading(true);
     try {
       setPhotoFile(file);
+      setValue("hasPhoto", true);
       setPhotoPreview(URL.createObjectURL(file));
       setDebugDetail(null);
     } finally {
@@ -290,16 +317,32 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       URL.revokeObjectURL(photoPreview);
     }
     setPhotoFile(null);
+    setValue("hasPhoto", false);
     setPhotoPreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Guardia anti-doppio-invio (il disabled da solo non basta tra due
+  // submit ravvicinati prima del re-render).
+  const submittingRef = useRef(false);
+
+  const focusFirstError = (fieldErrors: FieldErrors<SubmitCourtValues>) => {
+    const order: (keyof SubmitCourtValues)[] = ["name", "sport", "surface"];
+    for (const field of order) {
+      if (fieldErrors[field]) {
+        setFocus(field);
+        return;
+      }
+    }
+  };
+
+  const onValidSubmit = async (values: SubmitCourtValues) => {
     setError(null);
     setDebugDetail(null);
+
+    if (submittingRef.current) return;
 
     if (!user) {
       onLoginRequired();
@@ -311,17 +354,12 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       return;
     }
 
-    const trimmedName = name.trim();
-    if (!trimmedName && !photoFile) {
-      setError("Inserisci un nome o carica una foto per identificare il campo.");
-      return;
-    }
-
     if (dedupCandidates && dedupCandidates.length > 0 && !dedupConfirmed) {
       setError("Conferma che non si tratta di un duplicato prima di inviare.");
       return;
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
     let uploadedPath: string | null = null;
 
@@ -332,11 +370,11 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       }
 
       const { error: rpcError } = await supabase.rpc("submit_court", {
-        p_name: trimmedName,
+        p_name: values.name.trim(),
         p_lat: location.lat,
         p_lng: location.lng,
-        p_sport: selectedSport,
-        p_surface: surface || undefined,
+        p_sport: values.sport,
+        p_surface: values.surface || undefined,
         p_photo_path: uploadedPath ?? undefined,
         p_gps_accuracy: location.accuracy,
       });
@@ -355,7 +393,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
         return;
       }
 
-      setSubmittedName(trimmedName || "Campo senza nome");
+      setSubmittedName(values.name.trim() || "Campo senza nome");
       setSuccess(true);
       try {
         sessionStorage.removeItem(DRAFT_STORAGE_KEY);
@@ -374,12 +412,10 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       }
       setError(err instanceof Error ? err.message : "Errore durante l'invio. Riprova più tardi.");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
-
-  const hasBlockedSubmit =
-    !location || (!name.trim() && !photoFile) || (dedupCandidates && dedupCandidates.length > 0 && !dedupConfirmed);
 
   if (success) {
     return (
@@ -403,7 +439,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
         <Link
           href="/"
-          className="inline-flex items-center justify-center w-full px-6 py-3.5 rounded-[10px] font-semibold bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
+          className="inline-flex items-center justify-center w-full px-6 py-3.5 rounded-control font-semibold bg-[var(--accent)] text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
         >
           Torna alla mappa
         </Link>
@@ -412,12 +448,12 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit(onValidSubmit, focusFirstError)} className="space-y-6" noValidate>
       {error && (
         <div
           ref={errorAlertRef}
           tabIndex={-1}
-          className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm animate-scale-in"
+          className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger-dark)] text-sm animate-scale-in"
           role="alert"
           aria-live="assertive"
         >
@@ -431,7 +467,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       )}
 
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Posizione</h3>
+        <h2 className="text-sm font-semibold text-[var(--text-primary)]">Posizione</h2>
 
         {!location ? (
           <Button
@@ -443,12 +479,12 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
           >
             {locationLoading ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+                <Loader2 className="w-4 h-4 me-2 animate-spin" aria-hidden="true" />
                 Ricerca posizione...
               </>
             ) : (
               <>
-                <MapPin className="w-4 h-4 mr-2" aria-hidden="true" />
+                <MapPin className="w-4 h-4 me-2" aria-hidden="true" />
                 Usa la mia posizione
               </>
             )}
@@ -486,7 +522,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
         {locationError && !error && (
           <div
-            className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger)] text-sm"
+            className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger-dark)] text-sm"
             role="alert"
             aria-live="assertive"
           >
@@ -504,9 +540,9 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
       {dedupCandidates && dedupCandidates.length > 0 && (
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
             Campi simili nelle vicinanze
-          </h3>
+          </h2>
           <p className="text-sm text-[var(--text-secondary)]">
             Se il campo che vuoi aggiungere è già presente, selezionalo per evitare duplicati.
           </p>
@@ -560,15 +596,22 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
           </label>
           <Input
             id={nameId}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            {...register("name")}
             placeholder="Es. Campetto Via Napoli"
             aria-label="Nome del campo"
-            aria-describedby={`${nameId}-hint`}
+            aria-invalid={errors.name ? "true" : undefined}
+            aria-describedby={
+              errors.name ? `${nameId}-hint ${nameId}-error` : `${nameId}-hint`
+            }
           />
           <p id={`${nameId}-hint`} className="mt-1.5 text-xs text-[var(--text-muted)]">
             Opzionale se carichi una foto, altrimenti obbligatorio.
           </p>
+          {errors.name && (
+            <p id={`${nameId}-error`} role="alert" className="mt-1.5 text-sm text-[var(--danger)]">
+              {errors.name.message}
+            </p>
+          )}
         </div>
 
         <div>
@@ -577,9 +620,10 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
           </label>
           <select
             id={sportId}
-            value={selectedSport}
-            onChange={(e) => setSelectedSport(e.target.value as Sport)}
-            className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-[10px] px-4 py-3.5 text-base border border-transparent transition-colors focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
+            {...register("sport")}
+            aria-invalid={errors.sport ? "true" : undefined}
+            aria-describedby={errors.sport ? `${sportId}-error` : undefined}
+            className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-control px-4 py-3.5 text-base border border-transparent transition-colors focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
           >
             {SPORTS.map((s) => (
               <option key={s.value} value={s.value}>
@@ -587,6 +631,11 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
               </option>
             ))}
           </select>
+          {errors.sport && (
+            <p id={`${sportId}-error`} role="alert" className="mt-1.5 text-sm text-[var(--danger)]">
+              {errors.sport.message}
+            </p>
+          )}
         </div>
 
         <div>
@@ -595,9 +644,10 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
           </label>
           <select
             id={surfaceId}
-            value={surface}
-            onChange={(e) => setSurface(e.target.value)}
-            className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-[10px] px-4 py-3.5 text-base border border-transparent transition-colors focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
+            {...register("surface")}
+            aria-invalid={errors.surface ? "true" : undefined}
+            aria-describedby={errors.surface ? `${surfaceId}-error` : undefined}
+            className="flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-control px-4 py-3.5 text-base border border-transparent transition-colors focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]"
           >
             {SURFACE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -605,6 +655,11 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
               </option>
             ))}
           </select>
+          {errors.surface && (
+            <p id={`${surfaceId}-error`} role="alert" className="mt-1.5 text-sm text-[var(--danger)]">
+              {errors.surface.message}
+            </p>
+          )}
         </div>
       </section>
 
@@ -628,7 +683,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
             />
             <label
               htmlFor={photoId}
-              className="flex flex-col items-center justify-center gap-2 w-full rounded-[10px] border-2 border-dashed border-[var(--cool-muted)]/30 bg-[var(--bg-surface)] px-4 py-6 text-[var(--text-secondary)] transition-colors active:bg-[var(--bg-elevated)] min-h-[120px]"
+              className="flex flex-col items-center justify-center gap-2 w-full rounded-control border-2 border-dashed border-[var(--cool-muted)]/30 bg-[var(--bg-surface)] px-4 py-6 text-[var(--text-secondary)] transition-colors active:bg-[var(--bg-elevated)] min-h-[120px]"
             >
               <Camera className="w-6 h-6" aria-hidden="true" />
               <span className="text-sm font-medium">Tocca per scattare o selezionare</span>
@@ -638,7 +693,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
             </label>
           </div>
         ) : (
-          <div className="relative rounded-[10px] overflow-hidden bg-[var(--bg-surface)] aspect-video">
+          <div className="relative rounded-control overflow-hidden bg-[var(--bg-surface)] aspect-video">
             {photoLoading ? (
               <div className="absolute inset-0 flex items-center justify-center">
                 <Loader2 className="w-6 h-6 animate-spin text-[var(--text-muted)]" aria-hidden="true" />
@@ -657,7 +712,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
             <button
               type="button"
               onClick={removePhoto}
-              className="absolute top-2 right-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--bg-elevated)]/90 text-[var(--text-primary)] shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="absolute top-2 end-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--bg-elevated)]/90 text-[var(--text-primary)] shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               aria-label="Rimuovi foto"
             >
               <X className="w-4 h-4" aria-hidden="true" />
@@ -666,16 +721,16 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
         )}
       </section>
 
-      {!name.trim() && !photoFile && (
+      {!draftName.trim() && !photoFile && (
         <p className="text-sm text-[var(--warning)]">
           Aggiungi un nome o una foto per inviare il campo.
         </p>
       )}
 
-      <Button type="submit" className="w-full" disabled={hasBlockedSubmit || submitting}>
+      <Button type="submit" className="w-full" disabled={submitting}>
         {submitting ? (
           <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
+            <Loader2 className="w-4 h-4 me-2 animate-spin" aria-hidden="true" />
             Invio in corso...
           </>
         ) : (

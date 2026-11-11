@@ -58,9 +58,9 @@ export function BanBanner({ userId }: BanBannerProps) {
   if (bannedUntil && new Date(bannedUntil) > new Date()) {
     return (
       <div className="bg-[var(--danger)]/10 border border-[var(--danger)]/20 rounded-xl p-4 flex items-start gap-3">
-        <AlertTriangle className="w-5 h-5 text-[var(--danger)] shrink-0 mt-0.5" />
+        <AlertTriangle className="w-5 h-5 text-[var(--danger-dark)] shrink-0 mt-0.5" />
         <div>
-          <p className="font-semibold text-[var(--danger)]">Account bannato</p>
+          <p className="font-semibold text-[var(--danger-dark)]">Account bannato</p>
           <p className="text-sm text-[var(--text-secondary)]">
             Non puoi creare o partecipare a lobby fino al{" "}
             {new Date(bannedUntil).toLocaleString("it-IT")}

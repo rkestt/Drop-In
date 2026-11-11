@@ -1,0 +1,1891 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Impostazioni · Drop-In</title>
+  <!--
+    Impostazioni — prototipo statico Drop-In 1.5 (ticket d10).
+    Pipeline: F2 prototipi statici → Impostazioni. Prossimo passo: review HITL, poi d18.
+    Non è una route: nessun import da app/, nessuna fetch. Apri con proto.css/proto.js.
+  -->
+  <link rel="stylesheet" href="proto.css">
+  <style>
+/* settings.html — solo lo specifico della schermata. Base: proto.css. */
+
+.phone--settings {
+  height: 780px;
+}
+
+/* Stato visibile dentro la cornice: il wrapper non deve allargare il telefono. */
+.proto-states {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.proto-state {
+  width: 100%;
+}
+
+.proto-state:not([hidden]) {
+  display: flex;
+  justify-content: center;
+}
+
+/* Appbar: Indietro testuale (come app/(dashboard)/layout.tsx) e campanella. */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin-left: -10px;
+  padding: 0 10px 0 6px;
+  border-radius: var(--radius-control);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.back-link svg {
+  width: 20px;
+  height: 20px;
+}
+
+.back-link:hover {
+  color: var(--text-primary);
+}
+
+.appbar__bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  margin-right: -10px;
+  border-radius: var(--radius-control);
+  color: var(--text-secondary);
+}
+
+.appbar__bell svg {
+  width: 22px;
+  height: 22px;
+}
+
+.appbar__bell:hover {
+  color: var(--text-primary);
+}
+
+.appbar__dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--bg-elevated);
+}
+
+.back-link:focus-visible,
+.appbar__bell:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Contenuto: il telefono ha altezza fissa, la pagina scorre dentro. */
+.settings {
+  gap: 24px;
+  min-height: 0;
+  padding: 20px 20px 32px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cool-muted) transparent;
+}
+
+.settings__title {
+  margin: 0;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+}
+
+.section-head__icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+}
+
+.section-head .label {
+  white-space: nowrap;
+}
+
+.section-head__rule {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Card a righe: separatori rientrati, tap sull'intera riga. */
+.settings-card {
+  gap: 0;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 13px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.setting-row + .setting-row {
+  position: relative;
+}
+
+.setting-row + .setting-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 16px;
+  height: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+a.setting-row,
+button.setting-row {
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+
+a.setting-row:hover,
+button.setting-row:hover {
+  background: var(--bg-elevated);
+}
+
+a.setting-row:focus-visible,
+button.setting-row:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.setting-row__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.setting-row__title {
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.setting-row__sub {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.setting-row__value {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.setting-row__value--end {
+  margin-left: auto;
+  text-align: right;
+}
+
+.setting-row__state {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.setting-row__control {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.setting-row__chevron {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.setting-row__lock {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+}
+
+.setting-row--switch {
+  cursor: pointer;
+}
+
+.setting-row--switch .setting-row__control {
+  align-items: center;
+}
+
+.setting-row--switch .switch {
+  display: block;
+}
+
+.setting-row--switch:hover .switch {
+  border-color: var(--text-muted);
+}
+
+/* proto.css colora .switch[aria-checked]; qui lo stato vive sulla riga
+   (role="switch"), quindi il figlio visivo segue il genitore. */
+.setting-row--switch[aria-checked="true"] .switch {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.setting-row--switch[aria-checked="true"] .switch::after {
+  transform: translateX(20px);
+  background: var(--accent-foreground);
+}
+
+.setting-row--switch[aria-checked="true"]:hover .switch {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+
+.setting-row--switch[aria-checked="true"] .setting-row__state {
+  color: var(--text-secondary);
+}
+
+.setting-row--disabled {
+  cursor: default;
+}
+
+.setting-row--disabled .setting-row__title {
+  color: var(--text-secondary);
+}
+
+.setting-row__note {
+  margin-top: 5px;
+  padding: 9px 11px;
+  border-radius: var(--radius-control-sm);
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.link-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-right: -6px;
+  padding: 0 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--text-secondary);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.link-action:hover {
+  text-decoration-color: var(--text-primary);
+}
+
+.link-action:focus-visible {
+  border-radius: var(--radius-control-sm);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Posizione */
+.perm-card {
+  gap: 12px;
+}
+
+.perm-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.perm-desc {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.perm-fine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.perm-fine svg {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+}
+
+.perm-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.perm-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.perm-help {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.perm-help__title {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.perm-help__list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.perm-help__list li + li {
+  margin-top: 6px;
+}
+
+.perm-help__list strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* Skeleton */
+.skel-badge {
+  display: inline-block;
+  width: 84px;
+  height: 22px;
+  border-radius: var(--radius-chip);
+}
+
+.skel-value {
+  display: block;
+  height: 16px;
+}
+
+.skel-meta {
+  display: block;
+  flex: 0 0 auto;
+  width: 64px;
+  height: 14px;
+}
+
+.skel-line {
+  display: block;
+  height: 13px;
+}
+
+.card .skeleton {
+  background: var(--bg-elevated);
+}
+
+/* Account */
+.logout {
+  margin-top: 12px;
+  color: var(--danger-dark);
+}
+
+.logout:hover {
+  background: var(--bg-elevated);
+}
+
+.settings .btn svg {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+
+.settings .btn--sm svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Informazioni */
+.attribution {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 2px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.attribution p {
+  margin: 0;
+}
+
+/* Toast */
+.toast {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 24px var(--overlay);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.toast svg {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: var(--success-dark);
+}
+
+/* Drawer di uscita */
+.sheet {
+  z-index: 30;
+}
+
+.sheet__body {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.sheet__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Note di scope, fuori dal telefono */
+.scope-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scope-note p {
+  margin: 0;
+}
+
+.scope-note strong {
+  color: var(--text-secondary);
+}
+
+.scope-note code {
+  color: var(--text-secondary);
+  font-family: var(--font-source-sans);
+  font-size: inherit;
+}
+</style>
+</head>
+<body>
+  <header class="proto-head">
+    <h1 class="proto-head__title">Impostazioni</h1>
+    <p class="proto-head__meta">d10 · F2 prototipi statici · 8 stati · 360px prima</p>
+  </header>
+
+  <div class="proto-states" data-state-group data-initial="default">
+
+    <div class="proto-toolbar" role="group" aria-label="Stati del prototipo">
+      <span class="proto-toolbar__label">Stato</span>
+      <button class="proto-switch" data-show="default" title="Predefinito (posizione da chiedere)">Base</button>
+      <button class="proto-switch" data-show="notifiche-off" title="Pallino degli avvisi spento">Avvisi off</button>
+      <button class="proto-switch" data-show="push-non-disponibile" title="Notifiche push non disponibili">Senza push</button>
+      <button class="proto-switch" data-show="posizione-negata" title="Posizione negata">Pos. negata</button>
+      <button class="proto-switch" data-show="posizione-concessa" title="Posizione consentita">Pos. concessa</button>
+      <button class="proto-switch" data-show="loading" title="Caricamento">Caricamento</button>
+      <button class="proto-switch" data-show="logout-confirm" title="Conferma uscita">Uscita</button>
+      <button class="proto-switch" data-show="toast-successo" title="Toast di conferma">Toast</button>
+    </div>
+
+  <div class="proto-state" data-state="default">
+    <section class="phone phone--settings" aria-label="Impostazioni">
+      <div class="screen">
+        <header class="appbar">
+          <a class="back-link" href="#indietro" aria-label="Torna indietro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg><span>Indietro</span></a>
+          <a class="appbar__bell" href="#avvisi" aria-label="Avvisi, 3 non letti">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="appbar__dot" data-bell-dot aria-hidden="true"></span>
+          </a>
+        </header>
+        <div class="content settings">
+          <h1 class="display-sm settings__title">Impostazioni</h1>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <h2 class="label">Notifiche</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <a class="setting-row" href="#avvisi">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Avvisi nell’app</span>
+              <span class="setting-row__sub">Le novità su campi, lobby e check-in.</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <button type="button" class="setting-row setting-row--switch" role="switch" aria-checked="true" aria-label="Pallino degli avvisi non letti" data-switch-badge>
+            <span class="setting-row__text">
+              <span class="setting-row__title">Pallino degli avvisi non letti</span>
+              <span class="setting-row__sub">Un punto sulla campanella quando c’è qualcosa di nuovo.</span>
+            </span>
+            <span class="setting-row__control">
+              <span class="switch" aria-hidden="true"></span>
+              <span class="setting-row__state" data-switch-label>Attivo</span>
+            </span>
+          </button>
+          <div class="setting-row setting-row--disabled">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Notifiche push</span>
+              <span class="setting-row__sub">Non disponibili in questa versione: richiedono l’invio dal server.</span>
+            </span>
+            <svg class="setting-row__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <h2 class="label">Posizione</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card perm-card" data-perm>
+          <div class="perm-head">
+            <h3 class="card__title">Posizione</h3>
+            <span class="badge" data-perm-badge>Da chiedere</span>
+          </div>
+          <p class="perm-desc" data-perm-desc data-desc-ok="Serve per la mappa, il check-in entro 50 m e le lobby vicine." data-desc-denied="Senza posizione non possiamo mostrarti i campi vicini né verificare il check-in.">Serve per la mappa, il check-in entro 50 m e le lobby vicine.</p>
+          <p class="perm-fine hidden" data-perm-fine><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Non salviamo le tue coordinate.</p>
+          <div class="perm-actions" data-perm-actions>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> Consenti posizione</button>
+            <span class="perm-hint">Il telefono ti chiederà il permesso.</span>
+          </div>
+          <div class="perm-help hidden" data-perm-help>
+            <p class="perm-help__title">Come riattivarla</p>
+            <ul class="perm-help__list">
+              <li><strong>Safari.</strong> Impostazioni del telefono › Privacy e sicurezza › Localizzazione › Safari › “Durante l’uso”.</li>
+              <li><strong>Chrome.</strong> Lucchetto accanto all’indirizzo › Autorizzazioni › Posizione › Consenti.</li>
+            </ul>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Riprova</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <h2 class="label">Account</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Email</span>
+              <span class="setting-row__value">nico.trastevere@email.it</span>
+            </span>
+            <span class="setting-row__state">Sola lettura</span>
+          </div>
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Nickname</span>
+              <span class="setting-row__value">nico_trastevere</span>
+            </span>
+            <a class="link-action" href="#modifica-nickname">Modifica<span class="sr-only"> il nickname</span></a>
+          </div>
+        </div>
+        <button type="button" class="btn btn--secondary btn--block logout" data-goto="logout-confirm" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg> Esci
+        </button>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <h2 class="label">Informazioni</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__title">Versione</span>
+            <span class="setting-row__value setting-row__value--end">0.1.0</span>
+          </div>
+          <a class="setting-row" href="#privacy">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Informativa privacy</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <a class="setting-row" href="#segnala">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Segnala un problema</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+        </div>
+        <div class="attribution">
+          <p>Dati mappa © OpenStreetMap contributors.</p>
+          <p>Tile © OpenFreeMap. Stile © OpenMapTiles.</p>
+          <p>Font: Syne e Source Sans 3, licenza OFL.</p>
+        </div>
+      </section>
+          <p class="sr-only" role="status" aria-live="polite" data-live-pref></p>
+          <p class="sr-only" role="status" aria-live="polite" data-live-perm></p>
+        </div>
+      </div>
+
+    <div class="toast pop hidden" data-toast aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      <span data-toast-text>Pallino degli avvisi attivo</span>
+    </div>
+    </section>
+  </div>
+
+  <div class="proto-state" data-state="notifiche-off" hidden>
+    <section class="phone phone--settings" aria-label="Impostazioni">
+      <div class="screen">
+        <header class="appbar">
+          <a class="back-link" href="#indietro" aria-label="Torna indietro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg><span>Indietro</span></a>
+          <a class="appbar__bell" href="#avvisi" aria-label="Avvisi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="appbar__dot hidden" data-bell-dot aria-hidden="true"></span>
+          </a>
+        </header>
+        <div class="content settings">
+          <h1 class="display-sm settings__title">Impostazioni</h1>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <h2 class="label">Notifiche</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <a class="setting-row" href="#avvisi">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Avvisi nell’app</span>
+              <span class="setting-row__sub">Le novità su campi, lobby e check-in.</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <button type="button" class="setting-row setting-row--switch" role="switch" aria-checked="false" aria-label="Pallino degli avvisi non letti" data-switch-badge>
+            <span class="setting-row__text">
+              <span class="setting-row__title">Pallino degli avvisi non letti</span>
+              <span class="setting-row__sub">Un punto sulla campanella quando c’è qualcosa di nuovo.</span>
+            </span>
+            <span class="setting-row__control">
+              <span class="switch" aria-hidden="true"></span>
+              <span class="setting-row__state" data-switch-label>Spento</span>
+            </span>
+          </button>
+          <div class="setting-row setting-row--disabled">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Notifiche push</span>
+              <span class="setting-row__sub">Non disponibili in questa versione: richiedono l’invio dal server.</span>
+            </span>
+            <svg class="setting-row__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <h2 class="label">Posizione</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card perm-card" data-perm>
+          <div class="perm-head">
+            <h3 class="card__title">Posizione</h3>
+            <span class="badge" data-perm-badge>Da chiedere</span>
+          </div>
+          <p class="perm-desc" data-perm-desc data-desc-ok="Serve per la mappa, il check-in entro 50 m e le lobby vicine." data-desc-denied="Senza posizione non possiamo mostrarti i campi vicini né verificare il check-in.">Serve per la mappa, il check-in entro 50 m e le lobby vicine.</p>
+          <p class="perm-fine hidden" data-perm-fine><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Non salviamo le tue coordinate.</p>
+          <div class="perm-actions" data-perm-actions>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> Consenti posizione</button>
+            <span class="perm-hint">Il telefono ti chiederà il permesso.</span>
+          </div>
+          <div class="perm-help hidden" data-perm-help>
+            <p class="perm-help__title">Come riattivarla</p>
+            <ul class="perm-help__list">
+              <li><strong>Safari.</strong> Impostazioni del telefono › Privacy e sicurezza › Localizzazione › Safari › “Durante l’uso”.</li>
+              <li><strong>Chrome.</strong> Lucchetto accanto all’indirizzo › Autorizzazioni › Posizione › Consenti.</li>
+            </ul>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Riprova</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <h2 class="label">Account</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Email</span>
+              <span class="setting-row__value">nico.trastevere@email.it</span>
+            </span>
+            <span class="setting-row__state">Sola lettura</span>
+          </div>
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Nickname</span>
+              <span class="setting-row__value">nico_trastevere</span>
+            </span>
+            <a class="link-action" href="#modifica-nickname">Modifica<span class="sr-only"> il nickname</span></a>
+          </div>
+        </div>
+        <button type="button" class="btn btn--secondary btn--block logout" data-goto="logout-confirm" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg> Esci
+        </button>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <h2 class="label">Informazioni</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__title">Versione</span>
+            <span class="setting-row__value setting-row__value--end">0.1.0</span>
+          </div>
+          <a class="setting-row" href="#privacy">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Informativa privacy</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <a class="setting-row" href="#segnala">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Segnala un problema</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+        </div>
+        <div class="attribution">
+          <p>Dati mappa © OpenStreetMap contributors.</p>
+          <p>Tile © OpenFreeMap. Stile © OpenMapTiles.</p>
+          <p>Font: Syne e Source Sans 3, licenza OFL.</p>
+        </div>
+      </section>
+          <p class="sr-only" role="status" aria-live="polite" data-live-pref></p>
+          <p class="sr-only" role="status" aria-live="polite" data-live-perm></p>
+        </div>
+      </div>
+
+    <div class="toast pop hidden" data-toast aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      <span data-toast-text>Pallino degli avvisi spento</span>
+    </div>
+    </section>
+  </div>
+
+  <div class="proto-state" data-state="push-non-disponibile" hidden>
+    <section class="phone phone--settings" aria-label="Impostazioni">
+      <div class="screen">
+        <header class="appbar">
+          <a class="back-link" href="#indietro" aria-label="Torna indietro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg><span>Indietro</span></a>
+          <a class="appbar__bell" href="#avvisi" aria-label="Avvisi, 3 non letti">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="appbar__dot" data-bell-dot aria-hidden="true"></span>
+          </a>
+        </header>
+        <div class="content settings">
+          <h1 class="display-sm settings__title">Impostazioni</h1>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <h2 class="label">Notifiche</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <a class="setting-row" href="#avvisi">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Avvisi nell’app</span>
+              <span class="setting-row__sub">Le novità su campi, lobby e check-in.</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <button type="button" class="setting-row setting-row--switch" role="switch" aria-checked="true" aria-label="Pallino degli avvisi non letti" data-switch-badge>
+            <span class="setting-row__text">
+              <span class="setting-row__title">Pallino degli avvisi non letti</span>
+              <span class="setting-row__sub">Un punto sulla campanella quando c’è qualcosa di nuovo.</span>
+            </span>
+            <span class="setting-row__control">
+              <span class="switch" aria-hidden="true"></span>
+              <span class="setting-row__state" data-switch-label>Attivo</span>
+            </span>
+          </button>
+          <div class="setting-row setting-row--disabled">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Notifiche push</span>
+              <span class="setting-row__sub">Non disponibili in questa versione: richiedono l’invio dal server.</span>
+              <span class="setting-row__note">Per ora non chiediamo il permesso del telefono: non avremmo niente da inviarti.</span>
+            </span>
+            <svg class="setting-row__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <h2 class="label">Posizione</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card perm-card" data-perm>
+          <div class="perm-head">
+            <h3 class="card__title">Posizione</h3>
+            <span class="badge" data-perm-badge>Da chiedere</span>
+          </div>
+          <p class="perm-desc" data-perm-desc data-desc-ok="Serve per la mappa, il check-in entro 50 m e le lobby vicine." data-desc-denied="Senza posizione non possiamo mostrarti i campi vicini né verificare il check-in.">Serve per la mappa, il check-in entro 50 m e le lobby vicine.</p>
+          <p class="perm-fine hidden" data-perm-fine><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Non salviamo le tue coordinate.</p>
+          <div class="perm-actions" data-perm-actions>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> Consenti posizione</button>
+            <span class="perm-hint">Il telefono ti chiederà il permesso.</span>
+          </div>
+          <div class="perm-help hidden" data-perm-help>
+            <p class="perm-help__title">Come riattivarla</p>
+            <ul class="perm-help__list">
+              <li><strong>Safari.</strong> Impostazioni del telefono › Privacy e sicurezza › Localizzazione › Safari › “Durante l’uso”.</li>
+              <li><strong>Chrome.</strong> Lucchetto accanto all’indirizzo › Autorizzazioni › Posizione › Consenti.</li>
+            </ul>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Riprova</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <h2 class="label">Account</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Email</span>
+              <span class="setting-row__value">nico.trastevere@email.it</span>
+            </span>
+            <span class="setting-row__state">Sola lettura</span>
+          </div>
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Nickname</span>
+              <span class="setting-row__value">nico_trastevere</span>
+            </span>
+            <a class="link-action" href="#modifica-nickname">Modifica<span class="sr-only"> il nickname</span></a>
+          </div>
+        </div>
+        <button type="button" class="btn btn--secondary btn--block logout" data-goto="logout-confirm" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg> Esci
+        </button>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <h2 class="label">Informazioni</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__title">Versione</span>
+            <span class="setting-row__value setting-row__value--end">0.1.0</span>
+          </div>
+          <a class="setting-row" href="#privacy">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Informativa privacy</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <a class="setting-row" href="#segnala">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Segnala un problema</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+        </div>
+        <div class="attribution">
+          <p>Dati mappa © OpenStreetMap contributors.</p>
+          <p>Tile © OpenFreeMap. Stile © OpenMapTiles.</p>
+          <p>Font: Syne e Source Sans 3, licenza OFL.</p>
+        </div>
+      </section>
+          <p class="sr-only" role="status" aria-live="polite" data-live-pref></p>
+          <p class="sr-only" role="status" aria-live="polite" data-live-perm></p>
+        </div>
+      </div>
+
+    <div class="toast pop hidden" data-toast aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      <span data-toast-text>Pallino degli avvisi attivo</span>
+    </div>
+    </section>
+  </div>
+
+  <div class="proto-state" data-state="posizione-negata" hidden>
+    <section class="phone phone--settings" aria-label="Impostazioni">
+      <div class="screen">
+        <header class="appbar">
+          <a class="back-link" href="#indietro" aria-label="Torna indietro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg><span>Indietro</span></a>
+          <a class="appbar__bell" href="#avvisi" aria-label="Avvisi, 3 non letti">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="appbar__dot" data-bell-dot aria-hidden="true"></span>
+          </a>
+        </header>
+        <div class="content settings">
+          <h1 class="display-sm settings__title">Impostazioni</h1>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <h2 class="label">Notifiche</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <a class="setting-row" href="#avvisi">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Avvisi nell’app</span>
+              <span class="setting-row__sub">Le novità su campi, lobby e check-in.</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <button type="button" class="setting-row setting-row--switch" role="switch" aria-checked="true" aria-label="Pallino degli avvisi non letti" data-switch-badge>
+            <span class="setting-row__text">
+              <span class="setting-row__title">Pallino degli avvisi non letti</span>
+              <span class="setting-row__sub">Un punto sulla campanella quando c’è qualcosa di nuovo.</span>
+            </span>
+            <span class="setting-row__control">
+              <span class="switch" aria-hidden="true"></span>
+              <span class="setting-row__state" data-switch-label>Attivo</span>
+            </span>
+          </button>
+          <div class="setting-row setting-row--disabled">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Notifiche push</span>
+              <span class="setting-row__sub">Non disponibili in questa versione: richiedono l’invio dal server.</span>
+            </span>
+            <svg class="setting-row__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <h2 class="label">Posizione</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card perm-card" data-perm>
+          <div class="perm-head">
+            <h3 class="card__title">Posizione</h3>
+            <span class="badge badge--danger" data-perm-badge>Negata</span>
+          </div>
+          <p class="perm-desc" data-perm-desc data-desc-ok="Serve per la mappa, il check-in entro 50 m e le lobby vicine." data-desc-denied="Senza posizione non possiamo mostrarti i campi vicini né verificare il check-in.">Senza posizione non possiamo mostrarti i campi vicini né verificare il check-in.</p>
+          <p class="perm-fine hidden" data-perm-fine><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Non salviamo le tue coordinate.</p>
+          <div class="perm-actions hidden" data-perm-actions>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> Consenti posizione</button>
+            <span class="perm-hint">Il telefono ti chiederà il permesso.</span>
+          </div>
+          <div class="perm-help" data-perm-help>
+            <p class="perm-help__title">Come riattivarla</p>
+            <ul class="perm-help__list">
+              <li><strong>Safari.</strong> Impostazioni del telefono › Privacy e sicurezza › Localizzazione › Safari › “Durante l’uso”.</li>
+              <li><strong>Chrome.</strong> Lucchetto accanto all’indirizzo › Autorizzazioni › Posizione › Consenti.</li>
+            </ul>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Riprova</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <h2 class="label">Account</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Email</span>
+              <span class="setting-row__value">nico.trastevere@email.it</span>
+            </span>
+            <span class="setting-row__state">Sola lettura</span>
+          </div>
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Nickname</span>
+              <span class="setting-row__value">nico_trastevere</span>
+            </span>
+            <a class="link-action" href="#modifica-nickname">Modifica<span class="sr-only"> il nickname</span></a>
+          </div>
+        </div>
+        <button type="button" class="btn btn--secondary btn--block logout" data-goto="logout-confirm" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg> Esci
+        </button>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <h2 class="label">Informazioni</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__title">Versione</span>
+            <span class="setting-row__value setting-row__value--end">0.1.0</span>
+          </div>
+          <a class="setting-row" href="#privacy">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Informativa privacy</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <a class="setting-row" href="#segnala">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Segnala un problema</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+        </div>
+        <div class="attribution">
+          <p>Dati mappa © OpenStreetMap contributors.</p>
+          <p>Tile © OpenFreeMap. Stile © OpenMapTiles.</p>
+          <p>Font: Syne e Source Sans 3, licenza OFL.</p>
+        </div>
+      </section>
+          <p class="sr-only" role="status" aria-live="polite" data-live-pref></p>
+          <p class="sr-only" role="status" aria-live="polite" data-live-perm></p>
+        </div>
+      </div>
+
+    <div class="toast pop hidden" data-toast aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      <span data-toast-text>Pallino degli avvisi attivo</span>
+    </div>
+    </section>
+  </div>
+
+  <div class="proto-state" data-state="posizione-concessa" hidden>
+    <section class="phone phone--settings" aria-label="Impostazioni">
+      <div class="screen">
+        <header class="appbar">
+          <a class="back-link" href="#indietro" aria-label="Torna indietro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg><span>Indietro</span></a>
+          <a class="appbar__bell" href="#avvisi" aria-label="Avvisi, 3 non letti">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="appbar__dot" data-bell-dot aria-hidden="true"></span>
+          </a>
+        </header>
+        <div class="content settings">
+          <h1 class="display-sm settings__title">Impostazioni</h1>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <h2 class="label">Notifiche</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <a class="setting-row" href="#avvisi">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Avvisi nell’app</span>
+              <span class="setting-row__sub">Le novità su campi, lobby e check-in.</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <button type="button" class="setting-row setting-row--switch" role="switch" aria-checked="true" aria-label="Pallino degli avvisi non letti" data-switch-badge>
+            <span class="setting-row__text">
+              <span class="setting-row__title">Pallino degli avvisi non letti</span>
+              <span class="setting-row__sub">Un punto sulla campanella quando c’è qualcosa di nuovo.</span>
+            </span>
+            <span class="setting-row__control">
+              <span class="switch" aria-hidden="true"></span>
+              <span class="setting-row__state" data-switch-label>Attivo</span>
+            </span>
+          </button>
+          <div class="setting-row setting-row--disabled">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Notifiche push</span>
+              <span class="setting-row__sub">Non disponibili in questa versione: richiedono l’invio dal server.</span>
+            </span>
+            <svg class="setting-row__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <h2 class="label">Posizione</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card perm-card" data-perm>
+          <div class="perm-head">
+            <h3 class="card__title">Posizione</h3>
+            <span class="badge badge--success" data-perm-badge>Consentita</span>
+          </div>
+          <p class="perm-desc" data-perm-desc data-desc-ok="Serve per la mappa, il check-in entro 50 m e le lobby vicine." data-desc-denied="Senza posizione non possiamo mostrarti i campi vicini né verificare il check-in.">Serve per la mappa, il check-in entro 50 m e le lobby vicine.</p>
+          <p class="perm-fine" data-perm-fine><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Non salviamo le tue coordinate.</p>
+          <div class="perm-actions hidden" data-perm-actions>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> Consenti posizione</button>
+            <span class="perm-hint">Il telefono ti chiederà il permesso.</span>
+          </div>
+          <div class="perm-help hidden" data-perm-help>
+            <p class="perm-help__title">Come riattivarla</p>
+            <ul class="perm-help__list">
+              <li><strong>Safari.</strong> Impostazioni del telefono › Privacy e sicurezza › Localizzazione › Safari › “Durante l’uso”.</li>
+              <li><strong>Chrome.</strong> Lucchetto accanto all’indirizzo › Autorizzazioni › Posizione › Consenti.</li>
+            </ul>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Riprova</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <h2 class="label">Account</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Email</span>
+              <span class="setting-row__value">nico.trastevere@email.it</span>
+            </span>
+            <span class="setting-row__state">Sola lettura</span>
+          </div>
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Nickname</span>
+              <span class="setting-row__value">nico_trastevere</span>
+            </span>
+            <a class="link-action" href="#modifica-nickname">Modifica<span class="sr-only"> il nickname</span></a>
+          </div>
+        </div>
+        <button type="button" class="btn btn--secondary btn--block logout" data-goto="logout-confirm" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg> Esci
+        </button>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <h2 class="label">Informazioni</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__title">Versione</span>
+            <span class="setting-row__value setting-row__value--end">0.1.0</span>
+          </div>
+          <a class="setting-row" href="#privacy">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Informativa privacy</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <a class="setting-row" href="#segnala">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Segnala un problema</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+        </div>
+        <div class="attribution">
+          <p>Dati mappa © OpenStreetMap contributors.</p>
+          <p>Tile © OpenFreeMap. Stile © OpenMapTiles.</p>
+          <p>Font: Syne e Source Sans 3, licenza OFL.</p>
+        </div>
+      </section>
+          <p class="sr-only" role="status" aria-live="polite" data-live-pref></p>
+          <p class="sr-only" role="status" aria-live="polite" data-live-perm></p>
+        </div>
+      </div>
+
+    <div class="toast pop hidden" data-toast aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      <span data-toast-text>Pallino degli avvisi attivo</span>
+    </div>
+    </section>
+  </div>
+
+  <div class="proto-state" data-state="loading" hidden>
+    <section class="phone phone--settings" aria-label="Impostazioni">
+      <div class="screen">
+        <header class="appbar">
+          <a class="back-link" href="#indietro" aria-label="Torna indietro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg><span>Indietro</span></a>
+          <a class="appbar__bell" href="#avvisi" aria-label="Avvisi, 3 non letti">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="appbar__dot" data-bell-dot aria-hidden="true"></span>
+          </a>
+        </header>
+        <div class="content settings" aria-busy="true">
+          <h1 class="display-sm settings__title">Impostazioni</h1>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <h2 class="label">Notifiche</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <a class="setting-row" href="#avvisi">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Avvisi nell’app</span>
+              <span class="setting-row__sub">Le novità su campi, lobby e check-in.</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <button type="button" class="setting-row setting-row--switch" role="switch" aria-checked="true" aria-label="Pallino degli avvisi non letti" data-switch-badge>
+            <span class="setting-row__text">
+              <span class="setting-row__title">Pallino degli avvisi non letti</span>
+              <span class="setting-row__sub">Un punto sulla campanella quando c’è qualcosa di nuovo.</span>
+            </span>
+            <span class="setting-row__control">
+              <span class="switch" aria-hidden="true"></span>
+              <span class="setting-row__state" data-switch-label>Attivo</span>
+            </span>
+          </button>
+          <div class="setting-row setting-row--disabled">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Notifiche push</span>
+              <span class="setting-row__sub">Non disponibili in questa versione: richiedono l’invio dal server.</span>
+            </span>
+            <svg class="setting-row__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <h2 class="label">Posizione</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card perm-card" aria-busy="true">
+          <div class="perm-head">
+            <h3 class="card__title">Posizione</h3>
+            <span class="skeleton skel-badge" aria-hidden="true"></span>
+          </div>
+          <p class="perm-desc">Serve per la mappa, il check-in entro 50 m e le lobby vicine.</p>
+          <span class="skeleton skel-line" style="width:56%" aria-hidden="true"></span>
+          <span class="sr-only">Controllo del permesso di posizione…</span>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <h2 class="label">Account</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card" aria-busy="true">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Email</span>
+              <span class="skeleton skel-value" style="width:72%" aria-hidden="true"></span>
+            </span>
+            <span class="skeleton skel-meta" aria-hidden="true"></span>
+          </div>
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Nickname</span>
+              <span class="skeleton skel-value" style="width:46%" aria-hidden="true"></span>
+            </span>
+            <span class="skeleton skel-meta" aria-hidden="true"></span>
+          </div>
+        </div>
+        <button type="button" class="btn btn--secondary btn--block logout" data-goto="logout-confirm" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg> Esci
+        </button>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <h2 class="label">Informazioni</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__title">Versione</span>
+            <span class="setting-row__value setting-row__value--end">0.1.0</span>
+          </div>
+          <a class="setting-row" href="#privacy">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Informativa privacy</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <a class="setting-row" href="#segnala">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Segnala un problema</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+        </div>
+        <div class="attribution">
+          <p>Dati mappa © OpenStreetMap contributors.</p>
+          <p>Tile © OpenFreeMap. Stile © OpenMapTiles.</p>
+          <p>Font: Syne e Source Sans 3, licenza OFL.</p>
+        </div>
+      </section>
+          <p class="sr-only" role="status" aria-live="polite" data-live-pref></p>
+          <p class="sr-only" role="status" aria-live="polite" data-live-perm></p>
+          <span class="sr-only" role="status">Caricamento posizione e account…</span>
+        </div>
+      </div>
+
+    <div class="toast pop hidden" data-toast aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      <span data-toast-text>Pallino degli avvisi attivo</span>
+    </div>
+    </section>
+  </div>
+
+  <div class="proto-state" data-state="logout-confirm" hidden>
+    <section class="phone phone--settings" aria-label="Impostazioni">
+      <div class="screen" inert>
+        <header class="appbar">
+          <a class="back-link" href="#indietro" aria-label="Torna indietro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg><span>Indietro</span></a>
+          <a class="appbar__bell" href="#avvisi" aria-label="Avvisi, 3 non letti">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="appbar__dot" data-bell-dot aria-hidden="true"></span>
+          </a>
+        </header>
+        <div class="content settings">
+          <h1 class="display-sm settings__title">Impostazioni</h1>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <h2 class="label">Notifiche</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <a class="setting-row" href="#avvisi">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Avvisi nell’app</span>
+              <span class="setting-row__sub">Le novità su campi, lobby e check-in.</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <button type="button" class="setting-row setting-row--switch" role="switch" aria-checked="true" aria-label="Pallino degli avvisi non letti" data-switch-badge>
+            <span class="setting-row__text">
+              <span class="setting-row__title">Pallino degli avvisi non letti</span>
+              <span class="setting-row__sub">Un punto sulla campanella quando c’è qualcosa di nuovo.</span>
+            </span>
+            <span class="setting-row__control">
+              <span class="switch" aria-hidden="true"></span>
+              <span class="setting-row__state" data-switch-label>Attivo</span>
+            </span>
+          </button>
+          <div class="setting-row setting-row--disabled">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Notifiche push</span>
+              <span class="setting-row__sub">Non disponibili in questa versione: richiedono l’invio dal server.</span>
+            </span>
+            <svg class="setting-row__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <h2 class="label">Posizione</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card perm-card" data-perm>
+          <div class="perm-head">
+            <h3 class="card__title">Posizione</h3>
+            <span class="badge" data-perm-badge>Da chiedere</span>
+          </div>
+          <p class="perm-desc" data-perm-desc data-desc-ok="Serve per la mappa, il check-in entro 50 m e le lobby vicine." data-desc-denied="Senza posizione non possiamo mostrarti i campi vicini né verificare il check-in.">Serve per la mappa, il check-in entro 50 m e le lobby vicine.</p>
+          <p class="perm-fine hidden" data-perm-fine><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Non salviamo le tue coordinate.</p>
+          <div class="perm-actions" data-perm-actions>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> Consenti posizione</button>
+            <span class="perm-hint">Il telefono ti chiederà il permesso.</span>
+          </div>
+          <div class="perm-help hidden" data-perm-help>
+            <p class="perm-help__title">Come riattivarla</p>
+            <ul class="perm-help__list">
+              <li><strong>Safari.</strong> Impostazioni del telefono › Privacy e sicurezza › Localizzazione › Safari › “Durante l’uso”.</li>
+              <li><strong>Chrome.</strong> Lucchetto accanto all’indirizzo › Autorizzazioni › Posizione › Consenti.</li>
+            </ul>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Riprova</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <h2 class="label">Account</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Email</span>
+              <span class="setting-row__value">nico.trastevere@email.it</span>
+            </span>
+            <span class="setting-row__state">Sola lettura</span>
+          </div>
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Nickname</span>
+              <span class="setting-row__value">nico_trastevere</span>
+            </span>
+            <a class="link-action" href="#modifica-nickname">Modifica<span class="sr-only"> il nickname</span></a>
+          </div>
+        </div>
+        <button type="button" class="btn btn--secondary btn--block logout" data-goto="logout-confirm" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg> Esci
+        </button>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <h2 class="label">Informazioni</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__title">Versione</span>
+            <span class="setting-row__value setting-row__value--end">0.1.0</span>
+          </div>
+          <a class="setting-row" href="#privacy">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Informativa privacy</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <a class="setting-row" href="#segnala">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Segnala un problema</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+        </div>
+        <div class="attribution">
+          <p>Dati mappa © OpenStreetMap contributors.</p>
+          <p>Tile © OpenFreeMap. Stile © OpenMapTiles.</p>
+          <p>Font: Syne e Source Sans 3, licenza OFL.</p>
+        </div>
+      </section>
+          <p class="sr-only" role="status" aria-live="polite" data-live-pref></p>
+          <p class="sr-only" role="status" aria-live="polite" data-live-perm></p>
+        </div>
+      </div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="logout-title" data-sheet>
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <h2 class="sheet__title" id="logout-title">Vuoi uscire?</h2>
+        <p class="sheet__body">Le tue lobby e il tuo karma restano salvati. Per ritrovarli, accedi di nuovo.</p>
+        <div class="sheet__actions">
+          <button type="button" class="btn btn--danger btn--block" data-goto="default">Esci</button>
+          <button type="button" class="btn btn--secondary btn--block" data-goto="default" data-sheet-cancel>Annulla</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast pop hidden" data-toast aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      <span data-toast-text>Pallino degli avvisi attivo</span>
+    </div>
+    </section>
+  </div>
+
+  <div class="proto-state" data-state="toast-successo" hidden>
+    <section class="phone phone--settings" aria-label="Impostazioni">
+      <div class="screen">
+        <header class="appbar">
+          <a class="back-link" href="#indietro" aria-label="Torna indietro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg><span>Indietro</span></a>
+          <a class="appbar__bell" href="#avvisi" aria-label="Avvisi, 3 non letti">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="appbar__dot" data-bell-dot aria-hidden="true"></span>
+          </a>
+        </header>
+        <div class="content settings">
+          <h1 class="display-sm settings__title">Impostazioni</h1>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <h2 class="label">Notifiche</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <a class="setting-row" href="#avvisi">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Avvisi nell’app</span>
+              <span class="setting-row__sub">Le novità su campi, lobby e check-in.</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <button type="button" class="setting-row setting-row--switch" role="switch" aria-checked="true" aria-label="Pallino degli avvisi non letti" data-switch-badge>
+            <span class="setting-row__text">
+              <span class="setting-row__title">Pallino degli avvisi non letti</span>
+              <span class="setting-row__sub">Un punto sulla campanella quando c’è qualcosa di nuovo.</span>
+            </span>
+            <span class="setting-row__control">
+              <span class="switch" aria-hidden="true"></span>
+              <span class="setting-row__state" data-switch-label>Attivo</span>
+            </span>
+          </button>
+          <div class="setting-row setting-row--disabled">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Notifiche push</span>
+              <span class="setting-row__sub">Non disponibili in questa versione: richiedono l’invio dal server.</span>
+            </span>
+            <svg class="setting-row__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <h2 class="label">Posizione</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card perm-card" data-perm>
+          <div class="perm-head">
+            <h3 class="card__title">Posizione</h3>
+            <span class="badge" data-perm-badge>Da chiedere</span>
+          </div>
+          <p class="perm-desc" data-perm-desc data-desc-ok="Serve per la mappa, il check-in entro 50 m e le lobby vicine." data-desc-denied="Senza posizione non possiamo mostrarti i campi vicini né verificare il check-in.">Serve per la mappa, il check-in entro 50 m e le lobby vicine.</p>
+          <p class="perm-fine hidden" data-perm-fine><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Non salviamo le tue coordinate.</p>
+          <div class="perm-actions" data-perm-actions>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> Consenti posizione</button>
+            <span class="perm-hint">Il telefono ti chiederà il permesso.</span>
+          </div>
+          <div class="perm-help hidden" data-perm-help>
+            <p class="perm-help__title">Come riattivarla</p>
+            <ul class="perm-help__list">
+              <li><strong>Safari.</strong> Impostazioni del telefono › Privacy e sicurezza › Localizzazione › Safari › “Durante l’uso”.</li>
+              <li><strong>Chrome.</strong> Lucchetto accanto all’indirizzo › Autorizzazioni › Posizione › Consenti.</li>
+            </ul>
+            <button type="button" class="btn btn--secondary btn--sm" data-perm-retry><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg> Riprova</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <h2 class="label">Account</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Email</span>
+              <span class="setting-row__value">nico.trastevere@email.it</span>
+            </span>
+            <span class="setting-row__state">Sola lettura</span>
+          </div>
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Nickname</span>
+              <span class="setting-row__value">nico_trastevere</span>
+            </span>
+            <a class="link-action" href="#modifica-nickname">Modifica<span class="sr-only"> il nickname</span></a>
+          </div>
+        </div>
+        <button type="button" class="btn btn--secondary btn--block logout" data-goto="logout-confirm" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg> Esci
+        </button>
+      </section>
+
+      <section class="settings-section">
+
+        <div class="section-head">
+          <svg class="section-head__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <h2 class="label">Informazioni</h2>
+          <span class="section-head__rule" aria-hidden="true"></span>
+        </div>
+        <div class="card card--flush settings-card">
+          <div class="setting-row setting-row--static">
+            <span class="setting-row__title">Versione</span>
+            <span class="setting-row__value setting-row__value--end">0.1.0</span>
+          </div>
+          <a class="setting-row" href="#privacy">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Informativa privacy</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <a class="setting-row" href="#segnala">
+            <span class="setting-row__text">
+              <span class="setting-row__title">Segnala un problema</span>
+            </span>
+            <svg class="setting-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+        </div>
+        <div class="attribution">
+          <p>Dati mappa © OpenStreetMap contributors.</p>
+          <p>Tile © OpenFreeMap. Stile © OpenMapTiles.</p>
+          <p>Font: Syne e Source Sans 3, licenza OFL.</p>
+        </div>
+      </section>
+          <p class="sr-only" role="status" aria-live="polite" data-live-pref></p>
+          <p class="sr-only" role="status" aria-live="polite" data-live-perm></p>
+        </div>
+      </div>
+
+    <div class="toast pop" data-toast aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      <span data-toast-text>Pallino degli avvisi attivo</span>
+    </div>
+    </section>
+  </div>
+  </div>
+
+  <div class="note scope-note">
+    <p><strong>Note di scope.</strong> Il delivery push è fuori scope: la riga resta disabilitata e non chiede il permesso. Quando il server invierà notifiche, la riga diventa lo switch del permesso.</p>
+    <p>“Avvisi nell’app” e la campanella portano a /notifications (d14), non riprodotto qui. “Modifica” apre il drawer del profilo (d11). “Informativa privacy” e “Segnala un problema” sono righe del prototipo: le destinazioni si definiscono in d18.</p>
+    <p>Il focus trap del drawer arriva con d5; lo switch del pallino non persiste al reload (chiave <code>dropin:pref:badge:v1</code> in d18). La cancellazione dell’account non c’è: richiede service role.</p>
+  </div>
+
+  <script src="proto.js"></script>
+  <script>
+(function () {
+  "use strict";
+
+  function phoneOf(el) {
+    return el.closest(".phone");
+  }
+
+  document.querySelectorAll("[data-switch-badge]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var on = button.getAttribute("aria-checked") !== "true";
+      button.setAttribute("aria-checked", String(on));
+
+      var label = button.querySelector("[data-switch-label]");
+      if (label) label.textContent = on ? "Attivo" : "Spento";
+
+      var phone = phoneOf(button);
+      if (!phone) return;
+
+      var dot = phone.querySelector("[data-bell-dot]");
+      var bell = phone.querySelector(".appbar__bell");
+      if (dot) dot.classList.toggle("hidden", !on);
+      if (bell) {
+        bell.setAttribute("aria-label", on ? "Avvisi, 3 non letti" : "Avvisi");
+      }
+
+      var message = on
+        ? "Pallino degli avvisi attivo"
+        : "Pallino degli avvisi spento";
+
+      var live = phone.querySelector("[data-live-pref]");
+      if (live) live.textContent = message;
+
+      var toast = phone.querySelector("[data-toast]");
+      if (!toast) return;
+      var text = toast.querySelector("[data-toast-text]");
+      if (text) text.textContent = message;
+      toast.classList.remove("hidden");
+      if (toast._hideTimer) window.clearTimeout(toast._hideTimer);
+      toast._hideTimer = window.setTimeout(function () {
+        toast.classList.add("hidden");
+      }, 3000);
+    });
+  });
+
+  document.querySelectorAll("[data-perm-retry]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var card = button.closest("[data-perm]");
+      if (!card) return;
+
+      var phone = phoneOf(button);
+      var badge = card.querySelector("[data-perm-badge]");
+      var desc = card.querySelector("[data-perm-desc]");
+      var actions = card.querySelector("[data-perm-actions]");
+      var help = card.querySelector("[data-perm-help]");
+      var fine = card.querySelector("[data-perm-fine]");
+
+      if (badge) {
+        badge.className = "badge badge--success";
+        badge.textContent = "Consentita";
+      }
+      if (desc) {
+        desc.textContent =
+          desc.getAttribute("data-desc-ok") || desc.textContent;
+      }
+      if (actions) actions.classList.add("hidden");
+      if (help) help.classList.add("hidden");
+      if (fine) fine.classList.remove("hidden");
+
+      if (phone) {
+        var live = phone.querySelector("[data-live-perm]");
+        if (live) {
+          live.textContent =
+            "Posizione consentita. Ora puoi fare check-in.";
+        }
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-goto]").forEach(function (el) {
+    el.addEventListener("click", function (event) {
+      event.preventDefault();
+      var target = el.getAttribute("data-goto");
+      var control = document.querySelector(
+        '.proto-toolbar [data-show="' + target + '"]',
+      );
+      if (control) control.click();
+    });
+  });
+
+  document.querySelectorAll("[data-sheet]").forEach(function (sheet) {
+    sheet.addEventListener("click", function (event) {
+      if (event.target !== sheet) return;
+      var cancel = sheet.querySelector("[data-sheet-cancel]");
+      if (cancel) cancel.click();
+    });
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape") return;
+    var sheets = document.querySelectorAll("[data-sheet]");
+    for (var i = 0; i < sheets.length; i += 1) {
+      var state = sheets[i].closest("[data-state]");
+      if (state && !state.hidden) {
+        var cancel = sheets[i].querySelector("[data-sheet-cancel]");
+        if (cancel) cancel.click();
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

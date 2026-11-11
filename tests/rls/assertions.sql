@@ -493,4 +493,82 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ================= 27. push_notifications read_at: solo proprie righe (d22) =================
+INSERT INTO public.push_notifications (id, user_id, title, body, data)
+VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','11111111-1111-1111-1111-111111111111','T','B','{"type":"karma_loss"}');
+
+-- 27a. A aggiorna la propria riga (read_at): riesce.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+UPDATE public.push_notifications SET read_at = NOW() WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.push_notifications WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' AND read_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'own read_at update non riuscito';
+  END IF;
+END $$;
+
+-- 27b. C non aggiorna la riga di A: 0 righe toccate, read_at invariato.
+UPDATE public.push_notifications SET read_at = NULL WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+UPDATE public.push_notifications SET read_at = NOW() WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+RESET ROLE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.push_notifications WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' AND read_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'user C ha aggiornato read_at della riga di A';
+  END IF;
+END $$;
+
+-- 27c. anon non aggiorna: read_at invariato.
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+UPDATE public.push_notifications SET read_at = NOW() WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+RESET ROLE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.push_notifications WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' AND read_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'anon ha aggiornato read_at';
+  END IF;
+END $$;
+
+-- 27d. A non cambia title della propria riga (solo read_at) -> P0001.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.push_notifications SET title = 'Hacked' WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'title update: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'title update riuscito (trigger mancante?)';
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.push_notifications WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' AND title = 'T') THEN
+    RAISE EXCEPTION 'title cambiato nonostante il trigger';
+  END IF;
+END $$;
+
+-- 27e. A non riassegna la riga a un altro utente -> P0001 (trigger) o 0 righe.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.push_notifications SET user_id = '33333333-3333-3333-3333-333333333333' WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'user_id update: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'user_id update riuscito (trigger/policy mancanti?)';
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.push_notifications WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' AND user_id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'riga riassegnata a un altro utente';
+  END IF;
+END $$;
+
 ROLLBACK;

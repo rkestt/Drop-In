@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CreateLobbySheet } from "@/components/lobby/create-lobby-sheet";
+import { CreateLobbyDrawer } from "@/components/lobby/create-lobby-drawer";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
@@ -17,10 +17,10 @@ export function CreateLobbyButton({
   return (
     <>
       <Button variant="secondary" onClick={() => setOpen(true)}>
-        <Plus className="w-4 h-4 mr-1.5" />
+        <Plus className="w-4 h-4 me-1.5" />
         Crea lobby
       </Button>
-      <CreateLobbySheet
+      <CreateLobbyDrawer
         courtId={courtId}
         courtName={courtName}
         open={open}

@@ -9,6 +9,11 @@ if (typeof withSerwist !== 'function') {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  experimental: {
+    // d26: lucide-react barrel import -> per-icon import (tree-shaking).
+    // Misurato: chunk 168 (icone+Base UI) 37 kB gzip prima.
+    optimizePackageImports: ['lucide-react'],
+  },
   // Development only: expose the local Supabase gateway on the same origin as
   // the app. A phone on the LAN cannot reach 127.0.0.1 (that is the phone
   // itself), and an http:// call from an https:// dev page is blocked as mixed

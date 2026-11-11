@@ -73,9 +73,20 @@ npx supabase db reset # Apply migrations + seed (200 courts Roma dev, 10k prod)
 - **Browse-first**: `anon` vede solo le corti `approved` (policy `courts_select_all`: `moderation_status = 'approved'`); `pending`/`rejected`/`duplicate` sono invisibili al pubblico; auth required for lobbies
 - **Route groups**: `(app)` and `(dashboard)` are folder conventions, not segments
 
+## Design system (vincolante)
+
+- **Prima di toccare UI, componenti o schermate, leggi le guide in `docs/design/`**: `README.md`, `tokens.md`, `themes.md`, `components/`, `patterns/`, `workflow.md`, `checklist.md`, `patterns/onboarding.md`, `stack.md`. Le guide sono vincolanti, non consultive: se il codice diverge, si aggiorna il codice o si apre un ADR.
+- `docs/design/README.md` è fonte di verità per colori, tipografia, spacing, radius, motion.
+- Un solo tema, dark: mai `data-theme`, mai toggle, mai varianti Tailwind `dark:`.
+- Mai colori hardcoded (`#hex`, `rgb()`, `hsl()`, `oklch()`) fuori da `app/globals.css`: usa i token (`--bg-*`, `--text-*`, `--accent*`, `--success/--danger/--warning`, `--border*`, `--overlay`, `--focus-ring`). Eccezioni solo per fallback standalone o API esterne (allowlist in `scripts/check-design.mjs`).
+- Raggi, type scale e spacing solo dalle scale tokenizzate (`rounded-control*`, `text-label/display*`, scala Tailwind). `lint:design` blocca i valori arbitrari.
+- Mobile-first 360px. Touch target 44px, contrasto AA, focus visibile.
+- Ogni modifica UI passa da @designer e verifica live @tester.
+- `npm run lint:design` deve essere verde (è dentro `test:all`).
+
 ## Harness — Tracker & Process (surgical, ponytail)
 
-- **Wayfinder** (`.wayfinder/`): map `drop-in-next` attiva (ex `drop-in-bella-funzionante` chiusa 2026-08-23). Decision ticket + frontier, blocking via `blocked_by`, claim via `claimed`. Operativo solo per i lavori che lo usano già.
+- **Wayfinder** (`.wayfinder/`): map **design-system** attiva (`d1`–`d27`, piano in `docs/design/1.5.md`), più la map `drop-in-core-loop` (`t8`–`t11`) e quella `drop-in-next` già chiusa. Decision ticket + frontier, blocking via `blocked_by`, claim via `claimed`. Operativo solo per i lavori che lo usano già.
 - **Taskman** (`.taskman/plans/`): FROZEN — 4 piani 2026-08-23 (2 done, 2 in-progress migrati in Wayfinder t6/t7). Solo lettura/archivio, non usare per nuovi lavori.
 - **Wiki** (`.llm-wiki/`): memoria durable (concept/entity/synthesis). `wiki_retro` per insight atomici.
 - **Quality gate unico**: `npm run test:all` = `npm run lint && tsc --noEmit && vitest run && npm run test:rls && playwright test` — deve essere verde prima di ogni commit harness-relevant.
@@ -85,6 +96,8 @@ npx supabase db reset # Apply migrations + seed (200 courts Roma dev, 10k prod)
 ### Issue tracker
 
 **Regola unica tracker**: i ticket si aprono e si seguono su GitHub issues (intake e lavoro in corso); Wayfinder solo per i lavori che lo usano già, mai per ticket nuovi.
+
+**Eccezione — programma design 1.5**: i ticket `d*` del piano `docs/design/1.5.md` vivono solo in `.wayfinder/tickets/` (multi-sessione, già mappati). Le issue GitHub del Phase 1 review restano il tracker per il resto e vengono chiuse con la Resolution del ticket Wayfinder che le assorbe (vedi `## Issue GitHub collegate` nei ticket).
 
 GitHub issues in rkestt/Drop-In. See `docs/agents/issue-tracker.md`.
 
