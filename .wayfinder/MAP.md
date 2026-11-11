@@ -58,7 +58,15 @@ Trovato e corretto in coda un bug di sviluppo che rendeva impossibile testare da
 
 ### Frontier (sbloccati)
 
-- [d27-visual-full](tickets/d27-visual-full.md) — **da rifare**: la lane è stata interrotta prima della verifica. Il WIP è sul branch `fix/d27-f4` (commit `e0fd918`): helper `tests/e2e/helpers/visual.ts`, `tests/e2e/screens-visual.spec.ts`, modifiche a `playwright.config.ts`/CI/`package.json`/`court-map.tsx`. Nessuna baseline generata, nessun test eseguito. Ripartire da lì rivedendo il diff, oppure scartarlo.
+Nessun ticket aperto: **il piano 1.5 è completo** (F0–F4). Prossimi lavori fuori piano: mappa (epica #40), hardening dati, i18n, admin panel.
+
+### F4 chiuso (2026-11-11)
+
+- `d25` a11y: axe su 11 route (7 autenticate gateate da `E2E_WITH_DB`), contrasto corretto in 8 punti, skip link, marker 44px; trovato e corretto dal tester un focus trap rotto nel drawer nickname.
+- `d26` performance: `/` First Load 278→190 kB, A11y/BP 100, CLS 0,052; eccezione documentata su LCP/TBT simulati (MapLibre = home) in `1.5.md` + `stack.md`.
+- `d27` visual: **33 baseline** (9 statiche in CI + 24 con DB), verdi due volte di fila. Playwright ora ha tre progetti: `e2e`, `visual-static`, `visual-full`.
+
+Gate finale: `test:all` 0, `visual-static` 0, `visual-full` 0, `build` 0.
 
 ### Blocked
 

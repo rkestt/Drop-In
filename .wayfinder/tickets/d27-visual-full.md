@@ -2,8 +2,10 @@
 id: d27
 type: infra
 hitl: false
-claimed: false
+claimed: true
 blocked_by: [d25, d26]
+status: closed
+closed_at: 2026-11-11
 ---
 ## Question
 
