@@ -21,7 +21,23 @@ import { Input } from "@/components/ui/input";
 import { NextHighlight } from "@/components/motion/next-highlight";
 import { StepTransition } from "@/components/motion/step-transition";
 import { SuccessPop } from "@/components/motion/success-pop";
-import { LibraryShowcase } from "./library-showcase";
+import dynamic from "next/dynamic";
+
+// Gli esempi delle librerie generano id (`base-ui-…`) lato client: renderli
+// anche sul server produce un mismatch di idratazione che React segnala come
+// errore (dev-only, ma rumore vero). La styleguide è una pagina di sviluppo:
+// qui il client-only è la scelta corretta, non una soppressione.
+const LibraryShowcase = dynamic(
+  () => import("./library-showcase").then((m) => ({ default: m.LibraryShowcase })),
+  {
+    ssr: false,
+    loading: () => (
+      <p className="text-sm text-[var(--text-secondary)]">
+        Caricamento esempi…
+      </p>
+    ),
+  },
+);
 import { cn } from "@/lib/utils";
 
 const STYLEGUIDE_VERSION = "1.0";
