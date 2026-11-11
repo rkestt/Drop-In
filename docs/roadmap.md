@@ -31,10 +31,10 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 | World-wide data | 🟡 | Invio comunitario e dedup/moderation attivi; `extract_osm.py` accetta `--bbox/--country/--city` con `--upsert-sql`. Manca un'estrazione globale eseguita e il seed resta Roma. |
 | i18n (Italian only) | 🔴 | Hardcoded Italian strings across components; no locale routing. |
 | Accessibility audit | 🟡 | Some ARIA on map markers; no full audit, focus traps in sheets unverified. |
-| Test coverage | 🟡 | Vitest (34 unit), asserzioni RLS su `db reset`, Playwright e2e, CI su ogni PR. Scoperta e i flussi autenticati restano manuali. |
+| Test coverage | 🟡 | Vitest (231 unit), 32 blocchi di asserzioni RLS su `db reset`, Playwright `e2e` (27) + `visual-static` (12) + `visual-full` (24), CI su ogni PR. I flussi autenticati restano manuali. |
 | Error boundaries / loading states | 🟡 | Per-page loading; no global error boundary or retry. |
 | Court photos / media | 🟡 | Upload con ri-encodaggio, bucket `court-photos`, foto congelata dopo l'approvazione (014). Mancano thumbnail e pulizia degli orfani. |
-| Search & filter courts | ✅ | Ricerca per nome, sport di sessione persistito (mappa + lobby + ricerca), filtri lato RPC. |
+| Search & filter courts | 🟡 | Ricerca per nome **lato client** sul set già caricato (viewport/raggio) in `components/court/court-search.tsx`; sport di sessione persistito su mappa, lobby e ricerca. La RPC `nearby_courts` accetta `p_query` ed è escapata dalla 020, ma nessun client la passa: niente ricerca sull'intero dataset, e la superficie non è filtrabile dalla UI. |
 | Favorites / saved courts | 🔴 | No table or UI. |
 | Install prompt (PWA) | 🔴 | Manifest present; no `beforeinstallprompt` handling. |
 | Offline mutation queue | 🔴 | Check-in/lobby join fail offline; no retry. |
