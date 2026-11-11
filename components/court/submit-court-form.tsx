@@ -14,6 +14,7 @@ import { SPORTS, type Sport } from "@/lib/sport/sports";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { uploadCourtPhoto, deleteCourtPhoto } from "@/lib/storage/court-photos";
+import { dedupCandidateKey, canNavigateToCandidate } from "@/lib/court/dedup-candidate";
 import {
   MapPin,
   Camera,
@@ -26,11 +27,12 @@ import {
 import Link from "next/link";
 
 interface DedupCandidate {
-  id: string;
+  // NULL per i campi in revisione (riga mascherata dalla RPC dedup, 018).
+  id: string | null;
   name: string;
-  lat: number;
-  lng: number;
-  distance_m: number;
+  lat: number | null;
+  lng: number | null;
+  distance_m: number | null;
   moderation_status: string;
   source: string;
 }
@@ -547,27 +549,37 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
             Se il campo che vuoi aggiungere è già presente, selezionalo per evitare duplicati.
           </p>
           <ul className="space-y-2">
-            {dedupCandidates.map((candidate) => (
+            {dedupCandidates.map((candidate, index) => (
               <li
-                key={candidate.id}
+                key={dedupCandidateKey(candidate, index)}
                 className="bg-[var(--bg-surface)] rounded-xl p-3 flex items-center justify-between gap-3"
               >
                 <div className="min-w-0">
                   <p className="font-medium text-[var(--text-primary)] truncate">
                     {candidate.name}
                   </p>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    a {Math.round(candidate.distance_m)} m
-                  </p>
+                  {candidate.distance_m != null && (
+                    <p className="text-xs text-[var(--text-muted)]">
+                      a {Math.round(candidate.distance_m)} m
+                    </p>
+                  )}
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => router.push(`/courts/${candidate.id}`)}
-                >
-                  È lo stesso
-                </Button>
+                {canNavigateToCandidate(candidate) ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      if (candidate.id) router.push(`/courts/${candidate.id}`);
+                    }}
+                  >
+                    È lo stesso
+                  </Button>
+                ) : (
+                  <span className="shrink-0 text-end text-xs text-[var(--text-muted)]">
+                    Dettaglio non disponibile
+                  </span>
+                )}
               </li>
             ))}
           </ul>
