@@ -7,5 +7,7 @@
 - [Observation: Wayfinder map Drop-In eseguita: build verde, runtime seeded, mappa viewport](obs-2026-08-23-wayfinder-map-drop-in-eseguita-build-verde-runtime-seeded-ma.md)
 - [⭐ Observation: Harness hardening — tracker, git, husky, lint zero, CI](obs-2026-09-01-harness-hardening-tracker-git-husky-ci-lint-zero.md)
 - [Observation: Test wiki arsenale harness](obs-2026-09-01-test-wiki-arsenale-harness.md)
+- [RPC RETURNS TABLE: i tipi generati dicono non-null, il masking restituisce NULL](rpc-table-return-masking-tipi-generati-non-nullable.md)
+- [Drop-In: staging = Vercel Preview + progetto Supabase free separato](staging-env-vercel-preview-supabase-free.md)
 - [Visual regression: falso verde quando next/font non applica i font](visual-regression-falso-verde-font-non-applicati.md)
 - [Wayfinder map execution via parallel subsessions](wayfinder-subsession-orchestration.md)
