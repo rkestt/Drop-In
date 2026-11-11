@@ -152,6 +152,18 @@ export function isCheckinActive(
   return expiryFromCheckin(checkedInAt).getTime() > now.getTime();
 }
 
-export function formatExpiry(date: Date): string {
-  return date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+/**
+ * Orologio di riferimento dell'app: i campi sono a Roma, quindi gli orari
+ * mostrati sono sempre quelli di Roma, non del fuso del dispositivo/runner.
+ * Default esplicito = formattazione deterministica (niente sorprese in CI,
+ * che gira in UTC, o per un utente in viaggio).
+ */
+export const APP_TIME_ZONE = "Europe/Rome";
+
+export function formatExpiry(date: Date, timeZone: string = APP_TIME_ZONE): string {
+  return date.toLocaleTimeString("it-IT", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone,
+  });
 }
