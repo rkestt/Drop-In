@@ -1,0 +1,34 @@
+name: Stage keep-alive
+
+# Tiene attivo il progetto Supabase free di staging: dopo ~7 giorni di
+# bassa attività DB il progetto va in pausa e va riattivato a mano dalla
+# Dashboard ("Resume project"). Una SELECT anonima al giorno conta come
+# attività DB e rimanda la pausa.
+#
+# Richiede il secret STAGE_SUPABASE_ANON_KEY (publishable key del progetto
+# staging, da Settings → API nella Dashboard Supabase): senza, il job
+# fallisce — non silenziosamente. Se il progetto è già in pausa, REST
+# risponde con errore e il job fallisce: te ne accorgi dal badge.
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Supabase staging (anti-pausa)
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" \
+            --max-time 60 \
+            "https://ygnjqqgnxdmgpeeidkbn.supabase.co/rest/v1/courts?select=id&limit=1" \
+            -H "apikey: ${{ secrets.STAGE_SUPABASE_ANON_KEY }}" \
+            -H "Prefer: count=exact")
+          echo "HTTP $code"
+          case "$code" in
+            200|206) echo "staging attivo" ;;
+            *) echo "keep-alive fallito: HTTP $code (progetto in pausa? vedi docs/staging.md)"; exit 1 ;;
+          esac

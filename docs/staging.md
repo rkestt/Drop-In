@@ -85,9 +85,14 @@ Mai pushare il `supabase/config.toml` del repo così com'è: contiene localhost:
 
 Dashboard Supabase → Project Settings → API (oppure `npx supabase projects api-keys --remote=<ref>`) → aggiorna la env Vercel dello scope giusto (`vercel env add NAME --environment preview|production --type config --value <v> --yes --force`) → redeploy → verifica che il login via `/api/auth/callback` funzioni ancora. `NEXT_PUBLIC_*` pubblici per definizione; la service role key mai in `NEXT_PUBLIC_*` (questa app non ha admin client: su Vercel non serve).
 
-### 5. Keep-alive anti-pausa (opzionale)
+### 5. Keep-alive anti-pausa
 
-Una banale richiesta autenticata/giornaliera al DB (es. `select 1` schedulato via REST) tiene attivo il progetto free secondo la doc Supabase. Se il traffico keep-alive automatizzato violi i ToS non è documentato: pratica tollerata ma non garantita; in alternativa accettare il rischio pausa.
+Attivo: workflow giornaliero `.github/workflows/stage-keepalive.yml` (vedi
+"Tenere lo stage in linea e attivo"). La vecchia nota resta valida come
+contesto: una banale richiesta giornaliera al DB tiene attivo il progetto
+free secondo la doc Supabase. Se il traffico keep-alive automatizzato violi
+i ToS non è documentato: pratica tollerata ma non garantita; in alternativa
+accettare il rischio pausa.
 
 ### 6. Deploy dello stage
 
@@ -98,7 +103,7 @@ Funziona via Git: ogni push su `stage` (e ogni PR) genera un deploy preview con 
 | `drop-in-git-stage-andrea-fioris-projects-14d416c7.vercel.app` | alias per-branch di Vercel: si aggiorna da solo a ogni push |
 | `drop-in-stage.vercel.app` | alias leggibile, incatenato al precedente |
 
-Se una build Git non parte (visto una volta subito dopo il collegamento del repo), fallback manuale:
+Se una build Git non parte (visto una volta subito dopo il collegamento del repo), fallback manuale (di norma basta `npm run stage:alias`, vedi "Tenere lo stage in linea e attivo"):
 
 ```bash
 npx vercel deploy --yes   # preview
@@ -131,6 +136,53 @@ SUPABASE_URL=https://ygnjqqgnxdmgpeeidkbn.supabase.co SUPABASE_SERVICE_ROLE_KEY=
 - Va eseguito solo dove c'è traffico reale (staging/prod): in locale gli
   "orfani" sono quasi sempre upload di una sessione di dev ancora aperta.
 - La service role key resta in env locale, mai committata e mai in `NEXT_PUBLIC_*`.
+
+## Tenere lo stage in linea e attivo
+
+La produzione è ferma per scelta: **lo stage è l'ambiente di riferimento**.
+Due cose lo tengono tale — entrambe vanno mantenute, altrimenti lo stage
+degrada in silenzio.
+
+### Alias dopo ogni release: `npm run stage:alias`
+
+L'alias leggibile `drop-in-stage.vercel.app` **non** segue le release da
+solo; solo l'alias per-branch
+`drop-in-git-stage-andrea-fioris-projects-14d416c7.vercel.app` si aggiorna a
+ogni push. Senza riassegnazione, l'alias resta indietro: è già successo
+(build di 19 h servito come se fosse nuovo).
+
+Dopo ogni release sullo stage:
+
+```bash
+npm run stage:alias
+```
+
+Lo script prende il deployment più recente del progetto `drop-in`,
+verifica via `vercel inspect` che sia davvero del branch `stage` e solo
+allora riassegna l'alias, stampando commit/branch di cosa c'è sopra. Se la
+conferma del branch non riesce, **non riassegna nulla** ed esce con errore.
+Usa l'auth locale del CLI Vercel (`npx vercel login` se manca).
+
+### Keep-alive anti-pausa
+
+Il workflow `.github/workflows/stage-keepalive.yml` (cron giornaliero
+`17 7 * * *` + avvio manuale) fa una SELECT anonima su `courts` via REST:
+un po' di attività DB al giorno rimanda la pausa automatica dei progetti
+free (~7 giorni di inattività).
+
+- Richiede il secret `STAGE_SUPABASE_ANON_KEY`: la publishable key del
+  progetto staging (Dashboard Supabase → Settings → API). **Senza quel
+  secret il job fallisce** — non silenziosamente: è voluto, così te ne
+  accorgi.
+- Allo stesso modo, se il progetto è già in pausa il job fallisce
+  (REST non risponde 200/206): te ne accorgi dal badge.
+
+### Riconoscere un progetto in pausa
+
+- Le chiamate REST rispondono con errore invece di 200/206 (è così che il
+  keep-alive lo segnala).
+- La Dashboard Supabase mostra il progetto come sospeso con un pulsante
+  "Resume project": il resume è solo manuale, dalla Dashboard.
 
 ## Decisioni
 
