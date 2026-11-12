@@ -182,7 +182,11 @@ export default function HomePage() {
 
   const coveredBBox = useRef<BBox | null>(null);
   const lastBounds = useRef<BBox | null>(null);
-  const reqId = useRef(0);
+  // Contatori anti-stale separati: courts e lobbies sono fetch indipendenti
+  // (retry() le lancia insieme) e un guard condiviso scarterebbe sempre la
+  // risposta delle courts. La ricerca ha già il suo (searchReqId).
+  const courtsReqId = useRef(0);
+  const lobbiesReqId = useRef(0);
 
   // Query letta dai callback (pan, sport, retry) senza ricreare le callback.
   const queryRef = useRef(query);
@@ -196,7 +200,7 @@ export default function HomePage() {
 
   const fetchCourtsForBBox = useCallback(
     async (bbox: BBox) => {
-      const thisReq = ++reqId.current;
+      const thisReq = ++courtsReqId.current;
       try {
         // Nota: supabase-js non lancia su errore rete, ritorna { error }:
         // va controllato esplicitamente o il fallback cache non scatta mai.
@@ -208,7 +212,7 @@ export default function HomePage() {
           p_sport: pSport ?? undefined,
         });
         if (error) throw error;
-        if (thisReq !== reqId.current) return; // stale response dropped
+        if (thisReq !== courtsReqId.current) return; // stale response dropped
         coveredBBox.current = bbox;
         const list = (data as unknown as Court[] | null) ?? [];
         const now = Date.now();
@@ -221,7 +225,7 @@ export default function HomePage() {
           setFieldsAnnouncement(`${list.length} campi visibili per ${sportLabel(sportRef.current)}`);
         }
       } catch (err) {
-        if (thisReq !== reqId.current) return;
+        if (thisReq !== courtsReqId.current) return;
         coveredBBox.current = null;
         console.error("Error fetching courts in viewport:", err);
         // Offline o fetch fallita: shell leggibile dai dati in cache.
@@ -296,7 +300,7 @@ export default function HomePage() {
   >(null);
 
   const fetchLobbies = useCallback(async () => {
-    const thisReq = ++reqId.current;
+    const thisReq = ++lobbiesReqId.current;
     try {
       // Origine del raggio: posizione utente → centro mappa → Roma. Letta
       // dai ref al momento della chiamata: il cambio sport non la resetta.
@@ -314,7 +318,7 @@ export default function HomePage() {
         p_radius_m: NEARBY_RADIUS_M,
       });
       if (error) throw error;
-      if (thisReq !== reqId.current) return; // stale response dropped
+      if (thisReq !== lobbiesReqId.current) return; // stale response dropped
       const formatted: Lobby[] = (
         (lobbiesData as unknown as Array<{
           id: string;
@@ -354,20 +358,20 @@ export default function HomePage() {
             p_radius_m: NEARBY_RADIUS_M,
           });
           const anyRows = (anyData as unknown[] | null) ?? [];
-          if (thisReq !== reqId.current) return; // stale response dropped
+          if (thisReq !== lobbiesReqId.current) return; // stale response dropped
           setLobbiesEmptyCause(anyRows.length > 0 ? "sport" : "radius");
         } catch {
-          if (thisReq !== reqId.current) return; // stale response dropped
+          if (thisReq !== lobbiesReqId.current) return; // stale response dropped
           setLobbiesEmptyCause(null);
         }
       }
-      if (thisReq !== reqId.current) return; // stale response dropped
+      if (thisReq !== lobbiesReqId.current) return; // stale response dropped
       const now = Date.now();
       writeCache(LOBBIES_CACHE_KEY, formatted, undefined, now);
       setLobbiesSavedAt(now);
       setLobbiesStale(false);
     } catch (err) {
-      if (thisReq !== reqId.current) return; // stale response dropped
+      if (thisReq !== lobbiesReqId.current) return; // stale response dropped
       console.error("Error fetching lobbies:", err);
       // Offline o fetch fallita: shell leggibile dai dati in cache.
       const cached = readCache<Lobby[]>(LOBBIES_CACHE_KEY);
@@ -392,14 +396,20 @@ export default function HomePage() {
       }
       return;
     }
-    // Cambiato solo il testo non significativo (spazi): stato già allineato.
-    if (
-      searchStateRef.current.query === normalized &&
-      searchStateRef.current.phase !== "idle"
-    ) {
+    // Cambiato solo il testo non significativo (spazi): stato già allineato,
+    // ma non in fase error — aggiungere uno spazio deve riprovare la fetch.
+    const cur = searchStateRef.current;
+    if (cur.query === normalized && cur.phase !== "idle" && cur.phase !== "error") {
       return;
     }
-    setSearch({ phase: "waiting", query: normalized, results: [] });
+    // Niente flash di skeleton a ogni tasto: i risultati già mostrati restano
+    // finché la nuova risposta non arriva; si azzera solo al cambio di query
+    // "vera" (normalizzata diversa) o a query vuota (ramo sopra).
+    setSearch((prev) => ({
+      phase: "waiting",
+      query: normalized,
+      results: prev.query === normalized ? prev.results : [],
+    }));
     const timer = window.setTimeout(() => {
       // Se non c'è né una richiesta in volo né un risultato pronto per questa
       // query (es. si torna a una query precedente), la fetch va forzata.
@@ -444,8 +454,17 @@ export default function HomePage() {
       if (userLocationRef.current == null) {
         fetchLobbies();
       }
+      // Ricerca attiva: i risultati sono per raggio dal centro mappa, quindi
+      // un pan accettato (fuori bboxInside) li rende stantii. Si rilancia con
+      // il nuovo centro — lastBounds è già aggiornato e runSearch lo legge lì;
+      // force perché la query normalizzata è invariata. La search non richiama
+      // questo handler: nessun loop. I risultati vecchi restano visibili finché
+      // non arriva la nuova risposta (runSearch non azzera a query invariata).
+      if (isSearchActive(queryRef.current)) {
+        void runSearch(queryRef.current, true);
+      }
     },
-    [fetchCourtsForBBox, fetchLobbies]
+    [fetchCourtsForBBox, fetchLobbies, runSearch]
   );
 
   const handleBoundsChangeWrapped = useCallback(

@@ -24,6 +24,23 @@ describe("courtPhotoPublicUrl", () => {
     );
   });
 
+  it("path con spazi, # e ? -> encodato per segmento, URL intatto", () => {
+    process.env[ENV_KEY] = "http://127.0.0.1:54321";
+    expect(courtPhotoPublicUrl("uid/foto mia #1.jpg")).toBe(
+      "http://127.0.0.1:54321/storage/v1/object/public/court-photos/uid/foto%20mia%20%231.jpg"
+    );
+    expect(courtPhotoPublicUrl("uid/che?foto.jpg")).toBe(
+      "http://127.0.0.1:54321/storage/v1/object/public/court-photos/uid/che%3Ffoto.jpg"
+    );
+  });
+
+  it("path con / iniziale -> niente doppio slash", () => {
+    process.env[ENV_KEY] = "http://127.0.0.1:54321";
+    expect(courtPhotoPublicUrl("/uid/a.jpg")).toBe(
+      "http://127.0.0.1:54321/storage/v1/object/public/court-photos/uid/a.jpg"
+    );
+  });
+
   it("path assente o base vuota -> null (placeholder, mai src vuoto)", () => {
     process.env[ENV_KEY] = "http://127.0.0.1:54321";
     expect(courtPhotoPublicUrl(null)).toBeNull();

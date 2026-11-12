@@ -48,4 +48,7 @@ AS $$
 $$;
 
 REVOKE ALL ON FUNCTION public.nearby_courts(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, INTEGER, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+-- service_role in più rispetto alla 012: il DROP azzera tutti i GRANT e la
+-- service key (script di GC/diagnostica) invoca le RPC come gli altri ruoli;
+-- nessun allargamento RLS, la funzione resta SECURITY INVOKER.
 GRANT EXECUTE ON FUNCTION public.nearby_courts(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, INTEGER, TEXT, TEXT) TO anon, authenticated, service_role;

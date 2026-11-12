@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Camera } from "lucide-react";
 import { courtPhotoPublicUrl } from "@/lib/storage/court-photos";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,10 @@ export function CourtPhotoThumb({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
+  // Una nuova foto non deve ereditare il placeholder della precedente.
+  useEffect(() => {
+    setFailed(false);
+  }, [photoPath]);
   const url = courtPhotoPublicUrl(photoPath);
 
   return (

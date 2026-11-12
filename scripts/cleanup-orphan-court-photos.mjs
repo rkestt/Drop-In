@@ -2,9 +2,11 @@
 /**
  * Garbage collection degli oggetti orfani nel bucket `court-photos`.
  *
- * Gli orfani nascono così: upload riuscito + `submit_court` fallita,
- * submission scartata come duplicata/rifiutata, court cancellata (FK a
- * NULL). Niente li pulisce da solo e sullo staging c'è traffico reale,
+ * Gli orfani nascono così: upload riuscito + `submit_court` fallita, oppure
+ * court cancellata (FK a NULL). Le submission scartate (duplicata/rifiutata)
+ * NON creano orfani: `reject_court`/`mark_duplicate` aggiornano solo
+ * `moderation_status`, la riga resta e resta referenziata — quelle foto sono
+ * ritenzione intenzionale, non orfani. Niente li pulisce da solo e sullo staging c'è traffico reale,
  * quindi il bucket cresce senza mai sfoltirsi (piano free: 1 GB storage).
  *
  *   SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=... \
@@ -109,7 +111,7 @@ async function fetchReferenced(base, headers) {
   for (;;) {
     const url =
       `${base}/rest/v1/courts?select=photo_path&photo_path=not.is.null` +
-      `&limit=${REFS_PAGE}&offset=${offset}`;
+      `&order=id&limit=${REFS_PAGE}&offset=${offset}`;
     const res = await fetch(url, { headers });
     const rows = await readJson(res, "lettura courts.photo_path");
     if (!Array.isArray(rows)) fail("lettura courts.photo_path: risposta inattesa.");

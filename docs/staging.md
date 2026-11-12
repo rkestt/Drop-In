@@ -110,7 +110,9 @@ Per rilanciare la build del branch senza modifiche: `git commit --allow-empty -m
 ### 7. Pulizia oggetti orfani
 
 Il bucket pubblico `court-photos` accumula orfani: upload riuscito + `submit_court`
-fallita, submission scartata (duplicata/rifiutata), court cancellata (FK a NULL).
+fallita, oppure court cancellata (FK a NULL). Le submission scartate
+(duplicata/rifiutata) non creano orfani: `reject_court`/`mark_duplicate`
+cambiano solo `moderation_status`, la riga resta referenziata.
 Script dedicato, solo manuale, mai in cron/CI (piano free, niente traffico
 schedulato da mantenere):
 

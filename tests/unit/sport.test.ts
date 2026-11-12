@@ -75,6 +75,10 @@ describe("sportEmptyPhrase", () => {
     expect(sportEmptyPhrase("basketball", "da")).toBe("da basket");
     expect(sportEmptyPhrase("padel", "da")).toBe("da padel");
   });
+  it("tennis in entrambe le preposizioni", () => {
+    expect(sportEmptyPhrase("tennis")).toBe("di tennis");
+    expect(sportEmptyPhrase("tennis", "da")).toBe("da tennis");
+  });
   it("'multi' è un aggettivo: niente preposizione in entrambe le forme", () => {
     expect(sportEmptyPhrase("multi")).toBe("polivalente");
     expect(sportEmptyPhrase("multi", "da")).toBe("polivalente");

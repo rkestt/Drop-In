@@ -24,7 +24,15 @@ export function courtPhotoPublicUrl(
   if (!path) return null;
   const base = supabaseUrl().replace(/\/$/, "");
   if (!base) return null;
-  return `${base}/storage/v1/object/public/${BUCKET_NAME}/${path}`;
+  // Encode per segmento: spazi, `#`, `?` e simili nel nome file non devono
+  // rompere l'URL (né troncarlo al `#`). Il formato resta quello di
+  // `getPublicUrl`: base + `/storage/v1/object/public/<bucket>/<path>`.
+  const encoded = path
+    .replace(/^\/+/, "")
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
+  return `${base}/storage/v1/object/public/${BUCKET_NAME}/${encoded}`;
 }
 
 function extensionFromMime(type: string): string {

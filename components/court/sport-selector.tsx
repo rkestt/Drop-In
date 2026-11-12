@@ -8,10 +8,14 @@ import { cn } from "@/lib/utils";
 
 export interface SportSelectorProps {
   className?: string;
+  /** Override dell'id del select (default: generato con useId). */
+  id?: string;
 }
 
-export function SportSelector({ className }: SportSelectorProps) {
+export function SportSelector({ className, id }: SportSelectorProps) {
   const { sport, setSport } = useSport();
+  const autoId = React.useId();
+  const selectId = id ?? autoId;
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSport(fromStorage(e.target.value));
@@ -20,11 +24,11 @@ export function SportSelector({ className }: SportSelectorProps) {
   return (
     <div className={cn("inline-flex items-center gap-2 bg-[var(--bg-elevated)] border border-[var(--cool-muted)]/40 rounded-full px-3 py-2 shadow-md min-h-[44px]", className)}>
       <Dumbbell className="w-4 h-4 text-[var(--accent)] shrink-0" aria-hidden="true" />
-      <label htmlFor="sport-selector" className="sr-only">
+      <label htmlFor={selectId} className="sr-only">
         Sport attivo
       </label>
       <select
-        id="sport-selector"
+        id={selectId}
         aria-label="Sport attivo"
         value={sport === null ? "all" : sport}
         onChange={handleChange}
