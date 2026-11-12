@@ -81,6 +81,37 @@ if (!confirmed) {
 }
 log(`confermato branch stage (alias ${BRANCH_ALIAS_PREFIX}... presente).`);
 
+// Il deployment esiste prima che la build finisca: `alias set` su un build
+// in corso risponde "is not ready". Aspettiamo invece di far rifare tutto
+// a mano, che è esattamente il momento in cui si smette di lanciare lo script.
+const READY_TIMEOUT_MS = 10 * 60_000;
+const POLL_MS = 10_000;
+
+function statusOf(out) {
+  const line = out.split("\n").find((l) => /^\s*status\s/i.test(l)) ?? "";
+  return line.toLowerCase();
+}
+
+async function waitUntilReady(url) {
+  const started = Date.now();
+  let last = "";
+  for (;;) {
+    const info = runVercel(["inspect", url]);
+    last = statusOf(info);
+    if (last.includes("ready")) return info;
+    if (last.includes("error") || last.includes("canceled")) {
+      fail(`il deployment è finito in stato ${last.trim() || "sconosciuto"}: ${url}`);
+    }
+    if (Date.now() - started > READY_TIMEOUT_MS) {
+      fail(`deployment non pronto dopo ${READY_TIMEOUT_MS / 60_000} minuti (${last.trim()}), riprova più tardi: ${url}`);
+    }
+    log(`build in corso (${last.trim() || "stato sconosciuto"}), riprovo tra ${POLL_MS / 1000}s...`);
+    await new Promise((r) => setTimeout(r, POLL_MS));
+  }
+}
+
+await waitUntilReady(latest);
+
 runVercel(["alias", "set", latest, ALIAS]);
 log(`alias ${ALIAS} → ${latest}`);
 
