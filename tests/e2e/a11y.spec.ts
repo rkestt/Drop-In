@@ -148,7 +148,9 @@ test.describe("accessibility (axe) — autenticate (E2E_WITH_DB)", () => {
       await page.goto("/lobbies?tab=nearby");
       await page.waitForLoadState("networkidle");
       await expect(page.getByText("Filtra per sport")).toBeVisible();
-      const select = page.locator("#sport-selector");
+      // L'id è generato da useId (una istanza per pagina): si aggancia il
+      // nome accessibile, non un id interno.
+      const select = page.getByRole("combobox", { name: "Sport attivo" });
       await expect(select).toBeVisible();
       await expect(select).toHaveAccessibleName("Sport attivo");
     });
