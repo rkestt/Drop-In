@@ -71,7 +71,7 @@ export function NearbyLobbies({
           const { data: lobbiesData, error: lobbiesError } = await supabase
             .from("lobbies")
             .select(
-              "id, court_id, start_time, max_players, status, courts(id, name, sport, lat, lng), lobby_participants(user_id)"
+              "id, court_id, start_time, max_players, status, courts(id, name, sport, lat, lng, photo_path), lobby_participants(user_id)"
             )
             .eq("status", "open")
             .order("start_time", { ascending: true })
@@ -89,6 +89,7 @@ export function NearbyLobbies({
               sport: string | null;
               lat: number | null;
               lng: number | null;
+              photo_path: string | null;
             } | null;
             lobby_participants?: Array<{ user_id: string }>;
           }>;
@@ -136,6 +137,7 @@ export function NearbyLobbies({
               status: l.status,
               court_name: l.courts.name ?? "Campo",
               court_sport: l.courts.sport,
+              court_photo_path: l.courts.photo_path ?? null,
               participants_count: participants.length,
               participants,
               is_joined: participants.some((p) => p.user_id === userId),

@@ -43,7 +43,7 @@ export default async function LobbiesPage({
 
   let mineQuery = supabase
     .from("lobbies")
-    .select("id, court_id, start_time, max_players, status, courts(name, sport)")
+    .select("id, court_id, start_time, max_players, status, courts(name, sport, photo_path)")
     .order("start_time", { ascending: true });
   if (joinedIds.length > 0) {
     mineQuery = mineQuery.or(
@@ -82,7 +82,11 @@ export default async function LobbiesPage({
 
   const mine: LobbySummary[] = (mineRows ?? []).map((l) => {
     const ids = partsByLobby.get(l.id as string) ?? [];
-    const courts = l.courts as { name?: string; sport?: string } | null;
+    const courts = l.courts as {
+      name?: string;
+      sport?: string;
+      photo_path?: string | null;
+    } | null;
     return {
       id: l.id as string,
       court_id: l.court_id as string,
@@ -91,6 +95,7 @@ export default async function LobbiesPage({
       status: l.status as string,
       court_name: courts?.name ?? "Campo",
       court_sport: courts?.sport ?? null,
+      court_photo_path: courts?.photo_path ?? null,
       participants_count: ids.length,
       participants: ids.map((uid) => ({
         user_id: uid,

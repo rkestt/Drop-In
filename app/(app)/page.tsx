@@ -47,6 +47,7 @@ import { BanBanner } from "@/components/karma/ban-banner";
 import { Button } from "@/components/ui/button";
 import { ReportedCourtsIndicator } from "@/components/report/reported-courts-indicator";
 import { SportSelector } from "@/components/court/sport-selector";
+import { CourtPhotoThumb } from "@/components/court/court-photo-thumb";
 import { CourtSearch } from "@/components/court/court-search";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MapPin, Users, Plus } from "lucide-react";
@@ -90,6 +91,8 @@ interface Court {
   venue_type: string | null;
   source: string;
   moderation_status: string;
+  /** Path nel bucket `court-photos` (la RPC lo ritorna dalla 018). */
+  photo_path: string | null;
 }
 
 interface Lobby {
@@ -537,37 +540,43 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {lobbies.map((lobby) => (
-              <Link
-                key={lobby.id}
-                href={`/courts/${lobby.court_id}`}
-                className="block bg-[var(--bg-surface)] rounded-xl p-4 active:bg-[var(--bg-elevated)] transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-[var(--text-primary)]">
-                      {lobby.court_name || courts.find((c) => c.id === lobby.court_id)?.name || "Campo"}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1 text-sm text-[var(--text-secondary)]">
-                      <Users className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>
-                        {lobby.participants_count}/{lobby.max_players}
-                      </span>
-                      <span aria-hidden="true">•</span>
-                      <span>
-                        {new Date(lobby.start_time).toLocaleTimeString("it-IT", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
+            {lobbies.map((lobby) => {
+              const court = courts.find((c) => c.id === lobby.court_id);
+              return (
+                <Link
+                  key={lobby.id}
+                  href={`/courts/${lobby.court_id}`}
+                  className="block bg-[var(--bg-surface)] rounded-xl p-4 active:bg-[var(--bg-elevated)] transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <CourtPhotoThumb photoPath={court?.photo_path} className="h-14 w-14" />
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-[var(--text-primary)]">
+                          {lobby.court_name || court?.name || "Campo"}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 text-sm text-[var(--text-secondary)]">
+                          <Users className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>
+                            {lobby.participants_count}/{lobby.max_players}
+                          </span>
+                          <span aria-hidden="true">•</span>
+                          <span>
+                            {new Date(lobby.start_time).toLocaleTimeString("it-IT", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                      </div>
                     </div>
+                    <Button size="sm" variant="primary" tabIndex={-1} className="shrink-0">
+                      Vedi
+                    </Button>
                   </div>
-                  <Button size="sm" variant="primary" tabIndex={-1}>
-                    Vedi
-                  </Button>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

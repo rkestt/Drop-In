@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { supabaseUrl } from "@/lib/supabase/url";
 
 const MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.8;
@@ -9,6 +10,22 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const DECODE_TIMEOUT_MS = 20_000;
 
 type SupabaseClient = ReturnType<typeof createClient>;
+
+/**
+ * URL pubblico di una foto campo da `courts.photo_path`, nello stesso formato
+ * di `storage.from(BUCKET_NAME).getPublicUrl(path)` ma senza istanziare un
+ * client per ogni card di lista. In dev `supabaseUrl()` risolve il proxy
+ * `/supabase`; path assente o base non configurata → null (il chiamante
+ * mostra il placeholder, mai un `src` vuoto).
+ */
+export function courtPhotoPublicUrl(
+  path: string | null | undefined
+): string | null {
+  if (!path) return null;
+  const base = supabaseUrl().replace(/\/$/, "");
+  if (!base) return null;
+  return `${base}/storage/v1/object/public/${BUCKET_NAME}/${path}`;
+}
 
 function extensionFromMime(type: string): string {
   if (type === "image/png") return "png";

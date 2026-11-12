@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { CourtPhotoThumb } from "@/components/court/court-photo-thumb";
 import { NextHighlight } from "@/components/motion/next-highlight";
 import { Users, Clock } from "lucide-react";
 import { formatDistanceM } from "@/lib/lobbies/nearby";
@@ -60,12 +61,16 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
       aria-label={ariaLabel}
       className="block rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-4 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-elevated)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
     >
-      <span className="flex items-start gap-2">
+      <span className="flex items-start gap-3">
+        <CourtPhotoThumb
+          photoPath={lobby.court_photo_path}
+          className="h-14 w-14"
+        />
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold text-[var(--text-primary)]">
             {lobby.court_name}
           </span>
-          <span className="mt-1 flex items-center gap-3 text-sm text-[var(--text-secondary)]">
+          <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[var(--text-secondary)]">
             <span className="inline-flex items-center gap-1 whitespace-nowrap">
               <Clock className="h-3.5 w-3.5" aria-hidden="true" />
               {formatTime(lobby.start_time)}
