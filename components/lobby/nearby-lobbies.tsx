@@ -11,7 +11,7 @@ import {
   NEARBY_RADIUS_M,
   OPEN_LOBBIES_LIMIT,
 } from "@/lib/lobbies/nearby";
-import { sportLabel, sportMatches } from "@/lib/sport/sports";
+import { sportEmptyPhrase, sportMatches } from "@/lib/sport/sports";
 import { useSport } from "@/lib/sport/sport-context";
 import { MapPin } from "lucide-react";
 import type { LobbySummary } from "./types";
@@ -71,7 +71,7 @@ export function NearbyLobbies({
           const { data: lobbiesData, error: lobbiesError } = await supabase
             .from("lobbies")
             .select(
-              "id, court_id, start_time, max_players, status, courts(id, name, sport, lat, lng), lobby_participants(user_id)"
+              "id, court_id, start_time, max_players, status, courts(id, name, sport, lat, lng, photo_path), lobby_participants(user_id)"
             )
             .eq("status", "open")
             .order("start_time", { ascending: true })
@@ -89,6 +89,7 @@ export function NearbyLobbies({
               sport: string | null;
               lat: number | null;
               lng: number | null;
+              photo_path: string | null;
             } | null;
             lobby_participants?: Array<{ user_id: string }>;
           }>;
@@ -136,6 +137,7 @@ export function NearbyLobbies({
               status: l.status,
               court_name: l.courts.name ?? "Campo",
               court_sport: l.courts.sport,
+              court_photo_path: l.courts.photo_path ?? null,
               participants_count: participants.length,
               participants,
               is_joined: participants.some((p) => p.user_id === userId),
@@ -302,15 +304,18 @@ export function NearbyLobbies({
     // cambia solo il testo tra "niente nel raggio" e "niente per lo sport".
     // Senza "qui intorno" nella variante sport: il titolo resta su una riga
     // a 360 per ogni label.
-    const sportCause = state.emptyCause === "sport" && sport !== null;
+    const sportCause =
+      state.emptyCause === "sport" && sport !== null ? sport : null;
     return (
       <div className="py-8 text-center">
         <MapPin className="mx-auto mb-2 h-8 w-8 text-[var(--text-muted)]" aria-hidden="true" />
         <h2 className="text-xl font-semibold text-[var(--text-primary)]">
-          {sportCause ? `Nessuna lobby di ${sportLabel(sport).toLowerCase()}` : "Nessuna lobby qui intorno"}
+          {sportCause !== null
+            ? `Nessuna lobby ${sportEmptyPhrase(sportCause)}`
+            : "Nessuna lobby qui intorno"}
         </h2>
         <p className="mx-auto mt-1 max-w-60 text-sm text-[var(--text-secondary)]">
-          {sportCause ? "Ci sono partite di altri sport." : "Sii il primo."}
+          {sportCause !== null ? "Ci sono partite di altri sport." : "Sii il primo."}
         </p>
         <div className="mx-auto mt-3 w-full max-w-60 [&_button]:min-h-11 [&_button]:w-full">
           {state.nearestCourt ? (

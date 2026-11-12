@@ -455,7 +455,7 @@ isOneToOne: false
                            },
 "nearby_courts":
 { Args: { "p_lat": number,"p_limit"?: number,"p_lng": number,"p_query"?: string,"p_radius_m"?: number,"p_sport"?: string }; Returns: {
-              "address": string,"distance_m": number,"hoop_count": number,"id": string,"lat": number,"lng": number,"name": string,"sport": string,"status": string,"surface_type": string,"venue_type": string
+              "address": string,"distance_m": number,"hoop_count": number,"id": string,"lat": number,"lng": number,"name": string,"photo_path": string,"sport": string,"status": string,"surface_type": string,"venue_type": string
             }[]
                            },
 "notify_lobby_starting_soon":

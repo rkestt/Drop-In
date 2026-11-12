@@ -13,6 +13,8 @@ export interface LobbySummary {
   court_name: string;
   court_address?: string | null;
   court_sport?: string | null;
+  /** Path nel bucket `court-photos` (null = nessuna foto → placeholder). */
+  court_photo_path?: string | null;
   participants_count: number;
   participants: LobbyParticipant[];
   is_joined: boolean;

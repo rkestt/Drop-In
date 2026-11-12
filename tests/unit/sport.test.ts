@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { sportMatches, fromStorage, toRpcSport } from "@/lib/sport/sports";
+import {
+  sportEmptyPhrase,
+  sportMatches,
+  fromStorage,
+  toRpcSport,
+} from "@/lib/sport/sports";
 
 describe("sportMatches", () => {
   it("multi visible under every sport", () => {
@@ -56,5 +61,26 @@ describe("toRpcSport", () => {
   });
   it("osm string otherwise", () => {
     expect(toRpcSport("basketball")).toBe("basketball");
+  });
+});
+
+describe("sportEmptyPhrase", () => {
+  it("lobby copy: 'di' + etichetta minuscola", () => {
+    expect(sportEmptyPhrase("basketball")).toBe("di basket");
+    expect(sportEmptyPhrase("soccer")).toBe("di calcio");
+    expect(sportEmptyPhrase("futsal")).toBe("di calcio a 5");
+    expect(sportEmptyPhrase("volleyball")).toBe("di pallavolo");
+  });
+  it("campo copy: 'da' + etichetta minuscola", () => {
+    expect(sportEmptyPhrase("basketball", "da")).toBe("da basket");
+    expect(sportEmptyPhrase("padel", "da")).toBe("da padel");
+  });
+  it("tennis in entrambe le preposizioni", () => {
+    expect(sportEmptyPhrase("tennis")).toBe("di tennis");
+    expect(sportEmptyPhrase("tennis", "da")).toBe("da tennis");
+  });
+  it("'multi' è un aggettivo: niente preposizione in entrambe le forme", () => {
+    expect(sportEmptyPhrase("multi")).toBe("polivalente");
+    expect(sportEmptyPhrase("multi", "da")).toBe("polivalente");
   });
 });

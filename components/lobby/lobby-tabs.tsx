@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LobbyCard } from "./lobby-card";
 import { NearbyLobbies } from "./nearby-lobbies";
+import { SportSelector } from "@/components/court/sport-selector";
 import { CalendarX } from "lucide-react";
 import type { LobbySummary } from "./types";
 
@@ -164,7 +165,19 @@ export function LobbyTabs({
         hidden={tab !== "nearby"}
       >
         {tab === "nearby" && (
-          <NearbyLobbies userId={userId} onCount={setNearbyCount} />
+          <>
+            {/* Filtro solo qui: "Le tue" elenca le tue lobby e non si filtra.
+                Sempre visibile, anche negli stati vuoto/errore: è la via
+                d'uscita da "nessuna lobby di <sport>" (bug #65). Stile pill
+                elevata, non accent: l'accent resta alle tab e alle CTA. */}
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-[var(--text-secondary)]">
+                Filtra per sport
+              </p>
+              <SportSelector />
+            </div>
+            <NearbyLobbies userId={userId} onCount={setNearbyCount} />
+          </>
         )}
       </div>
     </>
