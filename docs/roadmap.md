@@ -1,6 +1,6 @@
 # Drop-In — Roadmap & Feature Coverage
 
-Last updated: 2026-11-05. Scope: Next.js 15 PWA + Supabase + MapLibre. Source of truth for what ships, what is partial, and what is missing. Companion to `README.md` and `AGENTS.md`.
+Last updated: 2026-11-12. Scope: Next.js 15 PWA + Supabase + MapLibre. Source of truth for what ships, what is partial, and what is missing. Companion to `README.md` and `AGENTS.md`.
 
 ## Coverage status
 
@@ -19,8 +19,8 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 | Karma (start 90, +1 check-in, -3 no-show, ban <50 for 7d) | ✅ | `enforce_ban_on_low_karma`, `remove_expired_bans`. |
 | Court reports (broken hoop, wet, lighting, occupied, other) | ✅ | Expiry + archive cron. |
 | Profile (nickname, avatar, karma, ban banner) | 🟡 | Edit sheet exists; no avatar upload, no history view. |
-| Push notifications | 🟡 | Subscriptions + DB triggers; no Edge Function delivery, no in-app notification center. |
-| PWA offline (Serwist, tile cache 1200/7d) | 🟡 | Offline fallback page is generic; no offline queue for mutations; no update prompt. |
+| Push notifications | 🟡 | Centro notifiche in-app completo (bell realtime, lista, mark-read, 016). Mancano solo subscribe reale e delivery (nessuna Edge Function: `supabase/functions/` non esiste). |
+| PWA offline (Serwist, tile cache 600 OFM / 1200 OSM) | 🟡 | Offline fallback page is generic; no offline queue for mutations; no update prompt. |
 
 ### UX / platform
 
@@ -33,8 +33,8 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 | Accessibility audit | 🟡 | Some ARIA on map markers; no full audit, focus traps in sheets unverified. |
 | Test coverage | 🟡 | Vitest (231 unit), 32 blocchi di asserzioni RLS su `db reset`, Playwright `e2e` (27) + `visual-static` (12) + `visual-full` (24), CI su ogni PR. I flussi autenticati restano manuali. |
 | Error boundaries / loading states | 🟡 | Per-page loading; no global error boundary or retry. |
-| Court photos / media | 🟡 | Upload con ri-encodaggio, bucket `court-photos`, foto congelata dopo l'approvazione (014). Mancano thumbnail e pulizia degli orfani. |
-| Search & filter courts | 🟡 | Ricerca per nome **lato client** sul set già caricato (viewport/raggio) in `components/court/court-search.tsx`; sport di sessione persistito su mappa, lobby e ricerca. La RPC `nearby_courts` accetta `p_query` ed è escapata dalla 020, ma nessun client la passa: niente ricerca sull'intero dataset, e la superficie non è filtrabile dalla UI. |
+| Court photos / media | ✅ | Upload con ri-encodaggio, bucket `court-photos`, foto congelata dopo l'approvazione (014); miniatura 56×56 con placeholder in home e card lobby (#66, `CourtPhotoThumb`). Pulizia orfani manuale: `npm run photos:gc` (dry-run di default, finestra 24 h, #52) — da schedularla solo quando c'è traffico reale. |
+| Search & filter courts | ✅ | Ricerca **server-side**: `nearby_courts(p_query)` per raggio 25 km dal centro mappa, lista risultati sotto il box, marker = risultati (#68; `lib/courts/search.ts`; la 022 aggiunge `photo_path` al risultato). Filtro sport visibile in `/lobbies` tab Vicine (#65). Limiti noti: ricerca accent-sensitive (niente `unaccent()`), lo stato non sopravvive al back dal dettaglio (come lo stato mappa), e le corti con `sport` NULL non compaiono con un filtro sport attivo (su staging 6.364 su 10.131). |
 | Favorites / saved courts | 🔴 | No table or UI. |
 | Install prompt (PWA) | 🔴 | Manifest present; no `beforeinstallprompt` handling. |
 | Offline mutation queue | 🔴 | Check-in/lobby join fail offline; no retry. |
@@ -101,7 +101,7 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 ## Suggested sequencing (phases)
 
 - **Phase 0 (foundations):** #4 lazy map, #1/#2 theme, #20 tests, #21 error boundary.
-- **Phase 1 (data growth):** #6 community submission, #7 global extraction, #8 dedup/moderation, #9 radius query, #10 search/filter.
+- **Phase 1 (data growth):** ✅ chiusa 2026-11-12 — #6 community submission, #7 global extraction (script), #8 dedup/moderation, #9 radius query, #10 search/filter (#68), foto (#66), filtro sport (#65), staging allineato a `022` (#53), GC orfani (#52). Restano #58 (retract/edit pending, spostata in Phase 2) e #63 (audit dati OSM).
 - **Phase 2 (engagement):** #13 install prompt, #14 offline queue, #15 notifications, #16/#17 profile, #12 favorites.
 - **Phase 3 (polish):** #3 dark map, #18 i18n, #19 a11y, #22 observability, #23 admin, #24 ratings, #25 sharing, #11 photos.
 
