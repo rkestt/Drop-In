@@ -39,3 +39,17 @@ export function sportLabel(active: SportFilter): string {
   const opt = SPORTS.find((o) => o.value === active);
   return opt ? opt.label : active;
 }
+
+/**
+ * Frase per gli empty state di campi e lobby: "di basket", "da basket".
+ * `multi` è un aggettivo ("polivalente"): senza preposizione, così la stessa
+ * frase regge sia "Nessuna lobby polivalente" sia "Nessun campo polivalente"
+ * (bug #65: "Nessuna lobby di polivalente").
+ */
+export function sportEmptyPhrase(
+  active: Sport,
+  prep: "di" | "da" = "di"
+): string {
+  if (active === "multi") return "polivalente";
+  return `${prep} ${sportLabel(active).toLowerCase()}`;
+}

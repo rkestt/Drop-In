@@ -64,7 +64,7 @@ import {
 import { ConnectionBanner } from "@/components/offline/connection-banner";
 import { StaleBadge } from "@/components/offline/stale-badge";
 import { useSport } from "@/lib/sport/sport-context";
-import { sportLabel } from "@/lib/sport/sports";
+import { sportEmptyPhrase, sportLabel } from "@/lib/sport/sports";
 import { safeNext } from "@/lib/auth/routes";
 import {
   NEARBY_RADIUS_M,
@@ -462,7 +462,7 @@ export default function HomePage() {
             aria-live="polite"
           >
             <h2 className="text-lg font-bold text-[var(--text-primary)]">
-              {sport === null ? "Nessun campo in quest'area" : `Nessun campo da ${sportLabel(sport).toLowerCase()} in quest'area`}
+              {sport === null ? "Nessun campo in quest'area" : `Nessun campo ${sportEmptyPhrase(sport, "da")} in quest'area`}
             </h2>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
               Sposta la mappa o allarga la zona: i campi compaiono quando
@@ -525,7 +525,7 @@ export default function HomePage() {
             <MapPin className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
             {lobbiesEmptyCause === "sport" && sport !== null ? (
               <p className="text-[var(--text-muted)] text-sm">
-                Nessuna lobby di {sportLabel(sport).toLowerCase()} qui intorno.
+                Nessuna lobby {sportEmptyPhrase(sport)} qui intorno.
                 <br />
                 Ci sono partite di altri sport.
               </p>

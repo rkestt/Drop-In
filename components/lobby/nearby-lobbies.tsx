@@ -11,7 +11,7 @@ import {
   NEARBY_RADIUS_M,
   OPEN_LOBBIES_LIMIT,
 } from "@/lib/lobbies/nearby";
-import { sportLabel, sportMatches } from "@/lib/sport/sports";
+import { sportEmptyPhrase, sportMatches } from "@/lib/sport/sports";
 import { useSport } from "@/lib/sport/sport-context";
 import { MapPin } from "lucide-react";
 import type { LobbySummary } from "./types";
@@ -302,15 +302,18 @@ export function NearbyLobbies({
     // cambia solo il testo tra "niente nel raggio" e "niente per lo sport".
     // Senza "qui intorno" nella variante sport: il titolo resta su una riga
     // a 360 per ogni label.
-    const sportCause = state.emptyCause === "sport" && sport !== null;
+    const sportCause =
+      state.emptyCause === "sport" && sport !== null ? sport : null;
     return (
       <div className="py-8 text-center">
         <MapPin className="mx-auto mb-2 h-8 w-8 text-[var(--text-muted)]" aria-hidden="true" />
         <h2 className="text-xl font-semibold text-[var(--text-primary)]">
-          {sportCause ? `Nessuna lobby di ${sportLabel(sport).toLowerCase()}` : "Nessuna lobby qui intorno"}
+          {sportCause !== null
+            ? `Nessuna lobby ${sportEmptyPhrase(sportCause)}`
+            : "Nessuna lobby qui intorno"}
         </h2>
         <p className="mx-auto mt-1 max-w-60 text-sm text-[var(--text-secondary)]">
-          {sportCause ? "Ci sono partite di altri sport." : "Sii il primo."}
+          {sportCause !== null ? "Ci sono partite di altri sport." : "Sii il primo."}
         </p>
         <div className="mx-auto mt-3 w-full max-w-60 [&_button]:min-h-11 [&_button]:w-full">
           {state.nearestCourt ? (

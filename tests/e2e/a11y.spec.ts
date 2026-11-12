@@ -142,6 +142,17 @@ test.describe("accessibility (axe) — autenticate (E2E_WITH_DB)", () => {
       });
     }
 
+    // #65: il filtro sport non è più invisibile: la tab Vicine mostra la pill
+    // con etichetta esplicita anche prima che la geolocalizzazione risponda.
+    test("tab Vicine: filtro sport visibile ed etichettato", async ({ page }) => {
+      await page.goto("/lobbies?tab=nearby");
+      await page.waitForLoadState("networkidle");
+      await expect(page.getByText("Filtra per sport")).toBeVisible();
+      const select = page.locator("#sport-selector");
+      await expect(select).toBeVisible();
+      await expect(select).toHaveAccessibleName("Sport attivo");
+    });
+
     test("skip link anche su /settings", async ({ page }) => {
       await page.goto("/settings");
       await page.waitForLoadState("networkidle");
