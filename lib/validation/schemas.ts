@@ -77,6 +77,38 @@ export const submitCourtSchema = z
 export type SubmitCourtValues = z.infer<typeof submitCourtSchema>;
 
 /**
+ * Modifica di una proposta pending (#58): stessi campi del form di invio
+ * meno la posizione (immutabile) e la foto (resta quella esistente, niente
+ * nuovo upload). `sport: ""` = non specificato (NULL nel DB); `hasPhoto`
+ * arriva dalla riga e serve solo alla regola "nome o foto".
+ */
+export const pendingSubmissionSchema = z
+  .object({
+    name: z
+      .string()
+      .max(COURT_NAME_MAX, `Il nome non può superare i ${COURT_NAME_MAX} caratteri.`),
+    sport: z
+      .string()
+      .refine(
+        (v) => v === "" || (SPORT_VALUES as readonly string[]).includes(v),
+        "Sport non valido."
+      ),
+    surface: z
+      .string()
+      .refine(
+        (v) => (SURFACE_VALUES as readonly string[]).includes(v),
+        "Superficie non valida."
+      ),
+    hasPhoto: z.boolean(),
+  })
+  .refine((d) => d.name.trim() !== "" || d.hasPhoto, {
+    message: "Inserisci un nome o carica una foto per identificare il campo.",
+    path: ["name"],
+  });
+
+export type PendingSubmissionValues = z.infer<typeof pendingSubmissionSchema>;
+
+/**
  * Cambio di prodotto consapevole (d8): il DB non ha vincoli su orario e
  * numero giocatori — una lobby con orario passato è inutilizzabile, quindi
  * ora il client la blocca. Il DB resta invariato (trigger/RLS ultima difesa).

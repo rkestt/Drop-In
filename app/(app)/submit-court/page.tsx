@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SubmitCourtForm } from "@/components/court/submit-court-form";
+import { MySubmissions } from "@/components/court/my-submissions";
 import { LoginModal } from "@/components/auth/login-modal";
 import { MapPin } from "lucide-react";
 
@@ -26,6 +27,8 @@ export default function SubmitCourtPage() {
         </div>
 
         <SubmitCourtForm onLoginRequired={() => setShowLogin(true)} />
+
+        <MySubmissions />
       </div>
 
       <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />

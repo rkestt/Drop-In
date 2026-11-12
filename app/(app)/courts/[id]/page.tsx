@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { CheckInButton } from "@/components/check-in/check-in-button";
+import { FavoriteButton } from "@/components/court/favorite-button";
 import { CoachMark } from "@/components/onboarding/coach-mark";
 import { CreateLobbyButton } from "@/components/lobby/create-lobby-button";
 import { ReportButton } from "@/components/report/report-button";
@@ -125,6 +126,24 @@ export default async function CourtPage({
     activeCheckIn = data;
   }
 
+  // #22: preferito dell'utente su questo campo. Query additiva in try/catch
+  // proprio: un errore qui non deve mai rompere la pagina (la gestione
+  // offline vive nel blocco sopra).
+  let isFavorite = false;
+  if (user) {
+    try {
+      const { data } = await supabase
+        .from("user_favorites")
+        .select("court_id")
+        .eq("user_id", user.id)
+        .eq("court_id", id)
+        .maybeSingle();
+      isFavorite = data != null;
+    } catch {
+      isFavorite = false;
+    }
+  }
+
   const photoUrl = court.photo_path
     ? supabase.storage.from("court-photos").getPublicUrl(court.photo_path).data.publicUrl
     : null;
@@ -154,14 +173,21 @@ export default async function CourtPage({
         }}
       />
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold font-[family-name:var(--font-syne)] mb-1">
-          {court.name}
-        </h1>
-        <p className="text-[var(--text-secondary)] flex items-center gap-1">
-          <MapPin className="w-4 h-4" />
-          {court.address || "Indirizzo non disponibile"}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-bold font-[family-name:var(--font-syne)] mb-1">
+            {court.name}
+          </h1>
+          <p className="text-[var(--text-secondary)] flex items-center gap-1">
+            <MapPin className="w-4 h-4" />
+            {court.address || "Indirizzo non disponibile"}
+          </p>
+        </div>
+        <FavoriteButton
+          courtId={court.id}
+          currentUserId={user?.id ?? null}
+          initialIsFavorite={isFavorite}
+        />
       </div>
 
       {photoUrl && (

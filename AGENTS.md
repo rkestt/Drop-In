@@ -72,7 +72,8 @@ npx supabase db reset # Apply migrations + seed (200 courts Roma dev, 10k prod)
 - **Karma system**: starts at 90, -3 for no-show, ban <50 for 7 days
 - **Browse-first**: `anon` vede solo le corti `approved` (policy `courts_select_all`: `moderation_status = 'approved'`); `pending`/`rejected`/`duplicate` sono invisibili al pubblico; auth required for lobbies
 - **Route groups**: `(app)` and `(dashboard)` are folder conventions, not segments
-- **RPC di lettura**: `nearby_courts` (raggio, con `p_query` e `photo_path` dalla 022) e `courts_in_viewport` (bbox, **senza** `p_query`, con `source`/`moderation_status`) sono due RPC diverse con due semantiche: firme, colonne e trappole in `docs/rpc.md`. Un `DROP FUNCTION` azzera i grant, vanno ri-concessi; `sport IS NULL` non matcha nessun filtro sport (#71).
+- **Confine `"use client"`**: un Server Component non può importare una *funzione* da un modulo `"use client"` — diventa un client reference e la chiamata esplode a runtime, mentre `tsc` non vede nulla. Le parti pure condivise stanno in un modulo senza direttiva (es. `lib/storage/avatar-url.ts` per `avatarPublicUrl`); `lib/storage/avatars.ts` resta client-only e le ri-esporta.
+- **RPC di lettura**: `nearby_courts` (raggio, con `p_query` e `photo_path` dalla 022) e `courts_in_viewport` (bbox, **senza** `p_query`, con `source`/`moderation_status`) sono due RPC diverse con due semantiche: firme, colonne e trappole in `docs/rpc.md`. Un `DROP FUNCTION` azzera i grant, vanno ri-concessi; `sport IS NULL` = "sport non specificato" ed è **visibile con qualunque filtro** (023, #71).
 
 ## Design system (vincolante)
 

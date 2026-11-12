@@ -6,7 +6,7 @@ Sono **due RPC diverse con due semantiche diverse**. Non sono intercambiabili e 
 
 ## `nearby_courts` — ricerca per raggio
 
-Definizione corrente: `supabase/migrations/022_nearby_courts_photo_path.sql` (sostituisce la 020, che sostituiva 012/010).
+Definizione corrente: `supabase/migrations/023_sport_null_visible.sql` (sostituisce la 022, che sostituiva 020/012/010).
 
 ```sql
 nearby_courts(
@@ -27,13 +27,13 @@ RETURNS TABLE (
 - **Semantica**: raggio geografico da `(p_lat, p_lng)`, ordinamento KNN (`location <-> point`), `LIMIT p_limit`. Filtra `status = 'active'`; la visibilità delle corti `pending` la fa la RLS (funzione **SECURITY INVOKER**).
 - **`p_query`**: `ILIKE '%...%'` sul nome, con `%`/`_` escapati (migrazione 020). È accent-sensitive: non esiste `unaccent()`, quindi "citta" non trova "Città".
 - **`p_sport`**: `c.sport = 'multi'` oppure match esatto su uno dei valori separati da `;`.
-- **Attenzione**: `sport IS NULL` **non** matcha nessun filtro sport. Sui dati OSM attuali è il 63% delle corti — vedi issue #71.
+- **Sport non specificato**: `sport IS NULL` significa "sport non specificato" ed è **visibile con qualunque filtro sport** (decisione prodotto #71/#72, default temporaneo in attesa del backfill #63). La UI lo dichiara con "Sport non specificato" (`sportDisplayLabel` in `lib/courts/search.ts`), così chi filtra "padel" sa che lo sport della corte è ignoto invece di vedere una riga vuota.
 - **Non ritorna** `source` né `moderation_status`.
 - **Chiamata da**: `components/lobby/nearby-lobbies.tsx` (raggio 15 km, senza query) e `app/(app)/page.tsx` (ricerca: raggio 25 km dal centro mappa, con `p_query`, debounce 300 ms — il seam puro è `lib/courts/search.ts`).
 
 ## `courts_in_viewport` — browse per bounding box
 
-Definizione corrente: `supabase/migrations/018_rpc_hardening.sql`.
+Definizione corrente: `supabase/migrations/023_sport_null_visible.sql` (era la 018).
 
 ```sql
 courts_in_viewport(
@@ -52,12 +52,13 @@ RETURNS TABLE (
 
 - **Semantica**: `location && ST_MakeEnvelope(...)`, **nessun ordinamento**, `LIMIT max_results`. È la mappa quando non stai cercando.
 - **Non ha `p_query`**: la ricerca per nome *non* passa da qui. Aggiungerla significherebbe due implementazioni della stessa cosa — se serve, si passa a `nearby_courts`.
-- **Ritorna in più** `source` e `moderation_status` rispetto a `nearby_courts` (13 colonne esplicite dalla 018, non più `SETOF courts`).
+- **Ritorna in più** `source` e `moderation_status` rispetto a `nearby_courts` (13 colonne esplicite dalla 018, confermate nella 023).
+- **Sport non specificato**: come `nearby_courts`, `sport IS NULL` è visibile con qualunque `p_sport` (#71/#72).
 - **Chiamata da**: `app/(app)/page.tsx`, fetch del browse, con guardia anti-stale e cache offline (`COURTS_CACHE_KEY`). I risultati di ricerca **non** vanno in quella cache.
 
 ## `open_lobbies` — lobby per raggio
 
-Definizione corrente: `supabase/migrations/021_open_lobbies_geo.sql`.
+Definizione corrente: `supabase/migrations/023_sport_null_visible.sql` (era la 021).
 
 ```sql
 open_lobbies(
@@ -72,6 +73,7 @@ RETURNS TABLE (
 ```
 
 - Senza coordinate il filtro geografico è spento e l'ordine è `start_time`; con coordinate è raggio + KNN.
+- **Sport non specificato**: le lobby su corti con `sport IS NULL` sono visibili con qualunque `p_sport` (#71/#72).
 - **Non ritorna la foto del campo**: la miniatura nelle card lobby arriva da un `select` separato su `courts` (#66). Se un giorno servisse nella RPC, va aggiunta qui *e* nei due select.
 
 ## Trappole comuni

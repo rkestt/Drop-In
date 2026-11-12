@@ -1,23 +1,34 @@
 import { User } from "lucide-react";
 import { EditProfileSheet } from "@/components/profile/edit-profile-sheet";
 import { getInitials } from "@/lib/profile/utils";
+import { avatarPublicUrl } from "@/lib/storage/avatar-url";
 
 interface ProfileHeaderProps {
   userId: string;
   nickname: string | null;
   email: string | null;
+  avatarUrl: string | null;
 }
 
 /**
  * Identità: avatar con iniziali (decorativo, il nome è già testo),
  * nickname o stato vuoto, email attenuata, unica CTA primaria della pagina.
  */
-export function ProfileHeader({ userId, nickname, email }: ProfileHeaderProps) {
+export function ProfileHeader({ userId, nickname, email, avatarUrl }: ProfileHeaderProps) {
   const hasNickname = nickname !== null && nickname.trim() !== "";
+  const publicAvatarUrl = avatarPublicUrl(avatarUrl);
 
   return (
     <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-x-3.5 gap-y-2">
-      {hasNickname ? (
+      {publicAvatarUrl ? (
+        <img
+          src={publicAvatarUrl}
+          alt=""
+          width={72}
+          height={72}
+          className="w-[72px] h-[72px] rounded-chip border border-[var(--accent)] object-cover"
+        />
+      ) : hasNickname ? (
         <div
           aria-hidden="true"
           className="flex items-center justify-center w-[72px] h-[72px] rounded-chip border border-[var(--accent)] bg-[var(--accent-subtle)] text-[var(--text-primary)] font-display text-2xl font-bold"
@@ -51,6 +62,7 @@ export function ProfileHeader({ userId, nickname, email }: ProfileHeaderProps) {
         <EditProfileSheet
           userId={userId}
           currentNickname={nickname}
+          currentAvatarUrl={avatarUrl}
           mode={hasNickname ? "edit" : "create"}
         />
       </div>

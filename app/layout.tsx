@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { Toaster } from "@/components/notifications/toaster";
+import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { SwUpdateToast } from "@/components/pwa/sw-update-toast";
 import { KarmaListener } from "@/components/notifications/karma-listener";
+import { PushNotificationProvider } from "@/components/notifications/push-provider";
 import { SportProvider } from "@/lib/sport/sport-context";
 import "./globals.css";
 
@@ -53,9 +56,15 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-[var(--bg-base)] text-[var(--text-primary)] font-[family-name:var(--font-source-sans)]">
         <SportProvider>
-          {children}
-          <Toaster />
-          <KarmaListener />
+          {/* Il provider push deve AVVOLGERE l'albero: `/settings` chiama
+              `usePushNotifications()`, che fuori dal provider lancia. */}
+          <PushNotificationProvider>
+            {children}
+            <Toaster />
+            <InstallPrompt />
+            <SwUpdateToast />
+            <KarmaListener />
+          </PushNotificationProvider>
         </SportProvider>
       </body>
     </html>

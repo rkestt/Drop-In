@@ -7,7 +7,7 @@ import { CourtPhotoThumb } from "@/components/court/court-photo-thumb";
 import { formatDistanceM } from "@/lib/lobbies/nearby";
 import {
   SEARCH_RADIUS_M,
-  courtSportsLabel,
+  sportDisplayLabel,
   venueTypeLabel,
   type Court,
   type SearchPhase,
@@ -124,7 +124,7 @@ export function CourtSearchResults({
       </h2>
       <ul className="space-y-2">
         {results.map((court) => {
-          const sports = courtSportsLabel(court.sport);
+          const sports = sportDisplayLabel(court.sport);
           const venue = venueTypeLabel(court.venue_type);
           // Un'unica riga di metadati: il punto resta attaccato alla voce
           // precedente (NBSP) se il testo va a capo a 360px.

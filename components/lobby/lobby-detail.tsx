@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { classifyOutboxError } from "@/lib/offline/outbox";
+import { enqueue } from "@/lib/offline/outbox-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { JoinLobbyDrawer } from "./join-lobby-drawer";
@@ -136,6 +138,15 @@ export function LobbyDetail({
       setJoinError("Posti esauriti: questa lobby è al completo. Crea la tua lobby.");
       return;
     }
+    // Offline: ottimistico + coda, il runner invia al reconnect.
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setJoined(true);
+      setJoinOpen(false);
+      setJoinError(null);
+      enqueue("lobby_join", { lobby_id: lobby.id, user_id: userId });
+      toast("Richiesta in coda: ti uniamo appena torni online.");
+      return;
+    }
     setJoining(true);
     // Ottimistico: "Sei dentro" subito, rollback se il server rifiuta.
     setJoined(true);
@@ -152,13 +163,26 @@ export function LobbyDetail({
       });
       router.refresh();
     } catch (err) {
-      setJoined(false);
+      // Il codice PostgREST (23505, 42501, …) entra nella classifica così
+      // gli errori di autorizzazione non finiscono mai in coda.
       const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("duplicate") || msg.includes("already") || msg.includes("UNIQUE")) {
+      const raw =
+        err instanceof Error
+          ? `${(err as { code?: unknown }).code ?? ""} ${err.message}`.trim()
+          : "";
+      const kind = raw === "" ? "permanent" : classifyOutboxError(raw);
+      if (kind === "duplicate") {
+        setJoined(false);
         setJoinError("Sei già dentro questa lobby.");
+      } else if (kind === "transient") {
+        // Rete caduta: resta l'ottimistico, il runner invia al reconnect.
+        enqueue("lobby_join", { lobby_id: lobby.id, user_id: userId });
+        toast("Richiesta in coda: ti uniamo appena torni online.");
       } else if (msg) {
+        setJoined(false);
         setJoinError(msg);
       } else {
+        setJoined(false);
         setJoinError("Non riusciamo a farti entrare. Riprova.");
       }
     } finally {
@@ -170,6 +194,14 @@ export function LobbyDetail({
     // Conferma solo se la lobby è in corso, altrimenti esecuzione diretta.
     if (lobby.status === "in_progress" && !leaveArmed) {
       setLeaveArmed(true);
+      return;
+    }
+    // Offline: ottimistico + coda, il runner invia al reconnect.
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      enqueue("lobby_leave", { lobby_id: lobby.id, user_id: userId });
+      setJoined(false);
+      setLeaveArmed(false);
+      toast("Uscita in coda.");
       return;
     }
     setLeaving(true);
@@ -185,8 +217,20 @@ export function LobbyDetail({
       setLeaveArmed(false);
       toast.success("Sei uscito dalla lobby");
       router.refresh();
-    } catch {
-      setLeaveError("Non riusciamo a farti uscire. Riprova.");
+    } catch (err) {
+      const raw =
+        err instanceof Error
+          ? `${(err as { code?: unknown }).code ?? ""} ${err.message}`.trim()
+          : "";
+      if (raw !== "" && classifyOutboxError(raw) === "transient") {
+        // Rete caduta: resta l'ottimistico, il runner invia al reconnect.
+        enqueue("lobby_leave", { lobby_id: lobby.id, user_id: userId });
+        setJoined(false);
+        setLeaveArmed(false);
+        toast("Uscita in coda.");
+      } else {
+        setLeaveError("Non riusciamo a farti uscire. Riprova.");
+      }
     } finally {
       setLeaving(false);
     }

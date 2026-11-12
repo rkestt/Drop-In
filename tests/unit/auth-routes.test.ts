@@ -122,6 +122,14 @@ describe("isProtectedPath", () => {
     expect(isProtectedPath("/dashboard/x")).toBe(true);
   });
 
+  // #22: la lista dei campi salvati è per-utente, il middleware la protegge
+  // come /profile (la pagina ha comunque il proprio redirect server-side).
+  it("protects /favorites", () => {
+    expect(isProtectedPath("/favorites")).toBe(true);
+    expect(isProtectedPath("/favorites?x=1")).toBe(true);
+    expect(isProtectedPath("/favoritesx")).toBe(false);
+  });
+
   it("leaves public routes alone", () => {
     expect(isProtectedPath("/")).toBe(false);
     expect(isProtectedPath("")).toBe(false);
