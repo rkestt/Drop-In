@@ -169,6 +169,16 @@ export function courtSportsLabel(
   return [...new Set(labels)].join(" · ");
 }
 
+/**
+ * Etichetta sport sempre pronta per la UI (#71/#72): mai null, cosi' la riga
+ * di ricerca e la card lobby non devono gestire il caso vuoto. `NULL`
+ * (sport non specificato) resta visibile con qualunque filtro e lo dichiara:
+ * "Sport non specificato". Stringhe vuote o sole `;` valgono come NULL.
+ */
+export function sportDisplayLabel(sport: string | null | undefined): string {
+  return courtSportsLabel(sport) ?? "Sport non specificato";
+}
+
 const VENUE_LABELS: Record<string, string> = {
   park: "Parco",
   playground: "Parco giochi",

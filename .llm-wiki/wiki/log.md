@@ -21,3 +21,5 @@
 
 - **retro**: {"slug":"playwright-pan-maplibre-senza-drag","title":"Playwright: testare il pan di una mappa MapLibre senza drag"}
 - **retro**: {"slug":"vercel-alias-custom-non-segue-la-release","title":"Vercel: l'alias custom non segue la release"}
+- **retro**: {"slug":"sport-null-visibile-con-qualsiasi-filtro","title":"Decisione: `sport IS NULL` = \"non specificato\", visibile con qualunque filtro sport"}
+- **retro**: {"slug":"karma-loss-notification-persa-in-una-riscrittura-di-trigger","title":"Una riscrittura di trigger ha cancellato un INSERT: le notifiche karma non esistevano più"}

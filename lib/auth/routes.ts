@@ -3,7 +3,7 @@
  * protected-path matching (first path segment, no prefix lookalikes).
  */
 
-const PROTECTED_SEGMENTS = new Set(["profile", "lobbies", "dashboard", "settings"]);
+const PROTECTED_SEGMENTS = new Set(["profile", "lobbies", "dashboard", "settings", "favorites"]);
 
 /**
  * Sanitizes a post-login destination. Only same-origin absolute paths

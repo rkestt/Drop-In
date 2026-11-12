@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { SkipLink } from "@/components/a11y/skip-link";
+import { OutboxRunner } from "@/components/offline/outbox-runner";
 
 export default function DashboardLayout({
   children,
@@ -24,6 +25,7 @@ export default function DashboardLayout({
         </div>
       </header>
       {children}
+      <OutboxRunner />
     </div>
   );
 }

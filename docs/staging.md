@@ -23,7 +23,9 @@ Progetto `drop-in`, org `andrea-fioris-projects-14d416c7`, piano Hobby, framewor
 
 ## Supabase staging (provisionato e verificato)
 
-- 21 migrazioni 001→021 applicate (018–021 pushate il 2026-11-12: schema dump prima del push in `/tmp/opencode/staging-schema-20261112.sql`), PostGIS in `public`, pg_trgm/pgcrypto/uuid-ossp in `extensions`.
+- **22 migrazioni 001→022 applicate** (018–021 pushate il 2026-11-12: schema dump prima del push in `/tmp/opencode/staging-schema-20261112.sql`; `022` verificata il 2026-11-12 con `supabase migration list`), PostGIS in `public`, pg_trgm/pgcrypto/uuid-ossp in `extensions`. Produzione è allineata allo stesso punto (001→022).
+- Le migrazioni `023`→`027` (sport NULL, favorites, avatars, pending edit, karma notification) sono **solo in locale**: non ancora pushate su staging né su prod. Push e verifica live sul preview sono il passo di deploy, non parte del lavoro di codice.
+- Dati: 10.131 corti su staging, 6.364 con `sport` NULL (stessa proporzione del locale: è la ragione della semantica della `023`).
 - pg_cron, 5 job: auto-close-lobbies */15, auto-checkout */15, remove-expired-bans orario, archive-old-reports giornaliero 02:00, notify-lobby-starting-soon */5.
 - Bucket `court-photos` pubblico, limite 5 MiB (migrazione 010, policy irrigidite dalla 014).
 - Publication `supabase_realtime`: profiles, lobbies, lobby_participants, check_ins, push_notifications.
@@ -64,6 +66,27 @@ npx supabase db push --remote --dry-run
 npx supabase db push --remote --yes
 npx supabase db query --remote --read-only "select version from supabase_migrations.schema_migrations order by version desc limit 1"
 ```
+
+**Trucco utile (2026-11-12):** le migrazioni si possono provare **sul database
+reale** senza applicarle, in una transazione che finisce in `ROLLBACK`:
+
+```bash
+{ echo "BEGIN;"; cat supabase/migrations/02[3-9]_*.sql; echo "ROLLBACK;"; } > /tmp/dryrun.sql
+npx supabase db query --remote=<ref> --file /tmp/dryrun.sql --yes
+# poi: select max(version) from supabase_migrations.schema_migrations  -> invariato
+```
+
+Con `023`→`029` ha confermato che girano sul dataset reale (10.131 corti) e che
+dopo il rollback lo schema è identico. Non sostituisce il backup: non copre i
+dati e non dice nulla su cosa succede se il push si interrompe a metà.
+
+**Blocco noto (2026-11-12):** il backup pre-push non si riesce a produrre da questa
+macchina — `supabase db dump` (CLI 3.1.0 e `@latest`) usa `pg_dump` 15.19 contro
+un server 17.11 e aborta con *"server version mismatch"* (anche `pg_dump`
+locale è 15). Il dry-run invece funziona e non richiede password. Per il push
+servono o il client PostgreSQL 17 installato, o `docker run postgres:17
+pg_dump` con la password del database. Senza backup il push **non** va fatto
+(niente PITR sul piano Free).
 
 `--read-only` obbligatorio per i SELECT in agent mode; le mutation vogliono `--yes`.
 

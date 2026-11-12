@@ -26,6 +26,8 @@ import {
   parseDistanceMeters,
   type CheckInErrorInfo,
 } from "@/lib/checkin/errors";
+import { classifyOutboxError } from "@/lib/offline/outbox";
+import { enqueue } from "@/lib/offline/outbox-store";
 
 export interface ActiveCheckIn {
   id: string;
@@ -125,9 +127,35 @@ export function CheckInSheet({
     }
   }, [open, activeCheckIn]);
 
+  const queueCheckIn = (
+    userId: string,
+    lat: number,
+    lng: number,
+    accuracy: number,
+  ) => {
+    // Offline o rete caduta a metà: coordinate già calcolate in coda, il
+    // trigger distanza le rivalida al replay. Chiude la scheda, niente errore.
+    enqueue("check_in", {
+      user_id: userId,
+      court_id: courtId,
+      lat,
+      lng,
+      accuracy,
+      status: "active",
+    });
+    onClose();
+    toast("Check-in in coda: lo inviamo appena torni online.");
+  };
+
   const handleCheckIn = async () => {
     setState("loading");
     setError(null);
+
+    // Coordinate note fin qui: servono al catch per accodare un insert
+    // mai partito (rete caduta dopo il GPS).
+    let userId: string | null = null;
+    let coords: { latitude: number; longitude: number; accuracy: number } | null =
+      null;
 
     try {
       const {
@@ -149,6 +177,8 @@ export function CheckInSheet({
       const longitude = mockGps ? courtLng : position.coords.longitude;
       const { accuracy } = position.coords;
       setGpsAccuracy(accuracy);
+      userId = user.id;
+      coords = { latitude, longitude, accuracy };
 
       const accuracyError = fromAccuracy(accuracy);
       if (accuracyError) {
@@ -159,6 +189,11 @@ export function CheckInSheet({
 
       // Nessun successo ottimistico: confermato solo dopo l'insert.
       // La distanza la valida il trigger DB a 50 m, non il client.
+      // Offline: niente insert, si accoda con le coordinate calcolate.
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        queueCheckIn(user.id, latitude, longitude, accuracy);
+        return;
+      }
       const { error: insertError } = await supabase.from("check_ins").insert({
         user_id: user.id,
         court_id: courtId,
@@ -169,6 +204,15 @@ export function CheckInSheet({
       });
 
       if (insertError) {
+        // Rete caduta durante l'insert: errore transient → in coda, come se
+        // fossimo offline. Duplicate/permanent restano errore inline.
+        const raw = insertError.code
+          ? `${insertError.code} ${insertError.message}`
+          : insertError.message;
+        if (classifyOutboxError(raw) === "transient") {
+          queueCheckIn(user.id, latitude, longitude, accuracy);
+          return;
+        }
         // Il messaggio del trigger porta già i metri: nessun ricalcolo.
         if (/troppo lontano/i.test(insertError.message)) {
           setError(
@@ -199,6 +243,15 @@ export function CheckInSheet({
       const geoErr = err as GeolocationPositionError & { message?: string };
       if (typeof geoErr.code === "number") {
         setError(fromGeolocationCode(geoErr.code));
+      } else if (
+        userId !== null &&
+        coords !== null &&
+        classifyOutboxError(geoErr.message ?? null) === "transient"
+      ) {
+        // Insert mai partito (fetch rifiutata): coordinate valide già in mano,
+        // si accoda invece di mostrare un errore.
+        queueCheckIn(userId, coords.latitude, coords.longitude, coords.accuracy);
+        return;
       } else {
         setError(fromInsertError(geoErr.message ?? "Errore durante il check-in."));
       }

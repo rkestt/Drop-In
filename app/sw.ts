@@ -8,6 +8,8 @@ import {
   NetworkOnly,
   Serwist,
 } from "serwist";
+import { notificationHref } from "@/lib/notifications/link";
+import { pushPayloadFromNotification } from "@/lib/notifications/push-payload";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -112,3 +114,97 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// Push in arrivo: la function `send-push` manda `{ title, body, data,
+// notificationId }`. Il corpo e' costruito da `pushPayloadFromNotification`
+// (stessi fallback del centro notifiche); la rotta alla pressione arriva
+// da `notificationHref(data)` — unica implementazione della regola href,
+// mai calcolata lato server.
+interface PushEventData {
+  json(): unknown;
+}
+
+interface PushEventLike {
+  readonly data: PushEventData | null;
+  waitUntil(promise: Promise<unknown>): void;
+}
+
+interface NotificationClickEventLike {
+  readonly notification: {
+    readonly data: unknown;
+    close(): void;
+  };
+  waitUntil(promise: Promise<unknown>): void;
+}
+
+interface WindowClientLike {
+  readonly url: string;
+  focus(): Promise<unknown>;
+  navigate?(url: string): Promise<unknown>;
+}
+
+interface ServiceWorkerScope {
+  addEventListener(type: string, listener: (event: unknown) => void): void;
+  readonly clients: {
+    openWindow(url: string): Promise<unknown>;
+    matchAll(options?: {
+      type?: string;
+      includeUncontrolled?: boolean;
+    }): Promise<WindowClientLike[]>;
+  };
+  readonly registration: {
+    showNotification(title: string, options: object): Promise<void>;
+  };
+}
+
+const swScope = self as unknown as ServiceWorkerScope;
+swScope.addEventListener("push", (event) => {
+  const pushEvent = event as unknown as PushEventLike;
+  let raw: unknown = null;
+  try {
+    raw = pushEvent.data?.json() ?? null;
+  } catch {
+    raw = null;
+  }
+  const record =
+    typeof raw === "object" && raw !== null
+      ? (raw as Record<string, unknown>)
+      : {};
+  const payload = pushPayloadFromNotification({
+    id:
+      typeof record.notificationId === "string" ? record.notificationId : "push",
+    title: record.title,
+    body: record.body,
+    data: record.data,
+  });
+  pushEvent.waitUntil(
+    swScope.registration.showNotification(payload.title, {
+      body: payload.body,
+      data: payload.data,
+      icon: "/icon-192x192.png",
+      badge: "/icon-192x192.png",
+      tag: payload.tag,
+    }),
+  );
+});
+
+swScope.addEventListener("notificationclick", (event) => {
+  const clickEvent = event as unknown as NotificationClickEventLike;
+  clickEvent.notification.close();
+  const url = notificationHref(clickEvent.notification.data) ?? "/";
+  clickEvent.waitUntil(
+    swScope.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((wins) => {
+        const open = wins.find((w) => {
+          try {
+            return new URL(w.url).pathname === url;
+          } catch {
+            return false;
+          }
+        });
+        if (open) return open.focus();
+        return swScope.clients.openWindow(url);
+      }),
+  );
+});

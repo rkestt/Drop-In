@@ -13,9 +13,16 @@ export const SPORTS: { value: Sport; label: string }[] = [
 
 export const SPORT_STORAGE_KEY = "sport";
 
+/**
+ * True quando la corte passa il filtro sport attivo.
+ *
+ * Semantica #71/#72: `sport IS NULL` significa "sport non specificato" ed e'
+ * visibile con QUALUNQUE filtro (come `multi`). Default temporaneo in attesa
+ * del backfill sport (#63); la UI lo dichiara con "Sport non specificato".
+ */
 export function sportMatches(courtSport: string | null, active: SportFilter): boolean {
   if (active === null) return true;
-  if (courtSport === null) return false;
+  if (courtSport === null) return true;
   if (courtSport === "multi") return true;
   return courtSport
     .split(";")

@@ -6,6 +6,7 @@ import { CourtPhotoThumb } from "@/components/court/court-photo-thumb";
 import { NextHighlight } from "@/components/motion/next-highlight";
 import { Users, Clock } from "lucide-react";
 import { formatDistanceM } from "@/lib/lobbies/nearby";
+import { sportDisplayLabel } from "@/lib/courts/search";
 import type { LobbySummary } from "./types";
 
 function formatTime(iso: string): string {
@@ -44,9 +45,10 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
       ? "al completo"
       : lobby.status;
   // Nome accessibile completo: campo, sport, orario, posti, distanza, stato.
+  // Lo sport usa l'etichetta UI ("Sport non specificato" quando NULL, #71).
   const ariaLabel = [
     `Lobby al ${lobby.court_name}`,
-    lobby.court_sport ?? undefined,
+    sportDisplayLabel(lobby.court_sport),
     `ore ${formatTime(lobby.start_time)}`,
     `${lobby.participants_count} su ${lobby.max_players}`,
     lobby.distance_m != null ? `a ${formatDistanceM(lobby.distance_m)}` : undefined,
@@ -82,6 +84,8 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
             {lobby.distance_m != null && (
               <span className="whitespace-nowrap">{formatDistanceM(lobby.distance_m)}</span>
             )}
+            {/* #71: lo sport e' sempre mostrato; NULL → "Sport non specificato". */}
+            <span>{sportDisplayLabel(lobby.court_sport)}</span>
           </span>
         </span>
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}

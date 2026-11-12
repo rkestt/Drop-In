@@ -16,11 +16,11 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 | Court details | ✅ | Reports, lobbies, check-in, create lobby. |
 | Lobbies (create/join/leave, realtime) | ✅ | Realtime channel on `lobbies`; auto-close +30min cron. |
 | Check-in (GPS, 50m, cooldown 5min) | ✅ | Triggers enforce distance/cooldown; auto-checkout 2h. |
-| Karma (start 90, +1 check-in, -3 no-show, ban <50 for 7d) | ✅ | `enforce_ban_on_low_karma`, `remove_expired_bans`. |
+| Karma (start 90, +1 check-in, -3 no-show, ban <50 for 7d) | ✅ | `enforce_ban_on_low_karma`, `remove_expired_bans`. La notifica `karma_loss` alla chiusura della lobby è stata ripristinata dalla `027` (la `007` aveva perso l'`INSERT`). |
 | Court reports (broken hoop, wet, lighting, occupied, other) | ✅ | Expiry + archive cron. |
-| Profile (nickname, avatar, karma, ban banner) | 🟡 | Edit sheet exists; no avatar upload, no history view. |
-| Push notifications | 🟡 | Centro notifiche in-app completo (bell realtime, lista, mark-read, 016). Mancano solo subscribe reale e delivery (nessuna Edge Function: `supabase/functions/` non esiste). |
-| PWA offline (Serwist, tile cache 600 OFM / 1200 OSM) | 🟡 | Offline fallback page is generic; no offline queue for mutations; no update prompt. |
+| Profile (nickname, avatar, karma, ban banner) | ✅ | Edit sheet (RHF+zod), avatar upload nel bucket `avatars` (resize client 512 px, GC inclusa), history di check-in e karma nel profilo. La scrittura self-service è ristretta a nickname/avatar dal guard `028` (karma, ban e `is_moderator` non sono più modificabili dal client). |
+| Push notifications | 🟡 | Centro notifiche in-app completo (bell realtime, lista, mark-read, 016) e feed karma di nuovo popolato (`027`). **Delivery implementata** (#25): Edge Function `send-push` (Deno, `web-push` + VAPID, sweep con tentativi e 5 cap), marcatori su `push_notifications` (`029`), subscribe reale con permesso solo su gesto, listener `push`/`notificationclick` nel SW, riga Impostazioni sbloccata, runbook in `docs/push.md`. Manca solo il deploy (VAPID + secrets + `functions deploy` + cron): non è verificabile in locale. |
+| PWA offline (Serwist, tile cache 600 OFM / 1200 OSM) | ✅ | Install prompt + toast di update (#23) e mutation queue offline (#24): outbox in localStorage con dedupe per `(kind, id)`, TTL 2 h sui check-in (l'auto-checkout rende sbagliato un replay tardivo), backoff, classificazione duplicate/permanent/transient, banner di stato e replay a `online`. |
 
 ### UX / platform
 
@@ -31,13 +31,13 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 | World-wide data | 🟡 | Invio comunitario e dedup/moderation attivi; `extract_osm.py` accetta `--bbox/--country/--city` con `--upsert-sql`. Manca un'estrazione globale eseguita e il seed resta Roma. |
 | i18n (Italian only) | 🔴 | Hardcoded Italian strings across components; no locale routing. |
 | Accessibility audit | 🟡 | Some ARIA on map markers; no full audit, focus traps in sheets unverified. |
-| Test coverage | 🟡 | Vitest (231 unit), 32 blocchi di asserzioni RLS su `db reset`, Playwright `e2e` (27) + `visual-static` (12) + `visual-full` (24), CI su ogni PR. I flussi autenticati restano manuali. |
+| Test coverage | 🟡 | Vitest (**397** unit su 31 file), **40 blocchi** di asserzioni RLS su `db reset` (fino a §40: favorites, avatars, sport NULL, retract/edit, history, karma, delivery push), Playwright `e2e` (27 in CI + 4 autenticati env-gated: `drawer-nickname`, `offline-queue` ×2, `settings-push`) + `visual-static` (12) + `visual-full` (24), `deno test` per la Edge Function (fuori da `test:all`), CI su ogni PR. I flussi autenticati restano in gran parte manuali. |
 | Error boundaries / loading states | 🟡 | Per-page loading; no global error boundary or retry. |
-| Court photos / media | ✅ | Upload con ri-encodaggio, bucket `court-photos`, foto congelata dopo l'approvazione (014); miniatura 56×56 con placeholder in home e card lobby (#66, `CourtPhotoThumb`). Pulizia orfani manuale: `npm run photos:gc` (dry-run di default, finestra 24 h, #52) — da schedularla solo quando c'è traffico reale. |
-| Search & filter courts | ✅ | Ricerca **server-side**: `nearby_courts(p_query)` per raggio 25 km dal centro mappa, lista risultati sotto il box, marker = risultati (#68; `lib/courts/search.ts`; la 022 aggiunge `photo_path` al risultato). Filtro sport visibile in `/lobbies` tab Vicine (#65). Limiti noti: ricerca accent-sensitive (niente `unaccent()`), lo stato non sopravvive al back dal dettaglio (come lo stato mappa), e le corti con `sport` NULL non compaiono con un filtro sport attivo (su staging 6.364 su 10.131). |
-| Favorites / saved courts | 🔴 | No table or UI. |
-| Install prompt (PWA) | 🔴 | Manifest present; no `beforeinstallprompt` handling. |
-| Offline mutation queue | 🔴 | Check-in/lobby join fail offline; no retry. |
+| Court photos / media | ✅ | Upload con ri-encodaggio, bucket `court-photos`, foto congelata dopo l'approvazione (014); miniatura 56×56 con placeholder in home e card lobby (#66, `CourtPhotoThumb`). Pulizia orfani: `npm run photos:gc` copre **entrambi** i bucket (`court-photos` e `avatars`), dry-run di default, finestra 24 h (#52); procedura e cadenza in `docs/photos-gc.md` — da schedularla solo quando c'è traffico reale. |
+| Search & filter courts | ✅ | Ricerca **server-side**: `nearby_courts(p_query)` per raggio 25 km dal centro mappa, lista risultati sotto il box, marker = risultati (#68; `lib/courts/search.ts`; la 022 aggiunge `photo_path` al risultato). Filtro sport visibile in `/lobbies` tab Vicine (#65). Limiti noti: ricerca accent-sensitive (niente `unaccent()`), lo stato non sopravvive al back dal dettaglio (come lo stato mappa). Dal 2026-11-12 `sport IS NULL` = "sport non specificato" ed è visibile con **qualunque** filtro (023, #71), con l'etichetta esplicita in lista: restano 6.364 corti su 10.130 da backfillare (#63). |
+| Favorites / saved courts | ✅ | `user_favorites` (024, RLS own-rows, solo campi `approved`), toggle ottimistico nella scheda campo, `/favorites` con empty state, riga "Campi salvati" nel profilo. |
+| Install prompt (PWA) | ✅ | Banner in-flow (`components/pwa/install-prompt.tsx`), dismiss persistito 30 giorni, fallback iOS "Condividi → Aggiungi a Home", toast "Nuova versione attiva" su `controllerchange`; seam puro `lib/pwa/install.ts`. |
+| Offline mutation queue | ✅ | `lib/offline/outbox.ts` (seam puro) + store + runner montato in `(app)` e `(dashboard)`; check-in, join e leave accodati offline e reinviati a `online`; e2e offline→online senza duplicati. |
 | Analytics / observability | 🔴 | `lib/logger.ts` only; no error tracking. |
 | Moderation / admin | 🟡 | Coda e RPC (`approve/reject/mark_duplicate`) documentate in `docs/moderation.md`, eseguibili da Studio. Nessuna UI. |
 | Court verification / dedup | ✅ | `dedup_candidates` a 100 m con conferma esplicita, mascheramento delle proposte altrui, coda di moderazione. |
@@ -55,7 +55,7 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 | Multi-sport | Sport enum/validazione, UI dedicata, dati oltre basket; timezone/locale | Media |
 | Email | SMTP dedicato / deliverability (Supabase built-in 2/h), template auth | Media |
 | Community | Linee guida, segnalazione abusi, ownership/claim campo, moderazione UI (#33) | Media |
-| PWA | Install prompt (#13), update prompt, offline mutation queue (#14), push delivery Edge Function (#15) | Media |
+| PWA | Deploy della push delivery (#15): VAPID, secrets, `functions deploy`, cron — codice completo, `docs/push.md` | Media |
 | Performance | Budget JS/LCP/CLS/TBT, visual regression in CI (già baseline), monitoraggio | Bassa |
 | i18n | IT/EN, routing locale, notifiche localizzate (#64) | Bassa |
 
@@ -101,8 +101,8 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 ## Suggested sequencing (phases)
 
 - **Phase 0 (foundations):** #4 lazy map, #1/#2 theme, #20 tests, #21 error boundary.
-- **Phase 1 (data growth):** ✅ chiusa 2026-11-12 — #6 community submission, #7 global extraction (script), #8 dedup/moderation, #9 radius query, #10 search/filter (#68), foto (#66), filtro sport (#65), staging allineato a `022` (#53), GC orfani (#52). Restano #58 (retract/edit pending, spostata in Phase 2) e #63 (audit dati OSM).
-- **Phase 2 (engagement):** #13 install prompt, #14 offline queue, #15 notifications, #16/#17 profile, #12 favorites.
+- **Phase 1 (data growth):** ✅ chiusa 2026-11-12 — #6 community submission, #7 global extraction (script), #8 dedup/moderation, #9 radius query, #10 search/filter (#68), foto (#66), filtro sport (#65), staging allineato a `022` (#53), GC orfani (#52 esteso al bucket avatar). #58 (retract/edit pending) e #71 (semantica `sport IS NULL`) chiusi il 2026-11-12 con migrazioni `026` e `023`. Resta #63 (audit dati OSM).
+- **Phase 2 (engagement):** ✅ codice completo — #12 favorites (`024`), #17 avatar (`025`), #16 history (+`027`), #13 install/update PWA, #14 offline queue, #15 push delivery (`029`). Resta il deploy della push (VAPID + secrets + cron, `docs/push.md`) e la verifica su staging.
 - **Phase 3 (polish):** #3 dark map, #18 i18n, #19 a11y, #22 observability, #23 admin, #24 ratings, #25 sharing, #11 photos.
 
 ## Verification (definition of done for each ticket)

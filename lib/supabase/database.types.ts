@@ -204,6 +204,26 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"user_favorites": {
+                  Row: {
+                    "court_id": string,"created_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "court_id": string,"created_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "court_id"?: string,"created_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "user_favorites_court_id_fkey"
+      columns: ["court_id"]
+isOneToOne: false
+      referencedRelation: "courts"
+      referencedColumns: ["id"]
+    }
+                  ]
                 }
           }
           Views: {
@@ -542,6 +562,9 @@ isOneToOne: false
                            },
 "remove_expired_bans":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"retract_submission":
+{ Args: { "p_court_id": string }; Returns: undefined
                            },
 "st_3dclosestpoint":
 { Args: { "geom1": unknown,"geom2": unknown }; Returns: unknown
@@ -1024,6 +1047,9 @@ isOneToOne: false
                            },
 "unlockrows":
 { Args: { "": string }; Returns: number
+                           },
+"update_pending_submission":
+{ Args: { "p_court_id": string,"p_name": string,"p_photo_path"?: string,"p_sport"?: string,"p_surface"?: string }; Returns: undefined
                            },
 "updategeometrysrid":
 { Args: { "catalogn_name": string,"column_name": string,"new_srid_in": number,"schema_name": string,"table_name": string }; Returns: string

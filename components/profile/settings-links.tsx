@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Bell, ChevronRight, List, Settings } from "lucide-react";
+import { Bell, ChevronRight, Heart, List, Settings } from "lucide-react";
 
 const LINKS = [
+  { href: "/favorites", title: "Campi salvati", Icon: Heart },
   { href: "/lobbies", title: "Le tue lobby", Icon: List },
   { href: "/notifications", title: "Notifiche", Icon: Bell },
   { href: "/settings", title: "Impostazioni", Icon: Settings },

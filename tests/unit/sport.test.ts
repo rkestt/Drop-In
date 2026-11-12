@@ -15,9 +15,11 @@ describe("sportMatches", () => {
     expect(sportMatches("basketball;volleyball", "basketball")).toBe(true);
     expect(sportMatches("basketball;volleyball", "volleyball")).toBe(true);
   });
-  it("null court visible only with null active", () => {
+  // #71: NULL = "sport non specificato" → visibile con qualunque filtro.
+  it("null court visible under every filter", () => {
     expect(sportMatches(null, null)).toBe(true);
-    expect(sportMatches(null, "basketball")).toBe(false);
+    expect(sportMatches(null, "basketball")).toBe(true);
+    expect(sportMatches(null, "padel")).toBe(true);
   });
   it("identity", () => {
     expect(sportMatches("basketball", "basketball")).toBe(true);
