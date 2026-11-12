@@ -23,7 +23,7 @@ Progetto `drop-in`, org `andrea-fioris-projects-14d416c7`, piano Hobby, framewor
 
 ## Supabase staging (provisionato e verificato)
 
-- 17 migrazioni 001→017 applicate, PostGIS in `public`, pg_trgm/pgcrypto/uuid-ossp in `extensions`.
+- 21 migrazioni 001→021 applicate (018–021 pushate il 2026-11-12: schema dump prima del push in `/tmp/opencode/staging-schema-20261112.sql`), PostGIS in `public`, pg_trgm/pgcrypto/uuid-ossp in `extensions`.
 - pg_cron, 5 job: auto-close-lobbies */15, auto-checkout */15, remove-expired-bans orario, archive-old-reports giornaliero 02:00, notify-lobby-starting-soon */5.
 - Bucket `court-photos` pubblico, limite 5 MiB (migrazione 010, policy irrigidite dalla 014).
 - Publication `supabase_realtime`: profiles, lobbies, lobby_participants, check_ins, push_notifications.
@@ -106,6 +106,29 @@ npx vercel alias set <deployment-url> drop-in-stage.vercel.app
 ```
 
 Per rilanciare la build del branch senza modifiche: `git commit --allow-empty -m "chore: rebuild stage" && git push origin HEAD:stage`.
+
+### 7. Pulizia oggetti orfani
+
+Il bucket pubblico `court-photos` accumula orfani: upload riuscito + `submit_court`
+fallita, submission scartata (duplicata/rifiutata), court cancellata (FK a NULL).
+Script dedicato, solo manuale, mai in cron/CI (piano free, niente traffico
+schedulato da mantenere):
+
+```bash
+# Dry-run contro staging (default: non cancella nulla)
+SUPABASE_URL=https://ygnjqqgnxdmgpeeidkbn.supabase.co SUPABASE_SERVICE_ROLE_KEY=... npm run photos:gc
+
+# Cancellazione reale degli orfani idonei
+SUPABASE_URL=https://ygnjqqgnxdmgpeeidkbn.supabase.co SUPABASE_SERVICE_ROLE_KEY=... npm run photos:gc -- --apply
+```
+
+- Finestra di sicurezza `--min-age-hours=24` (default 24 h): gli oggetti più
+  giovani non si toccano mai, perché potrebbero essere upload di una submission
+  ancora aperta nel browser. Abbassarla solo se si è certi che non c'è traffico
+  in corso.
+- Va eseguito solo dove c'è traffico reale (staging/prod): in locale gli
+  "orfani" sono quasi sempre upload di una sessione di dev ancora aperta.
+- La service role key resta in env locale, mai committata e mai in `NEXT_PUBLIC_*`.
 
 ## Decisioni
 
