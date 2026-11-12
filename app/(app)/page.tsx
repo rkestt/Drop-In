@@ -202,6 +202,8 @@ export default function HomePage() {
     async (bbox: BBox) => {
       const thisReq = ++courtsReqId.current;
       try {
+        // Browse = bbox, non raggio: `courts_in_viewport` (13 colonne, no
+        // p_query). La ricerca usa un'altra RPC — vedi docs/rpc.md.
         // Nota: supabase-js non lancia su errore rete, ritorna { error }:
         // va controllato esplicitamente o il fallback cache non scatta mai.
         const { data, error } = await supabase.rpc("courts_in_viewport", {
@@ -243,8 +245,10 @@ export default function HomePage() {
 
   /**
    * Ricerca per nome con `nearby_courts` (#68): raggio dal centro mappa,
-   * non viewport. Niente cache offline: `COURTS_CACHE_KEY` è unica e senza
-   * dimensione query, scriverci i risultati distruggerebbe il browse.
+   * non viewport — è l'altra RPC rispetto al browse, firma e colonne
+   * diverse, vedi docs/rpc.md. Niente cache offline: `COURTS_CACHE_KEY` è
+   * unica e senza dimensione query, scriverci i risultati distruggerebbe
+   * il browse.
    */
   const runSearch = useCallback(
     async (rawQuery: string, force = false) => {

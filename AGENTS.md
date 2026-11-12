@@ -72,6 +72,7 @@ npx supabase db reset # Apply migrations + seed (200 courts Roma dev, 10k prod)
 - **Karma system**: starts at 90, -3 for no-show, ban <50 for 7 days
 - **Browse-first**: `anon` vede solo le corti `approved` (policy `courts_select_all`: `moderation_status = 'approved'`); `pending`/`rejected`/`duplicate` sono invisibili al pubblico; auth required for lobbies
 - **Route groups**: `(app)` and `(dashboard)` are folder conventions, not segments
+- **RPC di lettura**: `nearby_courts` (raggio, con `p_query` e `photo_path` dalla 022) e `courts_in_viewport` (bbox, **senza** `p_query`, con `source`/`moderation_status`) sono due RPC diverse con due semantiche: firme, colonne e trappole in `docs/rpc.md`. Un `DROP FUNCTION` azzera i grant, vanno ri-concessi; `sport IS NULL` non matcha nessun filtro sport (#71).
 
 ## Design system (vincolante)
 
