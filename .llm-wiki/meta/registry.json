@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-11-11T19:04:14.634Z",
+  "last_updated": "2026-11-12T14:04:08.807Z",
   "pages": {
     "sources/obs-2026-08-23-fix-grant-mancanti-su-courts-smoke-test-rivela-42501": {
       "type": "source",
@@ -47,6 +47,15 @@
       "created": "2026-09-01",
       "updated": "2026-09-01"
     },
+    "sources/playwright-pan-maplibre-senza-drag": {
+      "type": "source",
+      "title": "Playwright: testare il pan di una mappa MapLibre senza drag",
+      "category": "source",
+      "status": "insight",
+      "slug": "playwright-pan-maplibre-senza-drag",
+      "created": "2026-11-12",
+      "updated": "2026-11-12"
+    },
     "sources/rpc-table-return-masking-tipi-generati-non-nullable": {
       "type": "source",
       "title": "RPC RETURNS TABLE: i tipi generati dicono non-null, il masking restituisce NULL",
@@ -64,6 +73,15 @@
       "slug": "staging-env-vercel-preview-supabase-free",
       "created": "2026-11-11",
       "updated": "2026-11-11"
+    },
+    "sources/vercel-alias-custom-non-segue-la-release": {
+      "type": "source",
+      "title": "Vercel: l'alias custom non segue la release",
+      "category": "source",
+      "status": "insight",
+      "slug": "vercel-alias-custom-non-segue-la-release",
+      "created": "2026-11-12",
+      "updated": "2026-11-12"
     },
     "sources/visual-regression-falso-verde-font-non-applicati": {
       "type": "source",

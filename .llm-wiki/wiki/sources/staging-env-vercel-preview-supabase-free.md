@@ -13,7 +13,7 @@ updated: 2026-11-11
 # Drop-In: staging = Vercel Preview + progetto Supabase free separato
 
 ## Setup effettivo (2026-11-11)
-- **stage frontend**: Vercel project `drop-in`, branch Git `stage`, scope env **Preview** (custom environment "staging" è Pro-only). URL stabili: `drop-in-git-stage-andrea-fioris-projects-14d416c7.vercel.app` (auto-update per branch) + alias `drop-in-stage.vercel.app` incatenato al primo.
+- **stage frontend**: Vercel project `drop-in`, branch Git `stage`, scope env **Preview** (custom environment "staging" è Pro-only). URL stabili: `drop-in-git-stage-andrea-fioris-projects-14d416c7.vercel.app` (alias di branch, auto-aggiornato) + alias custom `drop-in-stage.vercel.app`, che **non** segue il branch: va riassegnato a ogni release (vedi `vercel-alias-custom-non-segue-la-release`).
 - **stage backend**: Supabase project `drop-in-staging`, ref `ygnjqqgnxdmgpeeidkbn`, eu-central-1. Free plan = **2 progetti attivi per owner**: prod (`jeuqmmiebzeqtdctmtzj`) + staging li esauriscono.
 - Auth staging: Site URL = alias stage, additional_redirect_urls = `https://drop-in-stage.vercel.app/**` + `https://*-andrea-fioris-projects-14d416c7.vercel.app/**` (i preview cambiano hostname a ogni deploy), email confirmations off.
 - Seed staging: `scripts/seed_courts.sql` (10.130 courts, tutte approved) — `db push` non semina i dati.

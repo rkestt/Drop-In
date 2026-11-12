@@ -16,3 +16,8 @@
 
 - **retro**: {"slug":"rpc-table-return-masking-tipi-generati-non-nullable","title":"RPC RETURNS TABLE: i tipi generati dicono non-null, il masking restituisce NULL"}
 - **retro**: {"slug":"staging-env-vercel-preview-supabase-free","title":"Drop-In: staging = Vercel Preview + progetto Supabase free separato"}
+
+## 2026-11-12
+
+- **retro**: {"slug":"playwright-pan-maplibre-senza-drag","title":"Playwright: testare il pan di una mappa MapLibre senza drag"}
+- **retro**: {"slug":"vercel-alias-custom-non-segue-la-release","title":"Vercel: l'alias custom non segue la release"}

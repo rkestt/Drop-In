@@ -8,3 +8,5 @@
 {"timestamp":"2026-11-09T20:20:14.277Z","kind":"retro","slug":"visual-regression-falso-verde-font-non-applicati","title":"Visual regression: falso verde quando next/font non applica i font"}
 {"timestamp":"2026-11-11T18:59:00.831Z","kind":"retro","slug":"rpc-table-return-masking-tipi-generati-non-nullable","title":"RPC RETURNS TABLE: i tipi generati dicono non-null, il masking restituisce NULL"}
 {"timestamp":"2026-11-11T19:04:14.634Z","kind":"retro","slug":"staging-env-vercel-preview-supabase-free","title":"Drop-In: staging = Vercel Preview + progetto Supabase free separato"}
+{"timestamp":"2026-11-12T14:03:34.260Z","kind":"retro","slug":"playwright-pan-maplibre-senza-drag","title":"Playwright: testare il pan di una mappa MapLibre senza drag"}
+{"timestamp":"2026-11-12T14:04:08.807Z","kind":"retro","slug":"vercel-alias-custom-non-segue-la-release","title":"Vercel: l'alias custom non segue la release"}
