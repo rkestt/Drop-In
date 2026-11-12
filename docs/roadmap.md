@@ -42,6 +42,23 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 | Moderation / admin | 🟡 | Coda e RPC (`approve/reject/mark_duplicate`) documentate in `docs/moderation.md`, eseguibili da Studio. Nessuna UI. |
 | Court verification / dedup | ✅ | `dedup_candidates` a 100 m con conferma esplicita, mascheramento delle proposte altrui, coda di moderazione. |
 
+## Gaps not yet ticketed (review 2026-11-12)
+
+| Area | Gap | Priorità |
+|---|---|---|
+| Dati | Audit manuale dei ~10.130 punti OSM (#63): campi inesistenti, duplicati, coordinate sbagliate | Alta |
+| Legale/privacy | Privacy policy, ToS, cookie/consent, export dati, cancellazione account (GDPR) | Alta prima di utenti reali |
+| Sicurezza/abuso | Rate limit globale, moderazione foto, spam submission, WAF/edge rules | Alta |
+| Osservabilità | Sentry/error tracking, uptime monitor, metriche (DAU, retention, funnel), log retention | Media |
+| CI/CD | Deploy staging→prod automatizzato, backup/DR, migrazioni promotion, rollback | Alta |
+| Mappa | Clustering marker (#42), tile provider/offline PMTiles, a11y mappa (#44), errori tile (#39) | Media |
+| Multi-sport | Sport enum/validazione, UI dedicata, dati oltre basket; timezone/locale | Media |
+| Email | SMTP dedicato / deliverability (Supabase built-in 2/h), template auth | Media |
+| Community | Linee guida, segnalazione abusi, ownership/claim campo, moderazione UI (#33) | Media |
+| PWA | Install prompt (#13), update prompt, offline mutation queue (#14), push delivery Edge Function (#15) | Media |
+| Performance | Budget JS/LCP/CLS/TBT, visual regression in CI (già baseline), monitoraggio | Bassa |
+| i18n | IT/EN, routing locale, notifiche localizzate (#64) | Bassa |
+
 ## Proposed tickets (GitHub issue titles)
 
 ### Theme
@@ -95,5 +112,3 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 - Manual: feature works on mobile viewport (360px) and desktop; offline behavior documented where relevant.
 - DB changes: new migration file under `supabase/migrations/` with RLS policies; `npx supabase db reset` succeeds.
 - No regression: existing map/courts/lobbies/check-in flows still functional.
-EOF
-echo "written"
