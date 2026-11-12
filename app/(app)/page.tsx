@@ -49,6 +49,7 @@ import { ReportedCourtsIndicator } from "@/components/report/reported-courts-ind
 import { SportSelector } from "@/components/court/sport-selector";
 import { CourtPhotoThumb } from "@/components/court/court-photo-thumb";
 import { CourtSearch } from "@/components/court/court-search";
+import { CourtSearchResults } from "@/components/court/court-search-results";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MapPin, Users, Plus } from "lucide-react";
 import Link from "next/link";
@@ -72,28 +73,25 @@ import {
   ROME_CENTER,
   selectLobbiesOrigin,
 } from "@/lib/lobbies/nearby";
+import {
+  SEARCH_DEBOUNCE_MS,
+  SEARCH_LIMIT,
+  SEARCH_RADIUS_M,
+  isSearchActive,
+  mapNearbyCourtRow,
+  normalizeSearchQuery,
+  searchQueryText,
+  selectSearchOrigin,
+  shouldFetchSearch,
+  type Court,
+  type NearbyCourtRow,
+  type SearchPhase,
+} from "@/lib/courts/search";
 
 const CourtMap = dynamic(() => import("@/components/map/court-map").then((m) => ({ default: m.CourtMap })), {
   ssr: false,
   loading: () => <MapSkeleton />,
 });
-
-interface Court {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  address: string | null;
-  surface_type: string | null;
-  hoop_count: number | null;
-  status: string | null;
-  sport: string | null;
-  venue_type: string | null;
-  source: string;
-  moderation_status: string;
-  /** Path nel bucket `court-photos` (la RPC lo ritorna dalla 018). */
-  photo_path: string | null;
-}
 
 interface Lobby {
   id: string;
@@ -106,12 +104,11 @@ interface Lobby {
   court_sport?: string | null;
 }
 
-function normalize(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
+interface SearchState {
+  phase: SearchPhase;
+  /** Query normalizzata a cui si riferisce lo stato. */
+  query: string;
+  results: Court[];
 }
 
 export default function HomePage() {
@@ -130,6 +127,15 @@ export default function HomePage() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // Ricerca server-side (#68): stato esplicito, ref per debounce e anti-stale.
+  const [search, setSearch] = useState<SearchState>({
+    phase: "idle",
+    query: "",
+    results: [],
+  });
+  const searchReqId = useRef(0);
+  const lastSearchedQuery = useRef("");
+  const searchStateRef = useRef(search);
   const [fieldsAnnouncement, setFieldsAnnouncement] = useState("");
   // Offline (d24): dati in cache + età dell'ultimo salvataggio buono.
   // stale = true quando ciò che si vede viene dalla cache, non dalla rete.
@@ -178,6 +184,16 @@ export default function HomePage() {
   const lastBounds = useRef<BBox | null>(null);
   const reqId = useRef(0);
 
+  // Query letta dai callback (pan, sport, retry) senza ricreare le callback.
+  const queryRef = useRef(query);
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+  // Stato ricerca per decidere se il debounce deve forzare una fetch.
+  useEffect(() => {
+    searchStateRef.current = search;
+  }, [search]);
+
   const fetchCourtsForBBox = useCallback(
     async (bbox: BBox) => {
       const thisReq = ++reqId.current;
@@ -219,6 +235,58 @@ export default function HomePage() {
       }
     },
     [supabase, pSport]
+  );
+
+  /**
+   * Ricerca per nome con `nearby_courts` (#68): raggio dal centro mappa,
+   * non viewport. Niente cache offline: `COURTS_CACHE_KEY` è unica e senza
+   * dimensione query, scriverci i risultati distruggerebbe il browse.
+   */
+  const runSearch = useCallback(
+    async (rawQuery: string, force = false) => {
+      const normalized = normalizeSearchQuery(rawQuery);
+      if (!normalized) return;
+      if (!force && !shouldFetchSearch(normalized, lastSearchedQuery.current)) {
+        return;
+      }
+      lastSearchedQuery.current = normalized;
+      const thisReq = ++searchReqId.current;
+      setSearch((prev) => ({
+        phase: "loading",
+        query: normalized,
+        results: prev.query === normalized ? prev.results : [],
+      }));
+      try {
+        const origin = selectSearchOrigin(
+          lastBounds.current,
+          userLocationRef.current,
+          { lat: ROME_CENTER.lat, lng: ROME_CENTER.lng }
+        );
+        // `p_query` va senza normalizzazione: la RPC fa ILIKE e gli accenti
+        // contano. L'escape di %, _ e \ è già dentro la 020.
+        const { data, error } = await supabase.rpc("nearby_courts", {
+          p_lat: origin.lat,
+          p_lng: origin.lng,
+          p_radius_m: SEARCH_RADIUS_M,
+          p_limit: SEARCH_LIMIT,
+          p_sport: pSportRef.current ?? undefined,
+          p_query: searchQueryText(rawQuery),
+        });
+        if (error) throw error;
+        if (thisReq !== searchReqId.current) return; // stale response dropped
+        const rows = (data as unknown as NearbyCourtRow[] | null) ?? [];
+        setSearch({
+          phase: "ready",
+          query: normalized,
+          results: rows.map(mapNearbyCourtRow),
+        });
+      } catch (err) {
+        if (thisReq !== searchReqId.current) return; // stale response dropped
+        console.error("Error searching courts:", err);
+        setSearch({ phase: "error", query: normalized, results: [] });
+      }
+    },
+    [supabase]
   );
 
   // Causa dell'empty state lobby: "radius" = niente nel raggio, "sport" =
@@ -312,6 +380,44 @@ export default function HomePage() {
     }
   }, [supabase]);
 
+  // Debounce della query (#68): 300 ms dopo l'ultimo tasto. La decisione
+  // "serve una fetch?" è nel seam puro; qui restano timer e stato.
+  useEffect(() => {
+    const normalized = normalizeSearchQuery(query);
+    if (!normalized) {
+      if (searchStateRef.current.phase !== "idle") {
+        searchReqId.current += 1; // scarta l'eventuale risposta in volo
+        lastSearchedQuery.current = "";
+        setSearch({ phase: "idle", query: "", results: [] });
+      }
+      return;
+    }
+    // Cambiato solo il testo non significativo (spazi): stato già allineato.
+    if (
+      searchStateRef.current.query === normalized &&
+      searchStateRef.current.phase !== "idle"
+    ) {
+      return;
+    }
+    setSearch({ phase: "waiting", query: normalized, results: [] });
+    const timer = window.setTimeout(() => {
+      // Se non c'è né una richiesta in volo né un risultato pronto per questa
+      // query (es. si torna a una query precedente), la fetch va forzata.
+      const aligned =
+        searchStateRef.current.query === normalized &&
+        searchStateRef.current.phase === "ready";
+      void runSearch(query, !aligned);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [query, runSearch]);
+
+  const retrySearch = useCallback(() => {
+    const q = queryRef.current;
+    if (!isSearchActive(q)) return;
+    lastSearchedQuery.current = "";
+    void runSearch(q, true);
+  }, [runSearch]);
+
   // Riprova (d24, stato 04/05): rifà la fetch corrente; se fallisce,
   // i catch sopra ricaricano la cache e mostrano lo stale badge.
   const retry = useCallback(() => {
@@ -319,7 +425,11 @@ export default function HomePage() {
     coveredBBox.current = null;
     fetchCourtsForBBox(b);
     fetchLobbies();
-  }, [fetchCourtsForBBox, fetchLobbies]);
+    if (isSearchActive(queryRef.current)) {
+      lastSearchedQuery.current = "";
+      void runSearch(queryRef.current, true);
+    }
+  }, [fetchCourtsForBBox, fetchLobbies, runSearch]);
 
   const handleBoundsChange = useCallback(
     (bounds: BBox, zoom: number) => {
@@ -378,6 +488,11 @@ export default function HomePage() {
     const b = lastBounds.current ?? { n: 41.95, s: 41.83, e: 12.62, w: 12.4 };
     fetchCourtsForBBox(b);
     fetchLobbies();
+    // La ricerca attiva deve riflettere il nuovo p_sport.
+    if (isSearchActive(queryRef.current)) {
+      lastSearchedQuery.current = "";
+      void runSearch(queryRef.current, true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sport]);
 
@@ -405,11 +520,14 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filteredCourts = useMemo(() => {
-    const q = normalize(query);
-    if (!q) return courts;
-    return courts.filter((c) => normalize(c.name).includes(q));
-  }, [courts, query]);
+  const activeQuery = normalizeSearchQuery(query);
+  const searchAligned = activeQuery !== "" && search.query === activeQuery;
+  const searchPhase: SearchPhase =
+    activeQuery === "" ? "idle" : searchAligned ? search.phase : "waiting";
+  const searchResults = searchAligned ? search.results : [];
+  // Con la ricerca attiva i marker sono i risultati server, anche fuori
+  // viewport; senza query restano i campi del browse.
+  const mapCourts = activeQuery === "" ? courts : searchResults;
 
   if (loading) {
     return (
@@ -423,7 +541,7 @@ export default function HomePage() {
     );
   }
 
-  const noCourtsForSport = courts.length === 0 && query.trim() === "";
+  const noCourtsForSport = courts.length === 0 && activeQuery === "";
 
   // Età dei dati in cache per il banner ("dati di N min fa", stato 02).
   const courtsAgeLabel = stale
@@ -443,7 +561,7 @@ export default function HomePage() {
       <div className="flex-1 relative min-h-[50dvh]">
         <CourtMap
           ariaLabel={`Mappa dei campi da ${sportLabel(sport)}`}
-          courts={filteredCourts}
+          courts={mapCourts}
           reportedCourtIds={reportedCourtIds}
           onCourtSelect={(id) => {
             window.location.href = `/courts/${id}`;
@@ -512,9 +630,21 @@ export default function HomePage() {
         <CourtSearch
           value={query}
           onChange={setQuery}
-          resultCount={filteredCourts.length}
+          searching={searchPhase === "waiting" || searchPhase === "loading"}
+          error={searchPhase === "error"}
+          resultCount={searchResults.length}
           totalCount={courts.length}
         />
+
+        {activeQuery !== "" && (
+          <CourtSearchResults
+            query={query.trim()}
+            phase={searchPhase}
+            results={searchResults}
+            onRetry={retrySearch}
+            onClear={() => setQuery("")}
+          />
+        )}
 
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {lobbies.length} lobby attive disponibili

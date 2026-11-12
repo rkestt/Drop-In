@@ -268,8 +268,11 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
   }, [userLocation, retryKey]);
 
   useEffect(() => {
-    if (!map.current || courts.length === 0) return;
+    if (!map.current) return;
+    // Lista vuota = niente marker: con la ricerca attiva i risultati possono
+    // essere zero e i marker del browse non devono restare sulla mappa.
     removeCourtMarkers();
+    if (courts.length === 0) return;
 
     const reportedSet = new Set(reportedCourtIds || []);
 
