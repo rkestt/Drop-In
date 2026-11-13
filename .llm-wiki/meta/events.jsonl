@@ -12,3 +12,4 @@
 {"timestamp":"2026-11-12T14:04:08.807Z","kind":"retro","slug":"vercel-alias-custom-non-segue-la-release","title":"Vercel: l'alias custom non segue la release"}
 {"timestamp":"2026-11-12T16:36:51.297Z","kind":"retro","slug":"sport-null-visibile-con-qualsiasi-filtro","title":"Decisione: `sport IS NULL` = \"non specificato\", visibile con qualunque filtro sport"}
 {"timestamp":"2026-11-12T16:36:51.299Z","kind":"retro","slug":"karma-loss-notification-persa-in-una-riscrittura-di-trigger","title":"Una riscrittura di trigger ha cancellato un INSERT: le notifiche karma non esistevano più"}
+{"timestamp":"2026-11-13T14:52:09.027Z","kind":"retro","slug":"e2e-hydration-server-utc-browser-roma","title":"E2E di idratazione: server in UTC e browser a Roma"}
