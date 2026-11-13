@@ -103,7 +103,7 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 - **Phase 0 (foundations):** #4 lazy map, #1/#2 theme, #20 tests, #21 error boundary.
 - **Phase 1 (data growth):** ✅ chiusa 2026-11-12 — #6 community submission, #7 global extraction (script), #8 dedup/moderation, #9 radius query, #10 search/filter (#68), foto (#66), filtro sport (#65), staging allineato a `022` (#53), GC orfani (#52 esteso al bucket avatar). #58 (retract/edit pending) e #71 (semantica `sport IS NULL`) chiusi il 2026-11-12 con migrazioni `026` e `023`. Resta #63 (audit dati OSM).
 - **Phase 2 (engagement):** ✅ codice completo — #12 favorites (`024`), #17 avatar (`025`), #16 history (+`027`), #13 install/update PWA, #14 offline queue, #15 push delivery (`029`). Resta il deploy della push (VAPID + secrets + cron, `docs/push.md`) e la verifica su staging.
-- **Phase 3 (polish):** #3 dark map, #18 i18n, #19 a11y, #22 observability, #23 admin, #24 ratings, #25 sharing, #11 photos.
+- **Phase 3 (polish/platform):** piano in `docs/plans/phase3.md` — 3A mappa (#40–#44), 3B moderazione/community (#33, #47, #45, #63), 3C platform/ops (#32/#9, #37, #64, legal/privacy, security, CI/CD).
 
 ## Verification (definition of done for each ticket)
 
