@@ -207,6 +207,16 @@ free (~7 giorni di inattività).
 - La Dashboard Supabase mostra il progetto come sospeso con un pulsante
   "Resume project": il resume è solo manuale, dalla Dashboard.
 
+### 403 "Vercel Security Checkpoint" sull'alias leggibile
+
+Visto il 2026-11-13: `https://drop-in-stage.vercel.app` risponde `403` con
+`x-vercel-mitigated: challenge` e la pagina "Vercel Security Checkpoint",
+mentre l'alias per-branch `drop-in-git-stage-…vercel.app` serve l'app (200) e
+punta allo stesso deployment. È una challenge anti-bot di Vercel, non un
+problema dell'app né della build: da CLI/headless non si supera. Per
+verificare una release usare l'alias per-branch; per togliere la challenge si
+agisce dalla Dashboard Vercel (Firewall / Deployment Protection), non dal CLI.
+
 ## Decisioni
 
 - Progetto Supabase free separato invece di database branching (branching solo Pro e fatturato a ore).
