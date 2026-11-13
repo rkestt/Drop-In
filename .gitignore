@@ -64,3 +64,6 @@ __pycache__/
 .types.tmp
 
 certificates
+
+# QA screenshots (local artefacts)
+qa/screenshots/
