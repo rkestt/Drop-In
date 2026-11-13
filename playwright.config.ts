@@ -70,5 +70,14 @@ export default defineConfig({
     url: `http://localhost:${E2E_PORT}`,
     reuseExistingServer: true,
     timeout: 120_000,
+    // Il server gira in UTC come su Vercel/CI: gli orari mostrati sono
+    // sempre quelli di Roma (lib/datetime.ts, APP_TIME_ZONE). Cosi' un
+    // `toLocale*` senza timeZone (#78) fa fallire l'e2e invece di passare
+    // perche' la macchina di turno e' gia' a Roma.
+    // MA: reuseExistingServer=true riusa un dev server già avviato a mano
+    // CON LA SUA TZ — se quello gira a Europe/Rome la garanzia UTC salta.
+    // Prima degli e2e sensibili al fuso (hydration.spec.ts) killare gli
+    // altri dev server: `lsof -ti:3100 | xargs kill` (o E2E_PORT).
+    env: { TZ: "UTC" },
   },
 });

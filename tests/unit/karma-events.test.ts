@@ -26,6 +26,8 @@ describe("profileChangeEvents", () => {
     expect(events).toHaveLength(1);
     expect(events[0].kind).toBe("ban_applied");
     expect(events[0].id).toBe("ban-2026-11-16T10:00:00.000Z");
+    // Ora pinnata a Roma (10:00Z di novembre = 11:00), non al fuso del runner.
+    expect(events[0].title).toContain("11:00");
   });
 
   it("recupero karma → evento success", () => {

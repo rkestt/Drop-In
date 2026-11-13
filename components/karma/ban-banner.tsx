@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { formatAppDateTime } from "@/lib/datetime";
 import { AlertTriangle } from "lucide-react";
 
 interface BanBannerProps {
@@ -63,7 +64,7 @@ export function BanBanner({ userId }: BanBannerProps) {
           <p className="font-semibold text-[var(--danger-dark)]">Account bannato</p>
           <p className="text-sm text-[var(--text-secondary)]">
             Non puoi creare o partecipare a lobby fino al{" "}
-            {new Date(bannedUntil).toLocaleString("it-IT")}
+            {formatAppDateTime(bannedUntil)}
           </p>
         </div>
       </div>

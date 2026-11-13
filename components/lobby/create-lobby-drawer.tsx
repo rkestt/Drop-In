@@ -10,6 +10,7 @@ import {
   type CreateLobbyValues,
 } from "@/lib/validation/schemas";
 import { createClient } from "@/lib/supabase/client";
+import { formatAppDateTime } from "@/lib/datetime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Drawer } from "@/components/ui/drawer";
@@ -103,7 +104,7 @@ export function CreateLobbyDrawer({
 
       if (profile?.banned_until && new Date(profile.banned_until) > new Date()) {
         throw new Error(
-          `Sei bannato fino al ${new Date(profile.banned_until).toLocaleString("it-IT")}. Non puoi creare lobby.`
+          `Sei bannato fino al ${formatAppDateTime(profile.banned_until)}. Non puoi creare lobby.`
         );
       }
 

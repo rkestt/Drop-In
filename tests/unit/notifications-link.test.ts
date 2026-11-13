@@ -145,4 +145,12 @@ describe("formatRelativeTime", () => {
     expect(formatRelativeTime(null, NOW)).toBe("");
     expect(formatRelativeTime("non-una-data", NOW)).toBe("");
   });
+  it("oltre i 30 giorni → data breve pinnata a Roma", () => {
+    // 23:30Z del 20 gen = 21 gen a Roma; senza timeZone il runner UTC
+    // renderebbe "20 gen".
+    const late = new Date("2026-03-02T12:00:00Z").getTime();
+    expect(formatRelativeTime("2026-01-20T23:30:00.000Z", late)).toBe(
+      "21 gen"
+    );
+  });
 });

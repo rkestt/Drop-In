@@ -47,3 +47,7 @@
 - **retro**: {"slug":"vercel-alias-custom-non-segue-la-release","title":"Vercel: l'alias custom non segue la release"}
 - **retro**: {"slug":"sport-null-visibile-con-qualsiasi-filtro","title":"Decisione: `sport IS NULL` = \"non specificato\", visibile con qualunque filtro sport"}
 - **retro**: {"slug":"karma-loss-notification-persa-in-una-riscrittura-di-trigger","title":"Una riscrittura di trigger ha cancellato un INSERT: le notifiche karma non esistevano più"}
+
+## 2026-11-13
+
+- **retro**: {"slug":"e2e-hydration-server-utc-browser-roma","title":"E2E di idratazione: server in UTC e browser a Roma"}

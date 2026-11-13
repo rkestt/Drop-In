@@ -91,6 +91,26 @@ describe("fromInsertError", () => {
     const info = fromInsertError("Hai già un check-in attivo su questo campo");
     expect(info.kind).toBe("already-inside");
   });
+
+  it("P0001 campi approvati → campo non approvato, senza retry a vuoto", () => {
+    const info = fromInsertError(
+      "Operazione consentita solo su campi approvati."
+    );
+    expect(info.kind).toBe("court-not-approved");
+    expect(info.title).toBe("Campo non approvato");
+    expect(info.body).toMatch(/quando viene approvato/i);
+    expect(info.retryLabel).toBe("Chiudi");
+    expect(info.hint).toBeUndefined();
+  });
+
+  it("varianti di revisione → stesso stato dedicato", () => {
+    for (const msg of [
+      "Campo in revisione: attendi l'approvazione.",
+      "court is pending moderation",
+    ]) {
+      expect(fromInsertError(msg).kind).toBe("court-not-approved");
+    }
+  });
 });
 
 describe("parseDistanceMeters", () => {

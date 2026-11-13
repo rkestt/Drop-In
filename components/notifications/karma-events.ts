@@ -1,3 +1,5 @@
+import { formatAppDateTime } from "@/lib/datetime";
+
 export interface ProfileKarmaState {
   karma_score?: number;
   banned_until?: string | null;
@@ -51,7 +53,7 @@ export function profileChangeEvents(
     events.push({
       id: `ban-${newBan}`,
       kind: "ban_applied",
-      title: `Sei stato bannato fino al ${new Date(newBan).toLocaleString("it-IT")}`,
+      title: `Sei stato bannato fino al ${formatAppDateTime(newBan)}`,
       description: "Fino a quella data non potrai unirti alle lobby.",
     });
   }

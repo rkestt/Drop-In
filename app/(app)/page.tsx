@@ -68,6 +68,7 @@ import { StaleBadge } from "@/components/offline/stale-badge";
 import { useSport } from "@/lib/sport/sport-context";
 import { sportEmptyPhrase, sportLabel } from "@/lib/sport/sports";
 import { safeNext } from "@/lib/auth/routes";
+import { formatAppTime } from "@/lib/datetime";
 import {
   NEARBY_RADIUS_M,
   ROME_CENTER,
@@ -77,6 +78,7 @@ import {
   SEARCH_DEBOUNCE_MS,
   SEARCH_LIMIT,
   SEARCH_RADIUS_M,
+  hasFiniteCourtCoords,
   isSearchActive,
   mapNearbyCourtRow,
   normalizeSearchQuery,
@@ -216,7 +218,9 @@ export default function HomePage() {
         if (error) throw error;
         if (thisReq !== courtsReqId.current) return; // stale response dropped
         coveredBBox.current = bbox;
-        const list = (data as unknown as Court[] | null) ?? [];
+        // Coordinate non finite (riga RPC corrotta): fuori dalla lista e
+        // dalla cache, mai un marker con NaN.
+        const list = ((data as unknown as Court[] | null) ?? []).filter(hasFiniteCourtCoords);
         const now = Date.now();
         writeCache(COURTS_CACHE_KEY, list, undefined, now);
         setCourtsSavedAt(now);
@@ -233,7 +237,9 @@ export default function HomePage() {
         // Offline o fetch fallita: shell leggibile dai dati in cache.
         const cached = readCache<Court[]>(COURTS_CACHE_KEY);
         if (cached) {
-          setCourts(cached);
+          // La cache puo' contenere righe scritte prima della validazione:
+          // rifiltra in lettura, costo O(n).
+          setCourts(cached.filter(hasFiniteCourtCoords));
           const age = cacheAge(COURTS_CACHE_KEY);
           setCourtsSavedAt(age == null ? null : Date.now() - age);
           setCourtsStale(true);
@@ -286,7 +292,7 @@ export default function HomePage() {
         setSearch({
           phase: "ready",
           query: normalized,
-          results: rows.map(mapNearbyCourtRow),
+          results: rows.map(mapNearbyCourtRow).filter(hasFiniteCourtCoords),
         });
       } catch (err) {
         if (thisReq !== searchReqId.current) return; // stale response dropped
@@ -714,12 +720,7 @@ export default function HomePage() {
                             {lobby.participants_count}/{lobby.max_players}
                           </span>
                           <span aria-hidden="true">•</span>
-                          <span>
-                            {new Date(lobby.start_time).toLocaleTimeString("it-IT", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
+                          <span>{formatAppTime(lobby.start_time)}</span>
                         </div>
                       </div>
                     </div>

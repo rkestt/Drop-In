@@ -2,6 +2,7 @@
 
 ## Concepts
 
+- [E2E di idratazione: server in UTC e browser a Roma](e2e-hydration-server-utc-browser-roma.md)
 - [Una riscrittura di trigger ha cancellato un INSERT: le notifiche karma non esistevano più](karma-loss-notification-persa-in-una-riscrittura-di-trigger.md)
 - [Observation: Fix GRANT mancanti su courts — smoke test rivela 42501](obs-2026-08-23-fix-grant-mancanti-su-courts-smoke-test-rivela-42501.md)
 - [Observation: Tooling setup: ponytail+impeccable installate, wiki project-local creata](obs-2026-08-23-tooling-setup-ponytail-impeccable-installate-wiki-project-lo.md)

@@ -213,14 +213,20 @@ describe("historySummary", () => {
 });
 
 describe("formatHistoryDate", () => {
-  const now = new Date("2026-11-12T15:00:00");
+  // Offset espliciti: con le chiavi giorno di Roma ("23:30Z = domani")
+  // gli ISO ingenui dipenderebbero dal fuso del runner.
+  const now = new Date("2026-11-12T15:00:00+01:00");
 
   it("oggi → Oggi", () => {
-    expect(formatHistoryDate("2026-11-12T09:00:00", now)).toBe("Oggi");
+    expect(formatHistoryDate("2026-11-12T09:00:00+01:00", now)).toBe("Oggi");
   });
 
   it("ieri → Ieri", () => {
-    expect(formatHistoryDate("2026-11-11T23:59:00", now)).toBe("Ieri");
+    expect(formatHistoryDate("2026-11-11T23:59:00+01:00", now)).toBe("Ieri");
+  });
+
+  it("23:30Z è già oggi a Roma (chiave app, non UTC)", () => {
+    expect(formatHistoryDate("2026-11-11T23:30:00.000Z", now)).toBe("Oggi");
   });
 
   it("data lontana → corta it-IT", () => {

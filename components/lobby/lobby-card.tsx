@@ -6,17 +6,9 @@ import { CourtPhotoThumb } from "@/components/court/court-photo-thumb";
 import { NextHighlight } from "@/components/motion/next-highlight";
 import { Users, Clock } from "lucide-react";
 import { formatDistanceM } from "@/lib/lobbies/nearby";
+import { formatAppDateTime } from "@/lib/datetime";
 import { sportDisplayLabel } from "@/lib/courts/search";
 import type { LobbySummary } from "./types";
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleString("it-IT", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 /**
  * Card lobby presentazionale (prototipo d12, lista): tutta la card è un link
@@ -49,7 +41,7 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
   const ariaLabel = [
     `Lobby al ${lobby.court_name}`,
     sportDisplayLabel(lobby.court_sport),
-    `ore ${formatTime(lobby.start_time)}`,
+    `ore ${formatAppDateTime(lobby.start_time)}`,
     `${lobby.participants_count} su ${lobby.max_players}`,
     lobby.distance_m != null ? `a ${formatDistanceM(lobby.distance_m)}` : undefined,
     stateLabel,
@@ -75,7 +67,7 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
           <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[var(--text-secondary)]">
             <span className="inline-flex items-center gap-1 whitespace-nowrap">
               <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-              {formatTime(lobby.start_time)}
+              {formatAppDateTime(lobby.start_time)}
             </span>
             <span className="inline-flex items-center gap-1 whitespace-nowrap">
               <Users className="h-3.5 w-3.5" aria-hidden="true" />

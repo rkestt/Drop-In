@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
 import { loginRedirectUrl } from "@/lib/auth/routes";
+import { APP_TIME_ZONE, formatAppDateFull } from "@/lib/datetime";
 import { isBanActive } from "@/lib/profile/utils";
 import { ProfileHeader } from "@/components/profile/profile-header";
 import { KarmaPanel } from "@/components/profile/karma-panel";
@@ -154,11 +155,7 @@ export default async function ProfilePage() {
             <p className="m-0 mt-0.5 leading-snug text-[var(--text-primary)]">
               Karma sotto 50: puoi partecipare di nuovo dal{" "}
               <strong>
-                {new Date(bannedUntil as string).toLocaleDateString("it-IT", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
+                {formatAppDateFull(bannedUntil as string, APP_TIME_ZONE)}
               </strong>
               .
             </p>

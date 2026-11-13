@@ -63,6 +63,13 @@ describe("formatReportExpiry", () => {
     expect(out).toMatch(/^\d{1,2} \p{L}{3,4}, \d{2}:\d{2}$/u);
     expect(out).toContain("nov");
   });
+
+  it("ora pinnata a Roma, non al fuso del runner", () => {
+    // 10:00Z di novembre = 11:00 a Roma; in UTC renderebbe "10:00".
+    expect(formatReportExpiry("2026-11-16T10:00:00.000Z")).toBe(
+      "16 nov, 11:00"
+    );
+  });
 });
 
 describe("findOwnActiveReport", () => {

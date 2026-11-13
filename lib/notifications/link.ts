@@ -3,6 +3,8 @@
 // qui si mappa solo `data.kind`/`data.type` (sorgenti: trigger 002) a un
 // sottoinsieme chiuso di tipi icona; il "meteo campo" resta (d14/d22).
 
+import { APP_TIME_ZONE } from "@/lib/datetime";
+
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -110,5 +112,6 @@ export function formatRelativeTime(
   return new Date(then).toLocaleDateString("it-IT", {
     day: "numeric",
     month: "short",
+    timeZone: APP_TIME_ZONE,
   });
 }

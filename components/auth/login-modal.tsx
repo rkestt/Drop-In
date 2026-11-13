@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { resolveLoginDestination } from "@/lib/auth/routes";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ export function LoginModal({ open, onClose, next }: LoginModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -113,15 +115,43 @@ export function LoginModal({ open, onClose, next }: LoginModalProps) {
             required
             aria-label="Indirizzo email"
           />
-          <Input
-            id="login-password"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            aria-label="Password"
-          />
+          <div className="relative">
+            <Input
+              id="login-password"
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              aria-label="Password"
+              // 56px a destra: il testo non finisce sotto il toggle
+              // (44px + 4px di inset + 8px di respiro).
+              className="pr-14"
+            />
+            {/* type="button": il toggle non invia mai il form. Il nome
+                accessibile è uno sr-only e non un aria-label: getByLabel di
+                Playwright fa substring sull'aria-label di qualsiasi elemento,
+                quindi "Mostra password" renderebbe ambiguo il locator
+                getByLabel("Password") usato dagli e2e (helpers/auth.ts). */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-pressed={showPassword}
+              aria-controls="login-password"
+              onClick={() => setShowPassword((visible) => !visible)}
+              className="absolute right-1 top-1/2 h-11 w-11 -translate-y-1/2 rounded-control-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:ring-[var(--focus-ring)]"
+            >
+              {showPassword ? (
+                <EyeOff className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <Eye className="h-5 w-5" aria-hidden="true" />
+              )}
+              <span className="sr-only">
+                {showPassword ? "Nascondi password" : "Mostra password"}
+              </span>
+            </Button>
+          </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Caricamento..." : isSignUp ? "Registrati" : "Accedi"}
           </Button>

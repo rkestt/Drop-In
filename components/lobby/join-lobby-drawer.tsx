@@ -2,6 +2,7 @@
 
 import { Drawer } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
+import { formatAppDate, formatAppTime } from "@/lib/datetime";
 
 export interface JoinLobbyInfo {
   courtName: string;
@@ -36,15 +37,8 @@ export function JoinLobbyDrawer({
   const lowKarma = (info.userKarma ?? 90) < 50;
   const blocked = banned || lowKarma;
 
-  const day = new Date(info.startTime).toLocaleDateString("it-IT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-  const time = new Date(info.startTime).toLocaleTimeString("it-IT", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const day = formatAppDate(info.startTime);
+  const time = formatAppTime(info.startTime);
 
   return (
     <Drawer open={open} onClose={onClose} title="Unisciti alla lobby">
@@ -79,13 +73,8 @@ export function JoinLobbyDrawer({
           >
             {banned ? (
               <p className="text-[var(--text-primary)]">
-                Sei sospeso fino a{" "}
-                {new Date(info.bannedUntil as string).toLocaleDateString("it-IT", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                })}
-                : due check-in non rispettati.
+                Sei sospeso fino a {formatAppDate(info.bannedUntil as string)}:
+                due check-in non rispettati.
               </p>
             ) : (
               <p className="text-[var(--text-primary)]">

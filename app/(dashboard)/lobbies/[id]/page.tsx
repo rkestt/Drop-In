@@ -88,7 +88,7 @@ export default async function LobbyDetailPage({
     const [courtRes, partsRes, profileRes] = await Promise.all([
       supabase
         .from("courts")
-        .select("id, name, address, sport")
+        .select("id, name, address, sport, moderation_status")
         .eq("id", lobby.court_id)
         .single(),
       supabase
@@ -140,6 +140,11 @@ export default async function LobbyDetailPage({
         joinedInitial={memberIds.includes(user.id)}
         userKarma={profile?.karma_score ?? null}
         bannedUntil={profile?.banned_until ?? null}
+        // #76: campo non approvato (o illeggibile via RLS) → join chiuso.
+        courtApproved={
+          (court as { moderation_status?: string | null } | null)
+            ?.moderation_status === "approved"
+        }
       />
     </main>
   );

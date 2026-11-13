@@ -13,6 +13,7 @@ import {
   categoryLabel,
   formatReportExpiry,
 } from "@/lib/reports/active";
+import { formatAppDateTime, formatAppTime } from "@/lib/datetime";
 import { LoginPrompt } from "@/components/auth/login-prompt";
 import { BanBannerWrapper } from "@/components/karma/ban-banner-wrapper";
 import { MapPin, AlertTriangle, Clock, Users } from "lucide-react";
@@ -43,6 +44,7 @@ export default async function CourtPage({
     surface_type: string | null;
     hoop_count: number | null;
     photo_path: string | null;
+    moderation_status: string;
   } | null = null;
   let lobbies: {
     id: string;
@@ -102,6 +104,31 @@ export default async function CourtPage({
     notFound();
   }
 
+
+  // #76: campo non approvato → niente check-in/lobby/report, solo avviso
+  // (vale anche da sloggati: niente LoginPrompt sulle pending). Il copy è
+  // specifico per stato (pending/rejected/duplicate); ignoto → neutro.
+  const isPending = court.moderation_status !== "approved";
+  const pendingCopy =
+    court.moderation_status === "pending"
+      ? {
+          title: "In attesa di approvazione",
+          body: "Questo campo è stato inviato ed è in revisione: check-in e lobby si sbloccano quando viene approvato.",
+        }
+      : court.moderation_status === "rejected"
+        ? {
+            title: "Campo non approvato",
+            body: "Questo campo non è stato approvato: check-in e lobby restano chiusi.",
+          }
+        : court.moderation_status === "duplicate"
+          ? {
+              title: "Campo duplicato",
+              body: "Questo campo duplica un campo già esistente: usa l'originale, qui check-in e lobby restano chiusi.",
+            }
+          : {
+              title: "Campo non disponibile",
+              body: "Questo campo non è al momento disponibile: check-in e lobby restano chiusi.",
+            };
 
   const {
     data: { user },
@@ -241,10 +268,31 @@ export default async function CourtPage({
         </div>
       )}
 
+      {/* #76: stato di revisione — role="status", non alert: informa, non allarma. */}
+      {isPending && (
+        <div
+          role="status"
+          className="rounded-card border border-[var(--warning)]/40 bg-[var(--warning)]/10 p-4"
+        >
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-[var(--warning)]" aria-hidden="true" />
+            <h2 className="font-semibold text-[var(--text-primary)]">
+              {pendingCopy.title}
+            </h2>
+          </div>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            {pendingCopy.body}
+          </p>
+        </div>
+      )}
+
       {/* Actions */}
       {/* Coach mark sul blocco azioni (non solo sul CheckInButton): la scheda
           campo si apre anche senza login e l'acceptance chiede il coach alla
           prima apertura; da loggato punta comunque al bottone Check-in. */}
+      {/* #76: sulle pending niente CTA operative (check-in, lobby, report):
+          resta solo l'avviso qui sopra, anche da sloggati. */}
+      {!isPending && (
       <CoachMark feature="check-in">
         <div className="flex flex-wrap gap-3">
           {user ? (
@@ -284,11 +332,25 @@ export default async function CourtPage({
           )}
         </div>
       </CoachMark>
+      )}
 
       {/* Ban/Karma Warning */}
       <BanBannerWrapper userId={user?.id ?? null} />
 
       {/* Active Lobbies */}
+      {/* #76: sulle pending niente lista e niente crea-lobby, solo spiegazione. */}
+      {isPending ? (
+        <div>
+          <h2 className="text-xl font-bold font-[family-name:var(--font-syne)] mb-3">
+            Lobby attive
+          </h2>
+          <div className="rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-4">
+            <p className="text-sm text-[var(--text-secondary)]">
+              Le lobby si sbloccano quando il campo viene approvato.
+            </p>
+          </div>
+        </div>
+      ) : (
       <div>
         <h2 className="text-xl font-bold font-[family-name:var(--font-syne)] mb-3">
           Lobby attive
@@ -299,7 +361,7 @@ export default async function CourtPage({
               <Link
                 key={lobby.id}
                 href={`/lobbies/${lobby.id}`}
-                aria-label={`Lobby delle ${new Date(lobby.start_time).toLocaleString("it-IT", { hour: "2-digit", minute: "2-digit" })}, ${(lobby.lobby_participants?.[0]?.count ?? 0)} su ${lobby.max_players}`}
+                aria-label={`Lobby delle ${formatAppTime(lobby.start_time)}, ${(lobby.lobby_participants?.[0]?.count ?? 0)} su ${lobby.max_players}`}
                 className="block rounded-xl bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
@@ -307,12 +369,7 @@ export default async function CourtPage({
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-[var(--text-muted)]" aria-hidden="true" />
                       <span className="font-medium text-[var(--text-primary)]">
-                        {new Date(lobby.start_time).toLocaleString("it-IT", {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatAppDateTime(lobby.start_time)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-1 text-sm text-[var(--text-secondary)]">
@@ -346,6 +403,7 @@ export default async function CourtPage({
           </div>
         )}
       </div>
+      )}
     </main>
   );
 }
