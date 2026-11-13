@@ -20,11 +20,12 @@ Progetto `drop-in`, org `andrea-fioris-projects-14d416c7`, piano Hobby, framewor
 - Env Preview `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` puntano al progetto staging (verificato via pull delle env Preview).
 - Custom environment "staging" solo Pro: lo stage usa lo scope Preview + alias fisso.
 - `ssoProtection` messo a null: i preview sono pubblici (di default la Vercel Authentication richiederebbe login Vercel).
+- **403 "Vercel Security Checkpoint" sull'alias leggibile** (2026-11-13): `https://drop-in-stage.vercel.app` può rispondere 403 con `x-vercel-mitigated: challenge`; l'alias per-branch `drop-in-git-stage-…` serve l'app normalmente. È una challenge anti-bot di Vercel, non deployment protection: si gestisce da Dashboard → Firewall/Deployment Protection o con `vercel firewall system-mitigations pause` (24h, impatta anche prod: usare con cautela).
 
 ## Supabase staging (provisionato e verificato)
 
-- **22 migrazioni 001→022 applicate** (018–021 pushate il 2026-11-12: schema dump prima del push in `/tmp/opencode/staging-schema-20261112.sql`; `022` verificata il 2026-11-12 con `supabase migration list`), PostGIS in `public`, pg_trgm/pgcrypto/uuid-ossp in `extensions`. Produzione è allineata allo stesso punto (001→022).
-- Le migrazioni `023`→`027` (sport NULL, favorites, avatars, pending edit, karma notification) sono **solo in locale**: non ancora pushate su staging né su prod. Push e verifica live sul preview sono il passo di deploy, non parte del lavoro di codice.
+- **29 migrazioni 001→029 applicate** su staging (verificato 2026-11-13): PostGIS in `public`, pg_trgm/pgcrypto/uuid-ossp in `extensions`. Produzione è ferma a `022`: il push `023`→`029` su prod è un passo di deploy separato.
+- Le migrazioni `023`→`029` (sport NULL, favorites, avatars, pending edit, karma notification, profilo self-service, push delivery) sono applicate su staging; il push su prod resta da fare.
 - Dati: 10.131 corti su staging, 6.364 con `sport` NULL (stessa proporzione del locale: è la ragione della semantica della `023`).
 - pg_cron, 5 job: auto-close-lobbies */15, auto-checkout */15, remove-expired-bans orario, archive-old-reports giornaliero 02:00, notify-lobby-starting-soon */5.
 - Bucket `court-photos` pubblico, limite 5 MiB (migrazione 010, policy irrigidite dalla 014).
