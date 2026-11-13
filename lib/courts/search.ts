@@ -145,6 +145,23 @@ export function mapNearbyCourtRow(row: NearbyCourtRow): Court {
   };
 }
 
+/**
+ * Coordinate mappabili: `setLngLat` con NaN/null/undefined esplode o
+ * piazza marker fantasma. Le righe RPC e la cache offline passano di qui
+ * prima di finire in `courts` (browse, ricerca, fallback cache).
+ */
+export function hasFiniteCourtCoords<C extends Pick<Court, "lat" | "lng">>(
+  court: C | null | undefined
+): court is C {
+  if (court == null) return false;
+  return (
+    typeof court.lat === "number" &&
+    typeof court.lng === "number" &&
+    Number.isFinite(court.lat) &&
+    Number.isFinite(court.lng)
+  );
+}
+
 const SPORT_LABELS: Record<string, string> = {
   basketball: "Basket",
   soccer: "Calcio",

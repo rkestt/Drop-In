@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { MAP_PROVIDER, MAP_STYLE_URL, MAP_ATTRIBUTION } from "@/lib/map/provider";
+import { MAP_PROVIDER, MAP_STYLE_URL } from "@/lib/map/provider";
+import { guardStyleLayersFilter } from "@/lib/map/style-guards";
 import {
   BOLLARD_CLASSES,
   BOLLARD_ICON_ID,
@@ -82,6 +83,23 @@ function addBarrierLayer(map: maplibregl.Map): void {
     ?.layers.find((layer) => layer.type === "symbol")?.id;
   if (beforeId) map.addLayer(spec, beforeId);
   else map.addLayer(spec);
+}
+
+// Attenua il warning MapLibre "Expected value to be of type number, but
+// found null instead" (#79): i filtri dello stile upstream Liberty
+// confrontano `rank`/`ref_length` senza guardia typeof e le feature senza la
+// proprieta' valutano a null. La guardia e' idempotente (secondo passaggio
+// no-op) e tocca solo i layer il cui filtro cambia davvero. Mai fatale: se
+// lo stile non c'e' o setFilter lancia, la mappa continua a funzionare.
+function applyStyleFilterGuards(map: maplibregl.Map): void {
+  try {
+    const layers = map.getStyle()?.layers;
+    for (const { id, filter } of guardStyleLayersFilter(layers)) {
+      map.setFilter(id, filter as never);
+    }
+  } catch {
+    // best effort: warning in console, niente schermo rotto
+  }
 }
 
 // Registra le icone inline gate/bollard e aggiunge il layer
@@ -165,7 +183,9 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
       style: style as any,
       center: ROME_CENTER,
       zoom: 14,
-      attributionControl: { compact: false, customAttribution: MAP_ATTRIBUTION as unknown as string },
+      // Attribuzione: la fornisce lo stile (Liberty) o la source raster OSM.
+      // Passarla anche come customAttribution la duplicava su due righe (#79).
+      attributionControl: { compact: false },
     });
 
     instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
@@ -194,10 +214,14 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
     };
     instance.on("load", () => {
       loadedRef.current = true;
+      applyStyleFilterGuards(instance);
       setupBarrierLayer(instance);
       fireBounds();
       requestAnimationFrame(() => instance.resize());
     });
+    // Sopravvive a setStyle (es. cambio tema): la guardia e' idempotente,
+    // i layer gia' guardati non vengono ritoccati.
+    instance.on("style.load", () => applyStyleFilterGuards(instance));
     instance.on("moveend", fireBounds);
     instance.on("zoomend", fireBounds);
 
@@ -260,6 +284,7 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
 
   useEffect(() => {
     if (!map.current || !userLocation) return;
+    if (!Number.isFinite(userLocation[0]) || !Number.isFinite(userLocation[1])) return;
     map.current.flyTo({ center: userLocation, zoom: 15, duration: 1000 });
     if (userMarker.current) userMarker.current.remove();
     userMarker.current = new maplibregl.Marker({ color: "#3b82f6" })
@@ -278,6 +303,9 @@ export function CourtMap({ courts = [], onCourtSelect, onBoundsChange, reportedC
 
     courts.forEach((court) => {
       if (!map.current) return;
+      // Coordinate non finite (riga RPC corrotta, cache vecchia): niente
+      // marker, mai setLngLat con NaN/null.
+      if (!Number.isFinite(court.lat) || !Number.isFinite(court.lng)) return;
       const isReported = reportedSet.has(court.id);
       const bgColor = isReported ? "var(--danger)" : "var(--accent)";
       const iconColor = isReported ? "#ffffff" : "white";

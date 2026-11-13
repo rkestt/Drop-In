@@ -6,6 +6,8 @@
  * della scadenza per la UI.
  */
 
+import { formatAppDateTime } from "@/lib/datetime";
+
 /** TTL di una segnalazione: 48 ore (stesso valore usato all'insert). */
 export const REPORT_TTL_MS = 48 * 60 * 60 * 1000;
 
@@ -63,15 +65,11 @@ export function findOwnActiveReport<
 
 /**
  * Scadenza in formato UI: "16 nov, 19:40" (stesso della copy approvata d15).
- * Input ISO o Date; output sempre ora locale `it-IT`.
+ * Input ISO o Date; output sempre a Roma via `formatAppDateTime` (#78: un
+ * `Intl` senza `timeZone` diverge tra server UTC e browser).
  */
 export function formatReportExpiry(expiresAt: string | Date): string {
-  return new Intl.DateTimeFormat("it-IT", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(expiresAt));
+  return formatAppDateTime(expiresAt);
 }
 
 /** `expires_at` per una nuova segnalazione: ora + 48h, in ISO. */

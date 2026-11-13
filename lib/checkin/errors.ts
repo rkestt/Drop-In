@@ -18,6 +18,7 @@ export type CheckInErrorKind =
   | "out-of-range"
   | "already-inside"
   | "cooldown"
+  | "court-not-approved"
   | "auth"
   | "server";
 
@@ -101,6 +102,16 @@ export function outOfRangeError(meters: number | null): CheckInErrorInfo {
  * (nessun calcolo duplicato client per la distanza).
  */
 export function fromInsertError(message: string): CheckInErrorInfo {
+  // P0001 dei guard di moderazione (012): "Operazione consentita solo su
+  // campi approvati." — niente retry, si sblocca con l'approvazione.
+  if (/campi approvati|approvat[oi]|in revisione|pending/i.test(message)) {
+    return {
+      kind: "court-not-approved",
+      title: "Campo non approvato",
+      body: "Questo campo è ancora in revisione. Il check-in si sblocca quando viene approvato.",
+      retryLabel: "Chiudi",
+    };
+  }
   if (/troppo lontano/i.test(message)) {
     return outOfRangeError(parseDistanceMeters(message).meters);
   }
@@ -157,13 +168,7 @@ export function isCheckinActive(
  * mostrati sono sempre quelli di Roma, non del fuso del dispositivo/runner.
  * Default esplicito = formattazione deterministica (niente sorprese in CI,
  * che gira in UTC, o per un utente in viaggio).
+ * Definizione unica in `lib/datetime.ts` (issue #78): qui solo re-export,
+ * le import esistenti (`APP_TIME_ZONE`, `formatExpiry`) non cambiano.
  */
-export const APP_TIME_ZONE = "Europe/Rome";
-
-export function formatExpiry(date: Date, timeZone: string = APP_TIME_ZONE): string {
-  return date.toLocaleTimeString("it-IT", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone,
-  });
-}
+export { APP_TIME_ZONE, formatExpiry } from "@/lib/datetime";

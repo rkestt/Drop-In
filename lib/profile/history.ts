@@ -7,6 +7,8 @@
  * trigger 002 (`decrement_karma_on_missed_check_in`, titolo "Karma perso").
  */
 
+import { APP_TIME_ZONE, appDateKey } from "@/lib/datetime";
+
 export interface CheckInHistoryRow {
   id: string;
   checked_in_at: string | null;
@@ -146,18 +148,12 @@ export function historySummary(entries: HistoryEntry[]): HistorySummary {
   return { total: entries.length, checkIns, karmaEvents };
 }
 
-function sameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
 /**
  * Data corta it-IT ("12 nov 2026"), "Oggi"/"Ieri" per i giorni vicini.
- * `now` iniettabile per test deterministici; input non data → "—"
- * (stessa convenzione di StatsRow per "non disponibile").
+ * Giorni calcolati nel fuso dell'app via `appDateKey` (#78: `getDate()`
+ * locale e `toLocaleDateString` senza `timeZone` davano il giorno di UTC
+ * su server/CI). `now` iniettabile per test deterministici; input non
+ * data → "—" (stessa convenzione di StatsRow per "non disponibile").
  */
 export function formatHistoryDate(
   iso: string | null | undefined,
@@ -167,20 +163,25 @@ export function formatHistoryDate(
   const date = new Date(iso);
   if (!Number.isFinite(date.getTime())) return "—";
   const ref = now instanceof Date ? now : new Date(now);
-  if (!Number.isFinite(ref.getTime())) {
-    return date.toLocaleDateString("it-IT", {
+  const renderDay = (d: Date): string =>
+    d.toLocaleDateString("it-IT", {
       day: "numeric",
       month: "short",
       year: "numeric",
+      timeZone: APP_TIME_ZONE,
     });
+  if (!Number.isFinite(ref.getTime())) {
+    return renderDay(date);
   }
-  if (sameDay(date, ref)) return "Oggi";
-  const yesterday = new Date(ref);
-  yesterday.setDate(ref.getDate() - 1);
-  if (sameDay(date, yesterday)) return "Ieri";
-  return date.toLocaleDateString("it-IT", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const key = appDateKey(date);
+  if (key === appDateKey(ref)) return "Oggi";
+  // Ieri = giorno civile precedente nel fuso dell'app (stessa aritmetica
+  // su chiave di `formatAppDay` in lib/datetime.ts: immune al DST).
+  const [y, m, d] = appDateKey(ref).split("-").map(Number);
+  const yesterdayKey = appDateKey(
+    Date.UTC(y, (m ?? 1) - 1, (d ?? 1)) - 24 * 60 * 60 * 1000,
+    "UTC"
+  );
+  if (key === yesterdayKey) return "Ieri";
+  return renderDay(date);
 }

@@ -193,3 +193,128 @@ test.describe("offline mutation queue", () => {
     });
   });
 });
+
+// Join su lobby chiusa (#77): "Lobby chiusa", mai "Riprova", mai raw DB.
+// Fixture propria (lobby + utente dedicati): non riusa la coda seriale qui
+// sopra. Vuole Supabase locale.
+test.describe("join su lobby chiusa", () => {
+  test.skip(
+    !process.env.E2E_WITH_DB,
+    "Richiede Supabase locale: E2E_WITH_DB=1 npx playwright test tests/e2e/offline-queue.spec.ts",
+  );
+  test.setTimeout(120_000);
+
+  const SUPABASE_URL =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
+  const SUPABASE_ANON_KEY =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
+
+  const AUTH_STATE = "/tmp/opencode/closed-lobby-auth.json";
+
+  let lobbyId = "";
+  let userEmail = "";
+
+  function serviceClient() {
+    return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+  }
+
+  test.beforeAll(async ({ browser }) => {
+    const user = await createConfirmedUser("-closed");
+    userEmail = user.email;
+
+    const admin = serviceClient();
+    const { data: usersData } = await admin.auth.admin.listUsers({
+      perPage: 200,
+    });
+    const creatorId = usersData?.users.find((u) => u.email === user.email)?.id;
+    if (!creatorId) throw new Error("utente appena creato non trovato");
+
+    const { data: court, error: courtError } = await createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY,
+    )
+      .from("courts")
+      .select("id")
+      .limit(1)
+      .single();
+    if (courtError || !court) throw courtError ?? new Error("seed courts assente");
+
+    const { data: lobby, error: lobbyError } = await admin
+      .from("lobbies")
+      .insert({
+        court_id: (court as { id: string }).id,
+        creator_id: creatorId,
+        start_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+        max_players: 10,
+        status: "open",
+      })
+      .select("id")
+      .single();
+    if (lobbyError || !lobby) throw lobbyError ?? new Error("lobby non creata");
+    lobbyId = (lobby as { id: string }).id;
+
+    const page = await browser.newPage({
+      storageState: { cookies: [], origins: [] },
+    });
+    try {
+      await loginViaUI(page, user);
+      await page.context().storageState({ path: AUTH_STATE });
+    } finally {
+      await page.close();
+    }
+  });
+
+  test.afterAll(async () => {
+    const admin = serviceClient();
+    if (lobbyId) {
+      await admin.from("lobby_participants").delete().eq("lobby_id", lobbyId);
+      await admin.from("lobbies").delete().eq("id", lobbyId);
+    }
+    if (userEmail) {
+      const { data } = await admin.auth.admin.listUsers({ perPage: 200 });
+      const prev = data?.users.find((u) => u.email === userEmail);
+      if (prev) await admin.auth.admin.deleteUser(prev.id);
+    }
+  });
+
+  test.describe("con sessione", () => {
+    test.use({ storageState: AUTH_STATE });
+
+    test("join su lobby chiusa → Lobby chiusa, senza Riprova", async ({
+      page,
+    }) => {
+      await page.goto(`/lobbies/${lobbyId}`);
+      await expect(
+        page.getByRole("button", { name: "Unisciti" }),
+      ).toBeVisible({ timeout: 15_000 });
+      // Drawer aperto su lobby ancora open…
+      await page.getByRole("button", { name: "Unisciti" }).click();
+      await expect(
+        page.getByRole("button", { name: "Entra" }),
+      ).toBeVisible({ timeout: 10_000 });
+      // …poi la lobby chiude mentre il drawer è aperto (stale props o
+      // realtime refresh: entrambi i percorsi devono dare "Lobby chiusa").
+      const { error: closeError } = await serviceClient()
+        .from("lobbies")
+        .update({ status: "closed" })
+        .eq("id", lobbyId);
+      if (closeError) throw closeError;
+      // Finestra al realtime (`router.refresh()`): con le props aggiornate
+      // scatta la guardia `status !== "open"`, altrimenti il trigger P0001.
+      await page.waitForTimeout(2_500);
+      await page.getByRole("button", { name: "Entra" }).click();
+
+      await expect(page.getByText(/Lobby chiusa/)).toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(
+        page.getByRole("button", { name: "Riprova", exact: true }),
+      ).toBeHidden();
+      // Niente ottimistico bloccato: niente "Sei dentro".
+      await expect(page.getByText("Sei dentro.")).toBeHidden();
+    });
+  });
+});

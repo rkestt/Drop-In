@@ -5,8 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { classifyOutboxError } from "@/lib/offline/outbox";
 import { enqueue } from "@/lib/offline/outbox-store";
+import {
+  formatAppCloseTime,
+  formatAppDate,
+  formatAppDay,
+  formatAppTime,
+} from "@/lib/datetime";
+import { mapJoinError, mapLeaveError } from "@/lib/lobbies/join-errors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { JoinLobbyDrawer } from "./join-lobby-drawer";
@@ -26,36 +32,6 @@ export interface LobbyCourtData {
   name: string;
   address: string | null;
   sport: string | null;
-}
-
-function formatDay(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  const sameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
-  const label = d.toLocaleDateString("it-IT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-  if (sameDay(d, today)) return `Oggi, ${label}`;
-  if (sameDay(d, yesterday)) return `Ieri, ${label}`;
-  return label;
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("it-IT", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function closeTime(iso: string): string {
-  return formatTime(new Date(new Date(iso).getTime() + 30 * 60_000).toISOString());
 }
 
 function initials(nickname: string | null): string {
@@ -79,6 +55,7 @@ export function LobbyDetail({
   joinedInitial,
   userKarma,
   bannedUntil,
+  courtApproved,
 }: {
   lobby: LobbyDetailData;
   court: LobbyCourtData;
@@ -87,6 +64,8 @@ export function LobbyDetail({
   joinedInitial: boolean;
   userKarma: number | null;
   bannedUntil: string | null;
+  /** #76: false = campo non approvato (o illeggibile): join chiuso. */
+  courtApproved: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -97,6 +76,15 @@ export function LobbyDetail({
   const [leaving, setLeaving] = useState(false);
   const [leaveArmed, setLeaveArmed] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [joinCanRetry, setJoinCanRetry] = useState(true);
+  // Mount-guard del ban (#78): `new Date(bannedUntil) > new Date()` dipende
+  // dall'istante di render, quindi server e client potrebbero divergere
+  // (mismatch di idratazione). Spento fino al mount: il primo render client
+  // coincide sempre con il server, come in `install-prompt.tsx`.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Il server resta la verità: allinea l'ottimistico quando le props
   // rientrano dal refresh (es. join da un altro browser). Durante il volo
@@ -109,7 +97,7 @@ export function LobbyDetail({
   const count = participants.length + (joined && !joinedInitial ? 1 : 0);
   const isFull = count >= lobby.max_players;
   const banned =
-    bannedUntil != null && new Date(bannedUntil) > new Date();
+    mounted && bannedUntil != null && new Date(bannedUntil) > new Date();
   const lowKarma = (userKarma ?? 90) < 50;
 
   // Realtime: join/leave dall'altro browser si riflettono entro secondi.
@@ -133,9 +121,29 @@ export function LobbyDetail({
   }, [supabase, router, lobby.id]);
 
   const confirmJoin = async () => {
-    if (isFull) {
+    // #76: campo non approvato: il drawer non si apre mai (niente CTA),
+    // ma se confirmJoin parte comunque (stale) non inserire nulla.
+    if (!courtApproved) {
       setJoinOpen(false);
-      setJoinError("Posti esauriti: questa lobby è al completo. Crea la tua lobby.");
+      setJoinError("Lobby non disponibile: il campo è in attesa di approvazione.");
+      setJoinCanRetry(false);
+      return;
+    }
+    // Lobby non più aperta (stale dopo refresh realtime, #77): niente
+    // insert, niente coda — il join non potrà mai passare.
+    if (lobby.status !== "open") {
+      const mapped = mapJoinError({ status: lobby.status });
+      setJoinOpen(false);
+      setJoined(false);
+      setJoinError(mapped.message);
+      setJoinCanRetry(mapped.canRetry);
+      return;
+    }
+    if (isFull) {
+      const mapped = mapJoinError({ message: "posti esauriti" });
+      setJoinOpen(false);
+      setJoinError(mapped.message);
+      setJoinCanRetry(mapped.canRetry);
       return;
     }
     // Offline: ottimistico + coda, il runner invia al reconnect.
@@ -159,31 +167,33 @@ export function LobbyDetail({
       });
       if (error) throw error;
       toast.success("Sei dentro", {
-        description: `Ci vediamo alle ${formatTime(lobby.start_time)} al ${court.name}.`,
+        description: `Ci vediamo alle ${formatAppTime(lobby.start_time)} al ${court.name}.`,
       });
       router.refresh();
     } catch (err) {
-      // Il codice PostgREST (23505, 42501, …) entra nella classifica così
-      // gli errori di autorizzazione non finiscono mai in coda.
+      // Mai raw Postgres/PostgREST in UI (#77): la mappa traduce il
+      // trigger "lobby chiusa", il pieno, il duplicato e la rete caduta.
       const msg = err instanceof Error ? err.message : "";
-      const raw =
+      const code =
         err instanceof Error
-          ? `${(err as { code?: unknown }).code ?? ""} ${err.message}`.trim()
-          : "";
-      const kind = raw === "" ? "permanent" : classifyOutboxError(raw);
-      if (kind === "duplicate") {
-        setJoined(false);
-        setJoinError("Sei già dentro questa lobby.");
-      } else if (kind === "transient") {
+          ? (err as { code?: unknown }).code
+          : null;
+      const mapped = mapJoinError({
+        status: lobby.status,
+        code: typeof code === "string" ? code : null,
+        message: msg,
+      });
+      if (mapped.kind === "transient") {
         // Rete caduta: resta l'ottimistico, il runner invia al reconnect.
         enqueue("lobby_join", { lobby_id: lobby.id, user_id: userId });
         toast("Richiesta in coda: ti uniamo appena torni online.");
-      } else if (msg) {
-        setJoined(false);
-        setJoinError(msg);
       } else {
+        // Chiusa/piena/duplicato/permanent: esce dall'ottimistico
+        // ("sei dentro" bloccato, mai) con testo italiano e retry solo
+        // quando riprovare ha senso.
         setJoined(false);
-        setJoinError("Non riusciamo a farti entrare. Riprova.");
+        setJoinError(mapped.message);
+        setJoinCanRetry(mapped.canRetry);
       }
     } finally {
       setJoining(false);
@@ -218,18 +228,25 @@ export function LobbyDetail({
       toast.success("Sei uscito dalla lobby");
       router.refresh();
     } catch (err) {
-      const raw =
+      // Mai raw DB in UI (#77): rete → coda, resto → messaggio italiano.
+      const msg = err instanceof Error ? err.message : "";
+      const code =
         err instanceof Error
-          ? `${(err as { code?: unknown }).code ?? ""} ${err.message}`.trim()
-          : "";
-      if (raw !== "" && classifyOutboxError(raw) === "transient") {
+          ? (err as { code?: unknown }).code
+          : null;
+      const mapped = mapLeaveError({
+        status: lobby.status,
+        code: typeof code === "string" ? code : null,
+        message: msg,
+      });
+      if (mapped.kind === "transient") {
         // Rete caduta: resta l'ottimistico, il runner invia al reconnect.
         enqueue("lobby_leave", { lobby_id: lobby.id, user_id: userId });
         setJoined(false);
         setLeaveArmed(false);
         toast("Uscita in coda.");
       } else {
-        setLeaveError("Non riusciamo a farti uscire. Riprova.");
+        setLeaveError(mapped.message);
       }
     } finally {
       setLeaving(false);
@@ -260,8 +277,16 @@ export function LobbyDetail({
   const namesLine =
     names.length === 0 ? "" : names.slice(0, 4).join(", ") + (joined ? " + tu" : "");
 
-  const showJoinCta = !joined && lobby.status === "open" && !isFull && !banned && !lowKarma;
-  const showCreateCta = !joined && lobby.status === "open" && isFull;
+  const showJoinCta =
+    courtApproved &&
+    !joined &&
+    lobby.status === "open" &&
+    !isFull &&
+    !banned &&
+    !lowKarma;
+  // #76: mai "Crea lobby" su campo non approvato (vale anche a pieno).
+  const showCreateCta =
+    courtApproved && !joined && lobby.status === "open" && isFull;
   const showLeaveCta = joined && lobby.status !== "closed";
 
   return (
@@ -271,7 +296,7 @@ export function LobbyDetail({
           className="rounded-card border border-[var(--success)]/30 bg-[var(--success)]/10 p-3 text-sm text-[var(--text-primary)]"
           role="status"
         >
-          Sei dentro. Ci vediamo alle {formatTime(lobby.start_time)} al {court.name}.
+          Sei dentro. Ci vediamo alle {formatAppTime(lobby.start_time)} al {court.name}.
         </div>
       )}
 
@@ -282,25 +307,39 @@ export function LobbyDetail({
         >
           <p className="font-semibold text-[var(--text-primary)]">{joinError}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              className="min-h-11"
-              onClick={() => {
-                setJoinError(null);
-                setJoinOpen(true);
-              }}
-            >
-              Riprova
-            </Button>
-            <CreateLobbyButton courtId={court.id} courtName={court.name} />
+            {joinCanRetry && courtApproved && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="min-h-11"
+                onClick={() => {
+                  setJoinError(null);
+                  setJoinOpen(true);
+                }}
+              >
+                Riprova
+              </Button>
+            )}
+            {courtApproved && (
+              <CreateLobbyButton courtId={court.id} courtName={court.name} />
+            )}
           </div>
+        </div>
+      )}
+
+      {/* #76: campo non approvato → join chiuso, uscita sempre possibile. */}
+      {!courtApproved && (
+        <div
+          className="rounded-card border border-[var(--warning)]/40 bg-[var(--warning)]/10 p-3 text-sm text-[var(--text-primary)]"
+          role="status"
+        >
+          Lobby non disponibile: il campo è in attesa di approvazione.
         </div>
       )}
 
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
-          {formatDay(lobby.start_time)}
+          {formatAppDay(lobby.start_time)}
         </p>
         <h1 className="mt-1 text-2xl font-bold font-[family-name:var(--font-syne)] text-[var(--text-primary)]">
           {court.name}
@@ -313,12 +352,12 @@ export function LobbyDetail({
       <div className="flex items-center justify-between gap-3 rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-4">
         <div>
           <p className="font-[family-name:var(--font-syne)] text-3xl font-bold tabular-nums text-[var(--text-primary)]">
-            {formatTime(lobby.start_time)}
+            {formatAppTime(lobby.start_time)}
           </p>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             {lobby.status === "closed"
-              ? `Chiusa alle ${closeTime(lobby.start_time)}`
-              : `Si chiude alle ${closeTime(lobby.start_time)}`}
+              ? `Chiusa alle ${formatAppCloseTime(lobby.start_time)}`
+              : `Si chiude alle ${formatAppCloseTime(lobby.start_time)}`}
           </p>
         </div>
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -361,7 +400,7 @@ export function LobbyDetail({
         </p>
       </div>
 
-      {lobby.status === "open" && isFull && !joined && (
+      {courtApproved && lobby.status === "open" && isFull && !joined && (
         <div
           className="rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-3 text-sm text-[var(--text-primary)]"
           role="status"
@@ -374,13 +413,13 @@ export function LobbyDetail({
         <div className="rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-3">
           <p className="text-sm font-semibold text-[var(--text-primary)]">
             {lobby.status === "in_progress"
-              ? `In corso dalle ${formatTime(lobby.start_time)}`
+              ? `In corso dalle ${formatAppTime(lobby.start_time)}`
               : "Chiusa."}
           </p>
           <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
             {lobby.status === "in_progress"
-              ? `Le iscrizioni sono chiuse. La lobby si chiude alle ${closeTime(lobby.start_time)}.`
-              : `La lobby si è chiusa alle ${closeTime(lobby.start_time)}. I check-in sono chiusi.`}
+              ? `Le iscrizioni sono chiuse. La lobby si chiude alle ${formatAppCloseTime(lobby.start_time)}.`
+              : `La lobby si è chiusa alle ${formatAppCloseTime(lobby.start_time)}. I check-in sono chiusi.`}
           </p>
         </div>
       )}
@@ -392,13 +431,8 @@ export function LobbyDetail({
         >
           {banned ? (
             <p className="text-[var(--text-primary)]">
-              Sei sospeso fino a{" "}
-              {new Date(bannedUntil as string).toLocaleDateString("it-IT", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-              })}
-              : non puoi unirti alle lobby.
+              Sei sospeso fino a {formatAppDate(bannedUntil as string)}: non
+              puoi unirti alle lobby.
             </p>
           ) : (
             <p className="text-[var(--text-primary)]">
@@ -428,8 +462,8 @@ export function LobbyDetail({
           </p>
           <p className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
             {lobby.status === "closed"
-              ? `Chiuse alle ${closeTime(lobby.start_time)}`
-              : `Chiudono alle ${closeTime(lobby.start_time)}`}
+              ? `Chiuse alle ${formatAppCloseTime(lobby.start_time)}`
+              : `Chiudono alle ${formatAppCloseTime(lobby.start_time)}`}
           </p>
         </div>
       </div>
@@ -499,20 +533,22 @@ export function LobbyDetail({
         )}
       </div>
 
-      <JoinLobbyDrawer
-        open={joinOpen}
-        onClose={() => setJoinOpen(false)}
-        info={{
-          courtName: court.name,
-          startTime: lobby.start_time,
-          freeSpots: lobby.max_players - count,
-          maxPlayers: lobby.max_players,
-          userKarma,
-          bannedUntil,
-        }}
-        joining={joining}
-        onConfirm={confirmJoin}
-      />
+      {courtApproved && (
+        <JoinLobbyDrawer
+          open={joinOpen}
+          onClose={() => setJoinOpen(false)}
+          info={{
+            courtName: court.name,
+            startTime: lobby.start_time,
+            freeSpots: lobby.max_players - count,
+            maxPlayers: lobby.max_players,
+            userKarma,
+            bannedUntil,
+          }}
+          joining={joining}
+          onConfirm={confirmJoin}
+        />
+      )}
     </div>
   );
 }

@@ -229,12 +229,7 @@ export function CheckInSheet({
       // Scadenza = ora check-in + 2h (auto-checkout pg_cron), it-IT.
       const expiry = expiryFromCheckin(new Date());
       setExpiresAt(formatExpiry(expiry));
-      setSince(
-        new Date().toLocaleTimeString("it-IT", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      );
+      setSince(formatExpiry(new Date()));
       setState("success");
       toast.success(
         `Check-in attivo fino alle ${formatExpiry(expiry)}.`
@@ -408,7 +403,10 @@ export function CheckInSheet({
                 onClick={
                   state === "error" && error?.kind === "auth"
                     ? () => setShowLogin(true)
-                    : handleCheckIn
+                    : state === "error" &&
+                        error?.kind === "court-not-approved"
+                      ? onClose
+                      : handleCheckIn
                 }
                 disabled={state === "loading"}
                 aria-busy={state === "loading"}
