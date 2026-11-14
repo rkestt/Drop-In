@@ -41,12 +41,12 @@ Regole:
 - Bottom nav link: 48px di altezza.
 - FAB: 56px.
 - Handle sheet: 44px.
-- Marker campo su mappa: 44x44px (`w-11 h-11` in `court-map.tsx`), come ogni altro controllo. Quando due campi condividono le stesse coordinate i marker si sovrappongono e axe `target-size` li segnala: è geometria dei dati seed, non del codice — vedi "Eccezioni" sotto.
+- Marker campo su mappa: il segno visibile è 14–22px, il **target** è 44×44px tramite il padding di 22px per lato nella query di click (vedi `POINT_HIT_PADDING` in `lib/map/court-features.ts`). I cluster hanno un cerchio da 34–58px.
 
 ## Navigazione tastiera
 
 - Skip link "Vai al contenuto" (`components/a11y/skip-link.tsx`), primo nell'ordine di Tab su tutte le pagine con nav (gruppi `(app)` e `(dashboard)`), punta al `main#contenuto` e ci sposta il focus (`tabIndex={-1}`).
-- Marker mappa: `role="button"`, `tabindex="0"`, nome `Campo: <nome>[, <indirizzo>]`, attivazione con Invio/Spazio, anello focus del progetto.
+- Mappa (#44): **un solo tab stop** per la superficie (il contenitore è `tabIndex=0`, il canvas è `aria-hidden` e fuori dal tab order). Frecce = pan, `+`/`-` = zoom, `Home` = posizione utente o Roma. La lista “Lista campi” è un dialog non modale (niente trap) con voci ordinate e tetto di 30: Invio apre l’anteprima e sposta la mappa; Escape chiude e riporta il focus al bottone. L’anteprima è un bottom sheet (`role="dialog"`, trap Base UI), si chiude con Escape/backdrop/“Chiudi” e restituisce il focus alla mappa.
 - Drawer (login, primo avvio, sheet): focus trap di Base UI; chiusura con Escape; a chiusura il focus torna al trigger.
 - Nessun `tabindex` positivo nel codice (`grep -rn 'tabindex="[1-9]'` pulito); `outline: none` solo con anello `focus-visible` sostitutivo.
 
@@ -96,8 +96,8 @@ skippati, quindi la CI resta verde senza Supabase):
 | Route | Contesto | Esito |
 |---|---|---|
 | `/styleguide`, `/~offline`, `/submit-court` | CI, senza DB | 0 violazioni |
-| `/`, `/?login=required` (drawer) | locale, con DB | 0 violazioni (marker esclusi, vedi sotto). `/` passa anche senza DB (verificato con REST/auth abortiti: 0 marker, 0 violazioni) |
-| `/profile`, `/settings`, `/notifications`, `/lobbies`, `/lobbies/<id>`, `/courts/<id>` | locale + utente confermato via Admin API (`E2E_WITH_DB=1`) | 0 violazioni (marker esclusi) |
+| `/`, `/?login=required` (drawer) | locale, con DB | 0 violazioni (marker canvas: vedi sotto). `/` passa anche senza DB (verificato con REST/auth abortiti: 0 marker, 0 violazioni) |
+| `/profile`, `/settings`, `/notifications`, `/lobbies`, `/lobbies/<id>`, `/courts/<id>` | locale + utente confermato via Admin API (`E2E_WITH_DB=1`) | 0 violazioni (marker canvas: vedi sotto) |
 | `/` con `reducedMotion: reduce` | locale | regione mappa e contenuto restano visibili/leggibili |
 | Skip link su `/` e `/settings` | tastiera | primo Tab → link visibile → Invio → focus su `#contenuto` |
 | Login da tastiera | tastiera | compila + Invio → errore annunciato (`role="alert"`) |
@@ -105,9 +105,9 @@ skippati, quindi la CI resta verde senza Supabase):
 Violate e corrette nello sweep:
 
 - `color-contrast` 4,09:1 — testo `--danger` su `bg-danger/10` (errore login, poi stessa combinazione in submit-court, create-lobby, edit-profile, account-settings, karma-indicator, ban-banner, header "Segnalazioni attive" su `/courts/<id>`): passato a `--danger-dark` (7,35:1). Nessun cambio d'identità: è la variante "su tinta" già usata dai badge. L'header segnalazioni (visibile solo con report attivi) è stato verificato con riga temporanea in `court_reports`, poi rimossa.
-- Marker mappa 40px → 44px (`w-10` → `w-11`), minimo di progetto su tutti i controlli. Il test prova anche l'attivazione reale: Invio sul marker naviga a `/courts/<id>`.
+- Marker mappa 40px → 44px (`w-10` → `w-11`), minimo di progetto su tutti i controlli. Il test provava anche l'attivazione reale: Invio sul marker navigava a `/courts/<id>`. Con #42/#43/#44 i marker sono layer canvas: il percorso di tastiera ora passa dalla lista dei campi e dall'anteprima (vedi sopra), con lo stesso minimo di 44px sul target di click.
 - Skip link mancante: aggiunto + `id="contenuto" tabIndex={-1}` sui `main` dei gruppi `(app)` e `(dashboard)`.
 
 ## Eccezioni
 
-- Marker `.court-marker` esclusi dall'axe su `/` e pagine con mappa (`.exclude(".court-marker")`): i seed condividono le coordinate, i marker si sovrappongono e `target-size` fallisce per geometria dei dati, non del codice. Copertura sostitutiva: ruolo/tabindex/nome/focus asseriti esplicitamente nel test. Rimozione prevista: clustering/spiderfy dei marker vicini (ticket dedicato, tocca il design della mappa).
+- **Marker canvas (#42)**: i campi non sono più nodi DOM, quindi axe non li vede e non può misurarne il target. Copertura sostitutiva: la lista “Lista campi” (bottoni, ordine, focus, Escape) e l'anteprima sono testate da tastiera; il target di 44px è garantito dal padding della query di click, verificato live.

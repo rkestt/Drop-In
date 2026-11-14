@@ -12,9 +12,12 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { SPORTS } from "@/lib/sport/sports";
 import {
+  isActionableSubmission,
+  latestRejectedNote,
   mapMySubmission,
   type MySubmissionItem,
   type MySubmissionRow,
+  type SubmissionNoteRow,
 } from "@/lib/court/my-submissions";
 import { deleteCourtPhoto } from "@/lib/storage/court-photos";
 import { Button } from "@/components/ui/button";
@@ -37,10 +40,12 @@ const SELECT_CLASS =
   "flex w-full bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-control px-4 py-3.5 text-base border border-transparent transition-colors focus:outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 min-h-[48px]";
 
 /**
- * Le proposte pending dell'utente (#58). Sezione montata su /submit-court:
- * ogni riga mostra nome, sport, data di invio e badge "In revisione", con
- * Modifica (drawer) e Ritira (conferma distruttiva nel drawer).
- * Senza proposte non rende nulla: niente blocco vuoto.
+ * Le proposte pending e rejected dell'utente (#58, esito + resubmit #47).
+ * Sezione montata su /submit-court: ogni riga mostra nome, sport, data di
+ * invio e badge di stato ("In revisione" / "Rifiutata"). Le pending hanno
+ * Modifica (drawer) e Ritira (conferma distruttiva nel drawer); le rejected
+ * mostrano il motivo del moderatore e l'azione "Riprova" (resubmit ->
+ * torna pending). Senza proposte non rende nulla: niente blocco vuoto.
  */
 export function MySubmissions() {
   const supabase = createClient();
@@ -51,6 +56,7 @@ export function MySubmissions() {
   const [confirmingRetract, setConfirmingRetract] = useState(false);
   const [saving, setSaving] = useState(false);
   const [retracting, setRetracting] = useState(false);
+  const [resubmittingId, setResubmittingId] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const savingRef = useRef(false);
   const retractingRef = useRef(false);
@@ -85,18 +91,40 @@ export function MySubmissions() {
         return;
       }
       setUserId(data.user.id);
-      const { data: rows, error } = await supabase
-        .from("courts")
-        .select("id,name,sport,surface_type,photo_path,created_at,moderation_status")
-        .eq("submitted_by", data.user.id)
-        .eq("moderation_status", "pending")
-        .order("created_at", { ascending: false });
+      // Pending + rejected (le rejected mostrano nota e "Riprova"): la nota
+      // vive in `court_submissions`, non in `courts` — la si unisce qui per
+      // court_id (la RLS lascia vedere al proponente solo le proprie righe).
+      const [{ data: rows, error }, { data: notes }] = await Promise.all([
+        supabase
+          .from("courts")
+          .select("id,name,sport,surface_type,photo_path,created_at,moderation_status")
+          .eq("submitted_by", data.user.id)
+          .in("moderation_status", ["pending", "rejected"])
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("court_submissions")
+          .select("court_id,moderation_note,status,created_at")
+          .eq("submitter_id", data.user.id),
+      ]);
       if (cancelled) return;
       if (error) {
         setItems([]);
         return;
       }
-      setItems((rows as MySubmissionRow[]).map(mapMySubmission));
+      setItems(
+        ((rows ?? []) as MySubmissionRow[])
+          .map((row) =>
+            mapMySubmission({
+              ...row,
+              moderation_note: latestRejectedNote(
+                (notes ?? []) as SubmissionNoteRow[],
+                row.id
+              ),
+            })
+          )
+          .filter((item): item is MySubmissionItem => item !== null)
+      );
     })();
     return () => {
       cancelled = true;
@@ -147,16 +175,40 @@ export function MySubmissions() {
     }
   };
 
-  /** Rilegge la riga dopo l'update: vale il DB, non la replica locale. */
+  /** Rilegge la riga dopo update/resubmit: vale il DB, non la replica locale.
+   * Rilegge anche la nota (dopo il resubmit la rejected sparisce dalla
+   * lista delle note); una riga uscita da pending/rejected esce dalla lista.
+   */
   const refreshItem = async (id: string) => {
-    const { data } = await supabase
-      .from("courts")
-      .select("id,name,sport,surface_type,photo_path,created_at,moderation_status")
-      .eq("id", id)
-      .single();
+    if (!userId) return;
+    const [{ data }, { data: notes }] = await Promise.all([
+      supabase
+        .from("courts")
+        .select("id,name,sport,surface_type,photo_path,created_at,moderation_status")
+        .eq("id", id)
+        .single(),
+      supabase
+        .from("court_submissions")
+        .select("court_id,moderation_note,status,created_at")
+        .eq("submitter_id", userId)
+        .eq("court_id", id)
+        .eq("status", "rejected")
+        .not("moderation_note", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1),
+    ]);
     if (data) {
-      const fresh = mapMySubmission(data as MySubmissionRow);
-      setItems((prev) => prev?.map((it) => (it.id === id ? fresh : it)) ?? prev);
+      const fresh = mapMySubmission({
+        ...(data as MySubmissionRow),
+        moderation_note:
+          (notes as SubmissionNoteRow[] | null)?.[0]?.moderation_note ?? null,
+      });
+      setItems(
+        (prev) =>
+          prev?.flatMap((it) =>
+            it.id === id ? (fresh ? [fresh] : []) : [it]
+          ) ?? prev
+      );
     }
   };
 
@@ -214,6 +266,26 @@ export function MySubmissions() {
     }
   };
 
+  /** Ripropone una rejected: torna pending, la storia resta. */
+  const onResubmit = async (item: MySubmissionItem) => {
+    if (resubmittingId != null) return;
+    setResubmittingId(item.id);
+    try {
+      const { error: rpcError } = await supabase.rpc("resubmit_submission", {
+        p_court_id: item.id,
+      });
+      if (rpcError) throw rpcError;
+      await refreshItem(item.id);
+      toast.success("Proposta riproposta: torna in revisione.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Non è stato possibile riproporre."
+      );
+    } finally {
+      setResubmittingId(null);
+    }
+  };
+
   if (!userId || !items || items.length === 0) return null;
 
   const sportOptions =
@@ -235,7 +307,8 @@ export function MySubmissions() {
         Le tue proposte
       </h2>
       <p className="text-sm text-[var(--text-secondary)] mb-4">
-        In attesa di revisione prima di apparire sulla mappa.
+        In revisione prima di apparire sulla mappa. Quelle rifiutate mostrano
+        il motivo e si possono riproporre.
       </p>
       <ul className="space-y-2">
         {items.map((item) => {
@@ -256,23 +329,48 @@ export function MySubmissions() {
                 <p className="min-w-0 flex-1 line-clamp-2 font-medium text-[var(--text-primary)]">
                   {item.name}
                 </p>
-                <Badge variant="accent" className="shrink-0">
-                  In revisione
+                <Badge
+                  variant={item.pending ? "accent" : "danger"}
+                  className="shrink-0"
+                >
+                  {item.statusLabel}
                 </Badge>
               </div>
+              {/* Motivo del rifiuto: testo visibile, non solo tooltip. */}
+              {item.status === "rejected" && item.moderationNote && (
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    Motivo:{" "}
+                  </span>
+                  {item.moderationNote}
+                </p>
+              )}
               <div className="mt-2 flex items-center justify-between gap-3">
                 <p className="min-w-0 flex-1 line-clamp-2 text-sm text-[var(--text-secondary)]">
                   {meta}
                 </p>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => setEditing(item)}
-                >
-                  Modifica
-                </Button>
+                {isActionableSubmission(item.status) ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => setEditing(item)}
+                  >
+                    Modifica
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="shrink-0"
+                    disabled={resubmittingId === item.id}
+                    onClick={() => onResubmit(item)}
+                  >
+                    {resubmittingId === item.id ? "Ripropongo…" : "Riprova"}
+                  </Button>
+                )}
               </div>
             </li>
           );

@@ -13,3 +13,6 @@
 {"timestamp":"2026-11-12T16:36:51.297Z","kind":"retro","slug":"sport-null-visibile-con-qualsiasi-filtro","title":"Decisione: `sport IS NULL` = \"non specificato\", visibile con qualunque filtro sport"}
 {"timestamp":"2026-11-12T16:36:51.299Z","kind":"retro","slug":"karma-loss-notification-persa-in-una-riscrittura-di-trigger","title":"Una riscrittura di trigger ha cancellato un INSERT: le notifiche karma non esistevano più"}
 {"timestamp":"2026-11-13T14:52:09.027Z","kind":"retro","slug":"e2e-hydration-server-utc-browser-roma","title":"E2E di idratazione: server in UTC e browser a Roma"}
+{"timestamp":"2026-11-13T17:48:38.459Z","kind":"retro","slug":"mappa-marker-geojson-clustering-preview","title":"Mappa: da 200 marker DOM a source GeoJSON con cluster, anteprima e un solo tab stop"}
+{"timestamp":"2026-11-13T17:48:38.465Z","kind":"retro","slug":"moderazione-esito-notifiche-resubmit","title":"Moderazione: esito al proponente, resubmit e storia di audit che non si riscrive"}
+{"timestamp":"2026-11-13T17:48:38.471Z","kind":"retro","slug":"submit-senza-gps-posizione-manuale","title":"Inviare un campo senza essere sul posto: posizione manuale, indirizzo e bozza migrabile"}

@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { courtPhotoPublicUrl } from "@/lib/storage/court-photo-url";
+import { formatAppDateTime } from "@/lib/datetime";
 import { notFound, redirect } from "next/navigation";
 import { loginRedirectUrl } from "@/lib/auth/routes";
 import { LobbyDetail } from "@/components/lobby/lobby-detail";
@@ -8,6 +11,62 @@ export const dynamic = "force-dynamic";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const LOBBY_META_FALLBACK: Metadata = {
+  title: "Lobby",
+  description:
+    "Unisciti alla lobby su Drop-In: trova il campo e gioca a basket in strada.",
+};
+
+/**
+ * OG + deep link della lobby (#35): mai throw, mai redirect/404 da qui —
+ * id invalido, lobby assente o fetch fallita → metadata generici.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  try {
+    const { id } = await params;
+    if (!UUID_RE.test(id)) return LOBBY_META_FALLBACK;
+    const supabase = await createClient();
+    const { data: lobby, error: lobbyError } = await supabase
+      .from("lobbies")
+      .select("id, court_id, start_time")
+      .eq("id", id)
+      .single();
+    if (lobbyError || !lobby) return LOBBY_META_FALLBACK;
+    const { data: court } = await supabase
+      .from("courts")
+      .select("name, photo_path")
+      .eq("id", lobby.court_id)
+      .single();
+    const courtName = court?.name ?? "Campo";
+    const description =
+      `Lobby a ${courtName}, ${formatAppDateTime(lobby.start_time)}: ` +
+      `unisciti su Drop-In.`;
+    const image = courtPhotoPublicUrl(court?.photo_path ?? null);
+    return {
+      title: `Lobby · ${courtName}`,
+      description,
+      openGraph: {
+        type: "website",
+        siteName: "Drop-In",
+        locale: "it_IT",
+        url: `/lobbies/${id}`,
+        ...(image ? { images: [image] } : {}),
+      },
+      twitter: {
+        card: image ? "summary_large_image" : "summary",
+        title: `Lobby · ${courtName}`,
+        description,
+      },
+    };
+  } catch {
+    return LOBBY_META_FALLBACK;
+  }
+}
 
 function RetryBox({ id }: { id: string }) {
   return (

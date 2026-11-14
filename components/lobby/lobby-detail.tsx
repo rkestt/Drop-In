@@ -9,6 +9,7 @@ import { enqueue } from "@/lib/offline/outbox-store";
 import {
   formatAppCloseTime,
   formatAppDate,
+  formatAppDateTime,
   formatAppDay,
   formatAppTime,
 } from "@/lib/datetime";
@@ -17,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { JoinLobbyDrawer } from "./join-lobby-drawer";
 import { CreateLobbyButton } from "./create-lobby-button";
+import { ShareButton } from "@/components/share/share-button";
 import type { LobbyParticipant } from "./types";
 
 export interface LobbyDetailData {
@@ -468,12 +470,21 @@ export function LobbyDetail({
         </div>
       </div>
 
-      <Link
-        href={`/courts/${court.id}`}
-        className="flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[var(--accent)]"
-      >
-        Apri il campo <span aria-hidden="true">›</span>
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href={`/courts/${court.id}`}
+          className="flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[var(--accent)]"
+        >
+          Apri il campo <span aria-hidden="true">›</span>
+        </Link>
+        {/* #35: condivisione deep link della lobby (solo icona). */}
+        <ShareButton
+          path={`/lobbies/${lobby.id}`}
+          subject="lobby"
+          name={court.name}
+          when={formatAppDateTime(lobby.start_time)}
+        />
+      </div>
 
       <div className="flex flex-col gap-2 border-t border-[var(--border)] pt-4">
         {showJoinCta && (

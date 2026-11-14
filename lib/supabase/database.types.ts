@@ -164,14 +164,14 @@ isOneToOne: false
                   ]
                 },"push_notifications": {
                   Row: {
-                    "body": string,"data": Json | null,"id": string,"read_at": string | null,"sent_at": string | null,"title": string,"user_id": string
+                    "body": string,"data": Json | null,"id": string,"push_attempts": number,"push_failed_at": string | null,"push_sent_at": string | null,"read_at": string | null,"sent_at": string | null,"title": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "body": string,"data"?: Json | null,"id"?: string,"read_at"?: string | null,"sent_at"?: string | null,"title": string,"user_id": string
+                    "body": string,"data"?: Json | null,"id"?: string,"push_attempts"?: number,"push_failed_at"?: string | null,"push_sent_at"?: string | null,"read_at"?: string | null,"sent_at"?: string | null,"title": string,"user_id": string
                   }
                   Update: {
-                    "body"?: string,"data"?: Json | null,"id"?: string,"read_at"?: string | null,"sent_at"?: string | null,"title"?: string,"user_id"?: string
+                    "body"?: string,"data"?: Json | null,"id"?: string,"push_attempts"?: number,"push_failed_at"?: string | null,"push_sent_at"?: string | null,"read_at"?: string | null,"sent_at"?: string | null,"title"?: string,"user_id"?: string
                   }
                   Relationships: [
                     
@@ -562,6 +562,9 @@ isOneToOne: false
                            },
 "remove_expired_bans":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"resubmit_submission":
+{ Args: { "p_court_id": string }; Returns: undefined
                            },
 "retract_submission":
 { Args: { "p_court_id": string }; Returns: undefined
@@ -1043,7 +1046,7 @@ isOneToOne: false
 { Args: { "geom": unknown,"move": number,"wrap": number }; Returns: unknown
                            },
 "submit_court":
-{ Args: { "p_gps_accuracy"?: number,"p_lat": number,"p_lng": number,"p_name": string,"p_photo_path"?: string,"p_sport"?: string,"p_surface"?: string }; Returns: string
+{ Args: { "p_address"?: string,"p_gps_accuracy"?: number,"p_lat": number,"p_lng": number,"p_name": string,"p_photo_path"?: string,"p_sport"?: string,"p_surface"?: string }; Returns: string
                            },
 "unlockrows":
 { Args: { "": string }; Returns: number

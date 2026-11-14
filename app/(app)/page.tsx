@@ -126,6 +126,9 @@ export default function HomePage() {
   }, [showLogin]);
   const [loginNext, setLoginNext] = useState<string | undefined>(undefined);
   const [reportedCourtIds, setReportedCourtIds] = useState<string[]>([]);
+  // Preferiti dell'utente (#41): solo gli id, al marker serve sapere se il
+  // campo e' salvato. Fetch separata da courts/lobbies, dipende da user.id.
+  const [favoriteCourtIds, setFavoriteCourtIds] = useState<string[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -181,6 +184,31 @@ export default function HomePage() {
       { timeout: 4000 }
     );
   }, []);
+
+  // Preferiti del campo (#41): il marker distingue "salvato" senza aprire
+  // nulla. Una fetch per utente, non per pan; errori = lista vuota (il marker
+  // torna default, nessun blocco).
+  useEffect(() => {
+    if (!user) {
+      setFavoriteCourtIds([]);
+      return;
+    }
+    let cancelled = false;
+    void supabase
+      .from("user_favorites")
+      .select("court_id")
+      .eq("user_id", user.id)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const ids = (data ?? [])
+          .map((row) => row.court_id)
+          .filter((id): id is string => typeof id === "string");
+        setFavoriteCourtIds([...new Set(ids)]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, user]);
 
   const coveredBBox = useRef<BBox | null>(null);
   const lastBounds = useRef<BBox | null>(null);
@@ -557,6 +585,15 @@ export default function HomePage() {
   // Con la ricerca attiva i marker sono i risultati server, anche fuori
   // viewport; senza query restano i campi del browse.
   const mapCourts = activeQuery === "" ? courts : searchResults;
+  // Lobby attive per campo: il marker la mostra come numero, l'anteprima come
+  // testo. Derivato dalla lista gia' in pagina, nessuna fetch in piu'.
+  const lobbyCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const lobby of lobbies) {
+      counts[lobby.court_id] = (counts[lobby.court_id] ?? 0) + 1;
+    }
+    return counts;
+  }, [lobbies]);
 
   if (loading) {
     return (
@@ -592,8 +629,21 @@ export default function HomePage() {
           ariaLabel={`Mappa dei campi da ${sportLabel(sport)}`}
           courts={mapCourts}
           reportedCourtIds={reportedCourtIds}
+          favoriteCourtIds={favoriteCourtIds}
+          lobbyCounts={lobbyCounts}
           onCourtSelect={(id) => {
-            window.location.href = `/courts/${id}`;
+            // Unica live region della home (sotto): selezione e conteggio
+            // viaggiano insieme, niente secondo annuncio duplicato.
+            if (id == null) {
+              setFieldsAnnouncement("Anteprima chiusa");
+              return;
+            }
+            const court = mapCourts.find((c) => c.id === id);
+            setFieldsAnnouncement(
+              `${court?.name ?? "Campo"} selezionato. ${mapCourts.length} ${
+                mapCourts.length === 1 ? "campo visibile" : "campi visibili"
+              }.`
+            );
           }}
           userLocation={userLocation}
           locationError={locationError}

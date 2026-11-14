@@ -1,5 +1,7 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { courtPhotoPublicUrl } from "@/lib/storage/court-photo-url";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { CheckInButton } from "@/components/check-in/check-in-button";
@@ -15,6 +17,7 @@ import {
 } from "@/lib/reports/active";
 import { formatAppDateTime, formatAppTime } from "@/lib/datetime";
 import { LoginPrompt } from "@/components/auth/login-prompt";
+import { ShareButton } from "@/components/share/share-button";
 import { BanBannerWrapper } from "@/components/karma/ban-banner-wrapper";
 import { MapPin, AlertTriangle, Clock, Users } from "lucide-react";
 import { courtDetailKey } from "@/lib/offline/cache";
@@ -22,6 +25,59 @@ import { CacheWriter } from "@/components/offline/cache-writer";
 import { CourtOfflineShell } from "@/components/offline/court-offline-shell";
 
 export const dynamic = "force-dynamic";
+
+const COURT_META_FALLBACK: Metadata = {
+  title: "Campo",
+  description:
+    "Trova campetti, unisciti a partite, gioca a basket in strada.",
+};
+
+/**
+ * OG + deep link del campo (#35): mai throw, mai 404 da qui — campo
+ * assente o fetch fallita → metadata generici.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("courts")
+      .select("id, name, address, surface_type, sport, photo_path")
+      .eq("id", id)
+      .single();
+    if (error || !data) return COURT_META_FALLBACK;
+    const bits = [data.address, data.surface_type, data.sport].filter(
+      (v): v is string => !!v,
+    );
+    const description =
+      bits.length > 0
+        ? bits.join(" · ")
+        : "Campo da basket su Drop-In: foto, lobby e check-in.";
+    const image = courtPhotoPublicUrl(data.photo_path);
+    return {
+      title: data.name,
+      description,
+      openGraph: {
+        type: "website",
+        siteName: "Drop-In",
+        locale: "it_IT",
+        url: `/courts/${id}`,
+        ...(image ? { images: [image] } : {}),
+      },
+      twitter: {
+        card: image ? "summary_large_image" : "summary",
+        title: data.name,
+        description,
+      },
+    };
+  } catch {
+    return COURT_META_FALLBACK;
+  }
+}
 
 export default async function CourtPage({
   params,
@@ -171,9 +227,7 @@ export default async function CourtPage({
     }
   }
 
-  const photoUrl = court.photo_path
-    ? supabase.storage.from("court-photos").getPublicUrl(court.photo_path).data.publicUrl
-    : null;
+  const photoUrl = courtPhotoPublicUrl(court.photo_path);
 
   const activeReportRows: ReportRow[] = activeReports(
     (reports ?? []).map((r) => ({
@@ -333,6 +387,17 @@ export default async function CourtPage({
         </div>
       </CoachMark>
       )}
+
+      {/* #35: condivisione deep link — sempre visibile, anche da sloggati
+          e sulle pending (il link apre la scheda con il suo avviso). */}
+      <div className="flex flex-wrap gap-3">
+        <ShareButton
+          path={`/courts/${id}`}
+          subject="court"
+          name={court.name}
+          showLabel
+        />
+      </div>
 
       {/* Ban/Karma Warning */}
       <BanBannerWrapper userId={user?.id ?? null} />

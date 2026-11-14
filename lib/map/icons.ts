@@ -27,6 +27,16 @@ function warnOnce(key: string, message: string): void {
   console.warn(message);
 }
 
+// Colore letto dai token CSS a runtime, con fallback a un nome di colore CSS
+// (mai esadecimali, per restare verdi con lint:design). MapLibre non risolve
+// le custom property: i layer ricevono valori concreti.
+export function cssTokenColor(token: string, fallback: string): string {
+  if (typeof document === "undefined") return fallback;
+  const style = getComputedStyle(document.documentElement);
+  const value = style.getPropertyValue(token).trim();
+  return value === "" ? fallback : value;
+}
+
 // Colore delle icone letto dai token CSS a runtime, con fallback a nomi
 // di colore CSS (mai esadecimali, per restare verdi con lint:design).
 export function barrierIconColor(): string {

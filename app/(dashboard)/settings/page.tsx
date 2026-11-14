@@ -4,6 +4,7 @@ import { loginRedirectUrl } from "@/lib/auth/routes";
 import { NotificationsSection } from "@/components/settings/notifications-section";
 import { LocationSection } from "@/components/settings/location-section";
 import { AccountSection } from "@/components/settings/account-section";
+import { ModerationSection } from "@/components/settings/moderation-section";
 import { InfoSection } from "@/components/settings/info-section";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("nickname")
+    .select("nickname, is_moderator")
     .eq("user_id", user.id)
     .single();
 
@@ -46,6 +47,7 @@ export default async function SettingsPage() {
         userId={user.id}
         nickname={profile?.nickname ?? null}
       />
+      {profile?.is_moderator === true && <ModerationSection />}
       <InfoSection />
     </main>
   );

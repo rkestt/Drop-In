@@ -6,6 +6,7 @@ import { MapPin, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SkipLink } from "@/components/a11y/skip-link";
 import { OutboxRunner } from "@/components/offline/outbox-runner";
+import { BootLog } from "@/components/platform/boot-log";
 
 export default function AppLayout({
   children,
@@ -25,6 +26,7 @@ export default function AppLayout({
   return (
     <div className="flex flex-col min-h-full">
       <SkipLink />
+      <BootLog />
       {children}
       <OutboxRunner />
       <nav className="sticky bottom-0 bg-[var(--bg-elevated)] border-t border-[var(--cool-muted)]/20 pb-safe" aria-label="Navigazione principale">

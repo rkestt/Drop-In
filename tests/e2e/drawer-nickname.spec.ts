@@ -81,7 +81,6 @@ test.describe("drawer nickname — focus", () => {
       // Sanità axe sul drawer aperto.
       const results = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-        .exclude(".court-marker")
         .analyze();
       expect(results.violations).toEqual([]);
 

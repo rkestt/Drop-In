@@ -204,6 +204,29 @@ const VENUE_LABELS: Record<string, string> = {
   open_space: "Spazio aperto",
 };
 
+const SURFACE_LABELS: Record<string, string> = {
+  asphalt: "Asfalto",
+  concrete: "Cemento",
+  wood: "Legno",
+  grass: "Erba",
+  rubber: "Gomma",
+  tartan: "Tartan",
+  paving_stones: "Pavimentazione",
+  ground: "Terra",
+  clay: "Terra battuta",
+};
+
+/**
+ * Fondo campo leggibile. I valori noti del form/dataset hanno un'etichetta
+ * italiana; gli altri restano come sono (mai inventare un vocabolo).
+ */
+export function surfaceTypeLabel(
+  surfaceType: string | null | undefined
+): string | null {
+  if (!surfaceType) return null;
+  return SURFACE_LABELS[surfaceType] ?? surfaceType;
+}
+
 /**
  * Tipo di luogo leggibile. I valori `field_*` del seed sono tutti "Campo";
  * gli altri vocabolari non mappati restano fuori (niente gergo tecnico).

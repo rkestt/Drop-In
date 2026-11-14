@@ -1,40 +1,21 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { supabaseUrl } from "@/lib/supabase/url";
 import { resizeImageToJpeg } from "./resize";
 
 export { computeTargetSize } from "./resize";
+// Parte pura e server-safe (generateMetadata): vive in un modulo senza
+// direttiva, qui solo ri-esportata per non rompere gli import esistenti.
+export {
+  COURT_PHOTOS_BUCKET,
+  courtPhotoPublicUrl,
+} from "./court-photo-url";
 
 const MAX_DIMENSION = 1600;
 const BUCKET_NAME = "court-photos";
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 type SupabaseClient = ReturnType<typeof createClient>;
-
-/**
- * URL pubblico di una foto campo da `courts.photo_path`, nello stesso formato
- * di `storage.from(BUCKET_NAME).getPublicUrl(path)` ma senza istanziare un
- * client per ogni card di lista. In dev `supabaseUrl()` risolve il proxy
- * `/supabase`; path assente o base non configurata → null (il chiamante
- * mostra il placeholder, mai un `src` vuoto).
- */
-export function courtPhotoPublicUrl(
-  path: string | null | undefined
-): string | null {
-  if (!path) return null;
-  const base = supabaseUrl().replace(/\/$/, "");
-  if (!base) return null;
-  // Encode per segmento: spazi, `#`, `?` e simili nel nome file non devono
-  // rompere l'URL (né troncarlo al `#`). Il formato resta quello di
-  // `getPublicUrl`: base + `/storage/v1/object/public/<bucket>/<path>`.
-  const encoded = path
-    .replace(/^\/+/, "")
-    .split("/")
-    .map(encodeURIComponent)
-    .join("/");
-  return `${base}/storage/v1/object/public/${BUCKET_NAME}/${encoded}`;
-}
 
 function extensionFromMime(type: string): string {
   if (type === "image/png") return "png";
