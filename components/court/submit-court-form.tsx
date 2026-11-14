@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -10,11 +11,32 @@ import {
 } from "@/lib/validation/schemas";
 import { createClient } from "@/lib/supabase/client";
 import { useSport } from "@/lib/sport/sport-context";
-import { SPORTS, type Sport } from "@/lib/sport/sports";
+import { SPORTS } from "@/lib/sport/sports";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { uploadCourtPhoto, deleteCourtPhoto } from "@/lib/storage/court-photos";
 import { dedupCandidateKey, canNavigateToCandidate } from "@/lib/court/dedup-candidate";
+import {
+  ADDRESS_MAX,
+  LATITUDE_MAX,
+  LATITUDE_MIN,
+  LONGITUDE_MAX,
+  LONGITUDE_MIN,
+  clampAddressInput,
+  formatCoordinateValue,
+  formatCoordinates,
+  parseCoordinate,
+  sanitizeAddress,
+  type CourtPosition,
+  type PositionSource,
+} from "@/lib/court/position";
+import {
+  SUBMIT_COURT_DRAFT_KEY,
+  decodeSubmitCourtDraft,
+  encodeSubmitCourtDraft,
+  type SubmitCourtDraft,
+} from "@/lib/court/submit-draft";
+import { ROME_CENTER } from "@/lib/lobbies/nearby";
 import {
   MapPin,
   Camera,
@@ -25,6 +47,14 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
+
+// Il picker trascina MapLibre: chunk separato, caricato solo quando l'utente
+// sceglie la modalità manuale. L'alternativa accessibile (coordinate) è già
+// nel form, la mappa non è necessaria per inviare.
+const LocationPicker = dynamic(
+  () => import("@/components/court/location-picker").then((m) => ({ default: m.LocationPicker })),
+  { ssr: false, loading: () => <LocationPickerLoading /> }
+);
 
 interface DedupCandidate {
   // NULL per i campi in revisione (riga mascherata dalla RPC dedup, 018).
@@ -51,21 +81,16 @@ const SURFACE_OPTIONS = [
   { value: "tartan", label: "Tartan" },
 ];
 
+const POSITION_MODES: { value: PositionSource; label: string }[] = [
+  { value: "gps", label: "GPS" },
+  { value: "manual", label: "Sulla mappa" },
+];
+
 const LOCATION_ACCURACY_THRESHOLD = 100; // meters
 const MAX_PHOTO_BYTES = 25 * 1024 * 1024; // rifiuto esplicito pre-elaborazione
-
-// Bozza del form in sessionStorage: aprire la fotocamera su Android può far
-// ricaricare la pagina (pressione di memoria). La foto NON viene salvata:
-// dopo un reload l'utente riseleziona solo quella.
-const DRAFT_STORAGE_KEY = "submit-court-draft-v1";
-
-interface SubmitCourtDraft {
-  name: string;
-  selectedSport: Sport;
-  surface: string;
-  location: { lat: number; lng: number; accuracy: number } | null;
-  dedupConfirmed: boolean;
-}
+// Dedup: con il pin trascinato o le coordinate digitate la posizione cambia
+// a raffica. Il controllo parte quando l'utente si ferma, non a ogni tasto.
+const DEDUP_DEBOUNCE_MS = 400;
 
 export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
   const router = useRouter();
@@ -75,7 +100,8 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
   const [user, setUser] = useState<{ id: string } | null>(null);
 
   // Testo del form in react-hook-form (schema zod = unica fonte).
-  // Restano useState solo per: file foto, loading, errori di rete/DB, successo.
+  // Restano useState solo per: file foto, posizione, loading, errori di
+  // rete/DB, successo.
   const {
     register,
     handleSubmit,
@@ -98,9 +124,21 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
   const draftSport = watch("sport");
   const draftSurface = watch("surface");
 
-  const [location, setLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(
-    null
-  );
+  // Una sola posizione, con la fonte esplicita: "gps" porta l'accuratezza,
+  // "manual" no (mai un numero inventato per far contento il tipo).
+  const [position, setPosition] = useState<CourtPosition | null>(null);
+  const [positionMode, setPositionMode] = useState<PositionSource>("gps");
+  // Testo grezzo degli input: serve a mostrare quello che l'utente scrive
+  // anche quando non è ancora una coordinata valida.
+  const [latInput, setLatInput] = useState("");
+  const [lngInput, setLngInput] = useState("");
+  const [coordsTouched, setCoordsTouched] = useState(false);
+  // true se le coordinate sono state digitate a mano: al submit si rilegge
+  // il testo, non ci si fida di un valore intermedio rimasto in `position`.
+  const [coordsEdited, setCoordsEdited] = useState(false);
+  const [address, setAddress] = useState("");
+  const [positionAnnouncement, setPositionAnnouncement] = useState("");
+
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 
@@ -123,10 +161,16 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
   const successHeadingRef = useRef<HTMLHeadingElement>(null);
   const errorAlertRef = useRef<HTMLDivElement>(null);
+  const gpsPanelRef = useRef<HTMLDivElement>(null);
+  const manualPanelRef = useRef<HTMLDivElement>(null);
+  const shouldFocusModePanel = useRef(false);
   const nameId = useId();
   const sportId = useId();
   const surfaceId = useId();
   const photoId = useId();
+  const latId = useId();
+  const lngId = useId();
+  const addressId = useId();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -145,52 +189,54 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
   // Ripristino bozza dopo un reload (es. fotocamera su Android). Dichiarato
   // DOPO la sincronizzazione con lo sport globale così al mount vince la
   // bozza; i cambi successivi di sport continuano a sincronizzarsi.
+  // `decodeSubmitCourtDraft` accetta anche la forma vecchia (`location` +
+  // accuracy): i draft scritti prima di #75 non vanno persi.
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
-      if (!raw) return;
-      const draft = JSON.parse(raw) as Partial<SubmitCourtDraft>;
-      if (typeof draft.name === "string") setValue("name", draft.name);
-      if (
-        typeof draft.selectedSport === "string" &&
-        SPORTS.some((s) => s.value === draft.selectedSport)
-      ) {
-        setValue("sport", draft.selectedSport as Sport);
-      }
-      if (typeof draft.surface === "string") setValue("surface", draft.surface);
-      const loc = draft.location;
-      if (
-        loc &&
-        typeof loc.lat === "number" &&
-        typeof loc.lng === "number" &&
-        typeof loc.accuracy === "number"
-      ) {
-        setLocation({ lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy });
+      const draft = decodeSubmitCourtDraft(
+        sessionStorage.getItem(SUBMIT_COURT_DRAFT_KEY)
+      );
+      if (!draft) return;
+      setValue("name", draft.name);
+      if (draft.selectedSport) setValue("sport", draft.selectedSport);
+      setValue("surface", draft.surface);
+      if (draft.address) setAddress(draft.address);
+      if (draft.position) {
+        setPosition(draft.position);
+        if (draft.position.source === "manual") {
+          setPositionMode("manual");
+          setLatInput(formatCoordinateValue(draft.position.lat));
+          setLngInput(formatCoordinateValue(draft.position.lng));
+        } else {
+          setPositionMode("gps");
+        }
       }
       // Nota: il ripristino della posizione riattiva il controllo duplicati,
       // che azzera dedupConfirmed. Una conferma pre-reload va quindi
       // riconfermata: comportamento voluto (meglio che inviare alla cieca).
-      if (typeof draft.dedupConfirmed === "boolean") setDedupConfirmed(draft.dedupConfirmed);
+      setDedupConfirmed(draft.dedupConfirmed);
     } catch {
-      // Bozza corrotta o storage non disponibile: si parte da form vuoto.
+      // Storage non disponibile: si parte da form vuoto.
     }
   }, [setValue]);
 
-  // Salvataggio bozza a ogni modifica (solo testo + posizione, mai la foto).
+  // Salvataggio bozza a ogni modifica (solo testo, posizione e indirizzo,
+  // mai la foto).
   useEffect(() => {
     try {
       const draft: SubmitCourtDraft = {
         name: draftName,
         selectedSport: draftSport,
         surface: draftSurface,
-        location,
+        position,
+        address,
         dedupConfirmed,
       };
-      sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      sessionStorage.setItem(SUBMIT_COURT_DRAFT_KEY, encodeSubmitCourtDraft(draft));
     } catch {
       // Storage pieno o non disponibile: il form resta comunque usabile.
     }
-  }, [draftName, draftSport, draftSurface, location, dedupConfirmed]);
+  }, [draftName, draftSport, draftSurface, position, address, dedupConfirmed]);
 
   useEffect(() => {
     return () => {
@@ -200,10 +246,14 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
     };
   }, [photoPreview]);
 
+  // Dedup sulla posizione scelta, GPS o manuale che sia. Il debounce evita
+  // una RPC per ogni tasto degli input coordinate; `dedupConfirmed` si
+  // riarma subito, non dopo la risposta.
   useEffect(() => {
-    if (!location) {
+    if (!position) {
       setDedupCandidates(null);
       setDedupConfirmed(false);
+      setDedupLoading(false);
       return;
     }
 
@@ -211,29 +261,32 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
     setDedupLoading(true);
     setDedupConfirmed(false);
 
-    (async () => {
-      try {
-        const { data, error: rpcError } = await supabase.rpc("dedup_candidates", {
-          p_lat: location.lat,
-          p_lng: location.lng,
-          p_radius_m: 100,
-        });
-        if (cancelled) return;
-        if (rpcError) {
-          // Non blocchiamo il flusso se la dedup fallisce.
-          setDedupCandidates([]);
-          return;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const { data, error: rpcError } = await supabase.rpc("dedup_candidates", {
+            p_lat: position.lat,
+            p_lng: position.lng,
+            p_radius_m: 100,
+          });
+          if (cancelled) return;
+          if (rpcError) {
+            // Non blocchiamo il flusso se la dedup fallisce.
+            setDedupCandidates([]);
+            return;
+          }
+          setDedupCandidates((data as DedupCandidate[] | null) ?? []);
+        } finally {
+          if (!cancelled) setDedupLoading(false);
         }
-        setDedupCandidates((data as DedupCandidate[] | null) ?? []);
-      } finally {
-        if (!cancelled) setDedupLoading(false);
-      }
-    })();
+      })();
+    }, DEDUP_DEBOUNCE_MS);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
-  }, [location, supabase]);
+  }, [position, supabase]);
 
   useEffect(() => {
     if (success && successHeadingRef.current) {
@@ -247,10 +300,82 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
     }
   }, [error]);
 
+  // Al cambio di modalità il focus va nella sezione appena aperta. Solo se
+  // il cambio viene dall'utente: un draft ripristinato non deve rubare il
+  // focus all'ingresso nella pagina.
+  useEffect(() => {
+    if (!shouldFocusModePanel.current) return;
+    shouldFocusModePanel.current = false;
+    const target = positionMode === "gps" ? gpsPanelRef.current : manualPanelRef.current;
+    target?.focus();
+  }, [positionMode]);
+
+  const changePositionMode = (mode: PositionSource) => {
+    if (mode === positionMode) return;
+    shouldFocusModePanel.current = true;
+    setPositionMode(mode);
+  };
+
+  // Passando alla modalità manuale con una posizione già scelta (es. GPS)
+  // gli input partono da lì: non si ricomincia da zero.
+  useEffect(() => {
+    if (positionMode !== "manual") return;
+    if (!position) return;
+    setLatInput((prev) => (prev === "" ? formatCoordinateValue(position.lat) : prev));
+    setLngInput((prev) => (prev === "" ? formatCoordinateValue(position.lng) : prev));
+  }, [positionMode, position]);
+
+  const applyManualCoords = (coords: { lat: number; lng: number }) => {
+    setLatInput(formatCoordinateValue(coords.lat));
+    setLngInput(formatCoordinateValue(coords.lng));
+    setPosition({ source: "manual", lat: coords.lat, lng: coords.lng });
+    setCoordsTouched(false);
+    setCoordsEdited(false);
+    setPositionAnnouncement(
+      `Posizione scelta: ${formatCoordinates(coords.lat, coords.lng)}`
+    );
+  };
+
+  const updateManualFromInputs = (nextLat: string, nextLng: string) => {
+    setCoordsEdited(true);
+    const lat = parseCoordinate(nextLat, "lat");
+    const lng = parseCoordinate(nextLng, "lng");
+    if (lat.valid && lng.valid && lat.value !== null && lng.value !== null) {
+      setPosition({ source: "manual", lat: lat.value, lng: lng.value });
+    } else {
+      // Input incompleto o sbagliato: nessuna posizione da inviare. Meglio
+      // niente che una coordinata vecchia rimasta lì per inerzia.
+      setPosition(null);
+    }
+  };
+
+  const manualCoordsFromInputs = (): { lat: number; lng: number } | null => {
+    const lat = parseCoordinate(latInput, "lat");
+    const lng = parseCoordinate(lngInput, "lng");
+    if (lat.valid && lng.valid && lat.value !== null && lng.value !== null) {
+      return { lat: lat.value, lng: lng.value };
+    }
+    return null;
+  };
+
+  const latParsed = parseCoordinate(latInput, "lat");
+  const lngParsed = parseCoordinate(lngInput, "lng");
+  const latError = coordsTouched
+    ? latParsed.error ?? (latInput.trim() === "" ? "Inserisci la latitudine." : null)
+    : null;
+  const lngError = coordsTouched
+    ? lngParsed.error ?? (lngInput.trim() === "" ? "Inserisci la longitudine." : null)
+    : null;
+
+  const pickerValue = useMemo(
+    () => (position ? { lat: position.lat, lng: position.lng } : null),
+    [position]
+  );
+  const pickerCenter = position ?? ROME_CENTER;
+
   const requestLocation = () => {
     setLocationLoading(true);
     setLocationError(null);
-    setLocation(null);
 
     if (!navigator.geolocation) {
       setLocationError("Geolocalizzazione non supportata dal tuo dispositivo.");
@@ -260,11 +385,20 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLocation({
+        const next: CourtPosition = {
+          source: "gps",
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
-        });
+        };
+        setPosition(next);
+        setLatInput(formatCoordinateValue(next.lat));
+        setLngInput(formatCoordinateValue(next.lng));
+        setCoordsTouched(false);
+        setCoordsEdited(false);
+        setPositionAnnouncement(
+          `Posizione GPS acquisita. Precisione ${Math.round(next.accuracy)} metri.`
+        );
         setLocationLoading(false);
       },
       (geoErr) => {
@@ -351,8 +485,28 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       return;
     }
 
-    if (!location) {
-      setError("La posizione è obbligatoria. Usa il pulsante per ottenerla.");
+    // In modalità manuale il testo degli input è la fonte di verità: evita
+    // che un valore intermedio (es. "4" mentre si digita "41.89") parta per
+    // sbaglio. Con coordinate non toccate resta la posizione già scelta
+    // (es. GPS) con la sua fonte e la sua accuratezza.
+    let submitPosition: CourtPosition | null = position;
+    if (positionMode === "manual") {
+      const manual = manualCoordsFromInputs();
+      if (!manual) {
+        setCoordsTouched(true);
+        setError(
+          "La posizione è obbligatoria. Inserisci latitudine e longitudine o scegli un punto sulla mappa."
+        );
+        return;
+      }
+      if (coordsEdited || !submitPosition) {
+        submitPosition = { source: "manual", lat: manual.lat, lng: manual.lng };
+      }
+    }
+
+    if (!submitPosition) {
+      if (positionMode === "manual") setCoordsTouched(true);
+      setError("La posizione è obbligatoria. Usa il GPS o scegli un punto sulla mappa.");
       return;
     }
 
@@ -373,12 +527,17 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
 
       const { error: rpcError } = await supabase.rpc("submit_court", {
         p_name: values.name.trim(),
-        p_lat: location.lat,
-        p_lng: location.lng,
+        p_lat: submitPosition.lat,
+        p_lng: submitPosition.lng,
         p_sport: values.sport,
         p_surface: values.surface || undefined,
+        // Manuale = nessuna accuratezza: il parametro si omette, non si
+        // manda 0 né un numero inventato.
+        p_gps_accuracy:
+          submitPosition.source === "gps" ? submitPosition.accuracy : undefined,
+        // Indirizzo facoltativo: vuoto = parametro assente.
+        p_address: sanitizeAddress(address) || undefined,
         p_photo_path: uploadedPath ?? undefined,
-        p_gps_accuracy: location.accuracy,
       });
 
       if (rpcError) {
@@ -398,7 +557,7 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       setSubmittedName(values.name.trim() || "Campo senza nome");
       setSuccess(true);
       try {
-        sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+        sessionStorage.removeItem(SUBMIT_COURT_DRAFT_KEY);
       } catch {
         // Bozza già persa o storage non disponibile: nessun impatto.
       }
@@ -471,64 +630,240 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-[var(--text-primary)]">Posizione</h2>
 
-        {!location ? (
-          <Button
-            type="button"
-            onClick={requestLocation}
-            disabled={locationLoading}
-            className="w-full"
-            variant="secondary"
+        <fieldset className="space-y-2">
+          <legend className="text-sm text-[var(--text-secondary)]">
+            Come vuoi indicare la posizione?
+          </legend>
+          <div className="grid grid-cols-2 gap-2">
+            {POSITION_MODES.map((mode) => (
+              <label
+                key={mode.value}
+                className="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-control border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors duration-150 hover:bg-[var(--bg-elevated)] has-[:checked]:border-[var(--accent)] has-[:checked]:bg-[var(--accent-subtle)] has-[:checked]:text-[var(--text-primary)] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--focus-ring)] has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-[var(--bg-base)]"
+              >
+                <input
+                  type="radio"
+                  name="position-mode"
+                  value={mode.value}
+                  checked={positionMode === mode.value}
+                  onChange={() => changePositionMode(mode.value)}
+                  className="sr-only"
+                />
+                {mode.value === "gps" ? (
+                  <Navigation className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
+                ) : (
+                  <MapPin className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
+                )}
+                {mode.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {positionMode === "gps" ? (
+          <div
+            ref={gpsPanelRef}
+            tabIndex={-1}
+            role="group"
+            aria-label="Posizione GPS"
+            className="space-y-2 focus:outline-none"
           >
-            {locationLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 me-2 animate-spin" aria-hidden="true" />
-                Ricerca posizione...
-              </>
-            ) : (
-              <>
-                <MapPin className="w-4 h-4 me-2" aria-hidden="true" />
-                Usa la mia posizione
-              </>
-            )}
-          </Button>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-[var(--success)]">
-              <Navigation className="w-4 h-4" aria-hidden="true" />
-              Posizione acquisita
-            </div>
-            <p className="text-sm text-[var(--text-secondary)]">
-              Precisione GPS: {Math.round(location.accuracy)} m
-            </p>
-            {location.accuracy > LOCATION_ACCURACY_THRESHOLD && (
-              <div className="flex items-start gap-2 text-sm text-[var(--warning)]">
-                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-                <span>
-                  Precisione scarsa: la posizione potrebbe essere imprecisa. Puoi riprovare in un
-                  punto aperto.
-                </span>
-              </div>
-            )}
             <Button
               type="button"
               onClick={requestLocation}
               disabled={locationLoading}
-              variant="ghost"
-              size="sm"
               className="w-full"
+              variant="secondary"
             >
-              Riprova
+              {locationLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 me-2 animate-spin" aria-hidden="true" />
+                  Ricerca posizione...
+                </>
+              ) : position?.source === "gps" ? (
+                "Riprova"
+              ) : (
+                <>
+                  <MapPin className="w-4 h-4 me-2" aria-hidden="true" />
+                  Usa la mia posizione
+                </>
+              )}
             </Button>
+            <p className="text-xs text-[var(--text-muted)]">
+              Ti chiederemo il permesso di accedere al GPS del dispositivo.
+            </p>
+
+            {locationError && !error && (
+              <div
+                className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger-dark)] text-sm"
+                role="alert"
+                aria-live="assertive"
+              >
+                {locationError}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div
+            ref={manualPanelRef}
+            tabIndex={-1}
+            role="group"
+            aria-label="Posizione scelta sulla mappa"
+            className="space-y-3 focus:outline-none"
+          >
+            <LocationPicker
+              center={pickerCenter}
+              value={pickerValue}
+              onChange={applyManualCoords}
+            />
+            <p className="text-xs text-[var(--text-muted)]">
+              Trascina il pin sul campo o tocca la mappa per spostarlo. Puoi anche
+              inserire le coordinate qui sotto.
+            </p>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor={latId}
+                  className="text-sm font-semibold text-[var(--text-primary)] block mb-1.5"
+                >
+                  Latitudine
+                </label>
+                <Input
+                  id={latId}
+                  value={latInput}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setLatInput(next);
+                    updateManualFromInputs(next, lngInput);
+                  }}
+                  onBlur={() => setCoordsTouched(true)}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="41.89190"
+                  aria-invalid={latError ? "true" : undefined}
+                  aria-describedby={
+                    latError ? `${latId}-hint ${latId}-error` : `${latId}-hint`
+                  }
+                />
+                <p id={`${latId}-hint`} className="mt-1.5 text-xs text-[var(--text-muted)]">
+                  Da {LATITUDE_MIN} a {LATITUDE_MAX}. Es. 41.89190
+                </p>
+                {latError && (
+                  <p id={`${latId}-error`} role="alert" className="mt-1.5 text-sm text-[var(--danger)]">
+                    {latError}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor={lngId}
+                  className="text-sm font-semibold text-[var(--text-primary)] block mb-1.5"
+                >
+                  Longitudine
+                </label>
+                <Input
+                  id={lngId}
+                  value={lngInput}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setLngInput(next);
+                    updateManualFromInputs(latInput, next);
+                  }}
+                  onBlur={() => setCoordsTouched(true)}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="12.51130"
+                  aria-invalid={lngError ? "true" : undefined}
+                  aria-describedby={
+                    lngError ? `${lngId}-hint ${lngId}-error` : `${lngId}-hint`
+                  }
+                />
+                <p id={`${lngId}-hint`} className="mt-1.5 text-xs text-[var(--text-muted)]">
+                  Da {LONGITUDE_MIN} a {LONGITUDE_MAX}. Es. 12.51130
+                </p>
+                {lngError && (
+                  <p id={`${lngId}-error`} role="alert" className="mt-1.5 text-sm text-[var(--danger)]">
+                    {lngError}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
-        {locationError && !error && (
-          <div
-            className="p-3 rounded-lg bg-[var(--danger)]/10 text-[var(--danger-dark)] text-sm"
-            role="alert"
-            aria-live="assertive"
-          >
-            {locationError}
+        {position && (
+          <div className="rounded-control bg-[var(--bg-surface)] p-3 space-y-1">
+            <p className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+              {position.source === "gps" ? (
+                <>
+                  <Navigation className="h-4 w-4 text-[var(--success)]" aria-hidden="true" />
+                  Posizione GPS acquisita
+                </>
+              ) : (
+                <>
+                  <MapPin className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
+                  Posizione scelta manualmente
+                </>
+              )}
+            </p>
+            {position.source === "gps" ? (
+              <p className="text-sm text-[var(--text-secondary)]">
+                Precisione GPS: {Math.round(position.accuracy)} m
+              </p>
+            ) : (
+              <p className="text-sm text-[var(--text-secondary)]">
+                Nessuna precisione GPS: il punto l&apos;hai scelto tu.
+              </p>
+            )}
+            <p className="text-sm text-[var(--text-secondary)] tabular-nums">
+              {formatCoordinates(position.lat, position.lng)}
+            </p>
+            {position.source === "gps" && position.accuracy > LOCATION_ACCURACY_THRESHOLD && (
+              <div className="flex items-start gap-2 text-sm text-[var(--warning)]">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                <span>
+                  Precisione scarsa: la posizione potrebbe essere imprecisa. Puoi riprovare in un
+                  punto aperto o scegliere il punto sulla mappa.
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {position && (
+          <div>
+            <label
+              htmlFor={addressId}
+              className="text-sm font-semibold text-[var(--text-primary)] block mb-1.5"
+            >
+              Indirizzo{" "}
+              <span className="font-normal text-[var(--text-muted)]">(facoltativo)</span>
+            </label>
+            <Input
+              id={addressId}
+              value={address}
+              onChange={(e) => setAddress(clampAddressInput(e.target.value))}
+              maxLength={ADDRESS_MAX}
+              autoComplete="off"
+              placeholder="Es. Via Roma 10, Roma"
+              aria-describedby={`${addressId}-hint`}
+            />
+            <div className="mt-1.5 flex items-start justify-between gap-3">
+              <p id={`${addressId}-hint`} className="text-xs text-[var(--text-muted)]">
+                Via e numero civico, se li conosci. Massimo {ADDRESS_MAX} caratteri.
+              </p>
+              {address.length >= ADDRESS_MAX - 40 && (
+                <span
+                  className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]"
+                  aria-hidden="true"
+                >
+                  {address.length}/{ADDRESS_MAX}
+                </span>
+              )}
+            </div>
           </div>
         )}
       </section>
@@ -759,7 +1094,24 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       <div aria-live="polite" className="sr-only">
         {submitting ? "Invio del campo in corso." : ""}
       </div>
+      <div aria-live="polite" className="sr-only">
+        {positionAnnouncement}
+      </div>
     </form>
+  );
+}
+
+function LocationPickerLoading() {
+  return (
+    <div
+      className="flex h-[220px] w-full items-center justify-center rounded-control border border-[var(--border)] bg-[var(--bg-surface)]"
+      role="status"
+    >
+      <span className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        Caricamento mappa…
+      </span>
+    </div>
   );
 }
 

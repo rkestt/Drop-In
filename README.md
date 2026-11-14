@@ -74,6 +74,7 @@ npx supabase db execute --file scripts/seed_courts.sql
 | PWA | Serwist (Service Worker, offline cache) |
 
 Librerie UI ammesse, licenze e stato (nessuna installata): [docs/design/stack.md](docs/design/stack.md).
+Log applicativi in DevTools (livelli, Verbose, `NEXT_PUBLIC_LOG_LEVEL`): [docs/logging.md](docs/logging.md).
 
 ---
 

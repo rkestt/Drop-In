@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-11-13T14:52:09.027Z",
+  "last_updated": "2026-11-13T17:48:38.471Z",
   "pages": {
     "sources/e2e-hydration-server-utc-browser-roma": {
       "type": "source",
@@ -19,6 +19,24 @@
       "slug": "karma-loss-notification-persa-in-una-riscrittura-di-trigger",
       "created": "2026-11-12",
       "updated": "2026-11-12"
+    },
+    "sources/mappa-marker-geojson-clustering-preview": {
+      "type": "source",
+      "title": "Mappa: da 200 marker DOM a source GeoJSON con cluster, anteprima e un solo tab stop",
+      "category": "source",
+      "status": "insight",
+      "slug": "mappa-marker-geojson-clustering-preview",
+      "created": "2026-11-13",
+      "updated": "2026-11-13"
+    },
+    "sources/moderazione-esito-notifiche-resubmit": {
+      "type": "source",
+      "title": "Moderazione: esito al proponente, resubmit e storia di audit che non si riscrive",
+      "category": "source",
+      "status": "insight",
+      "slug": "moderazione-esito-notifiche-resubmit",
+      "created": "2026-11-13",
+      "updated": "2026-11-13"
     },
     "sources/obs-2026-08-23-fix-grant-mancanti-su-courts-smoke-test-rivela-42501": {
       "type": "source",
@@ -100,6 +118,15 @@
       "slug": "staging-env-vercel-preview-supabase-free",
       "created": "2026-11-11",
       "updated": "2026-11-11"
+    },
+    "sources/submit-senza-gps-posizione-manuale": {
+      "type": "source",
+      "title": "Inviare un campo senza essere sul posto: posizione manuale, indirizzo e bozza migrabile",
+      "category": "source",
+      "status": "insight",
+      "slug": "submit-senza-gps-posizione-manuale",
+      "created": "2026-11-13",
+      "updated": "2026-11-13"
     },
     "sources/vercel-alias-custom-non-segue-la-release": {
       "type": "source",

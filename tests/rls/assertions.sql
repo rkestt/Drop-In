@@ -1463,4 +1463,423 @@ BEGIN
   END IF;
 END $$;
 RESET ROLE;
+
+-- ================= 41. #47: esito proposta + resubmit dopo rifiuto =================
+-- Fixture: due rejected di A con riga di audit rifiutata (flusso reale:
+-- submit crea la pending, reject aggiorna entrambe le righe).
+INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status, photo_path)
+VALUES
+  ('Resubmit Court', 41.92, 12.52, ST_SetSRID(ST_MakePoint(12.52,41.92),4326)::geography, 'community',
+   '11111111-1111-1111-1111-111111111111','rejected','active','11111111-1111-1111-1111-111111111111/reject.jpg'),
+  ('Resubmit Other', 41.925, 12.525, ST_SetSRID(ST_MakePoint(12.525,41.925),4326)::geography, 'community',
+   '11111111-1111-1111-1111-111111111111','rejected','active',NULL);
+INSERT INTO public.court_submissions (court_id, submitter_id, raw_name, lat, lng, photo_path, status, moderation_note)
+VALUES
+  ((SELECT id FROM public.courts WHERE name = 'Resubmit Court'),
+   '11111111-1111-1111-1111-111111111111', 'Resubmit Court', 41.92, 12.52,
+   '11111111-1111-1111-1111-111111111111/reject.jpg', 'rejected', 'foto illeggibile'),
+  ((SELECT id FROM public.courts WHERE name = 'Resubmit Other'),
+   '11111111-1111-1111-1111-111111111111', 'Resubmit Other', 41.925, 12.525, NULL, 'rejected', 'doppione? no');
+
+-- 41a. positivo: A ripropone la propria rejected -> pending, nuova riga
+-- pending, la rejected resta come storia.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+SELECT public.resubmit_submission((SELECT id FROM public.courts WHERE name = 'Resubmit Court'));
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.courts
+                 WHERE name = 'Resubmit Court' AND moderation_status = 'pending' AND duplicate_of IS NULL) THEN
+    RAISE EXCEPTION 'resubmit non ha rimesso la corte in pending';
+  END IF;
+  IF (SELECT count(*) FROM public.court_submissions cs JOIN public.courts c ON c.id = cs.court_id
+      WHERE c.name = 'Resubmit Court' AND cs.status = 'pending') <> 1 THEN
+    RAISE EXCEPTION 'nuova riga pending mancante dopo resubmit';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.court_submissions cs JOIN public.courts c ON c.id = cs.court_id
+                 WHERE c.name = 'Resubmit Court' AND cs.status = 'rejected') THEN
+    RAISE EXCEPTION 'riga rejected sparita dopo resubmit (deve restare come storia)';
+  END IF;
+END $$;
+
+-- 41b. riproporre una pending -> P0001.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.resubmit_submission((SELECT id FROM public.courts WHERE name = 'Resubmit Court'));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'resubmit di pending: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'resubmit di corte pending riuscito';
+END $$;
+RESET ROLE;
+
+-- 41c. riproporre una approved altrui -> P0001.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.resubmit_submission((SELECT id FROM public.courts WHERE name = 'C Court'));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'resubmit di approved: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'resubmit di corte approved riuscito';
+END $$;
+RESET ROLE;
+
+-- 41d. C ripropone la rejected di A -> P0001.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.resubmit_submission((SELECT id FROM public.courts WHERE name = 'Resubmit Other'));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'resubmit altrui: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'resubmit di proposta altrui riuscito';
+END $$;
+RESET ROLE;
+
+-- 41e. anon non esegue resubmit -> 42501 (nessun grant).
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.resubmit_submission((SELECT id FROM public.courts WHERE name = 'Resubmit Other'));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'resubmit da anon: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'anon ha eseguito resubmit_submission';
+END $$;
+RESET ROLE;
+
+-- 41f. positivo: B approva la pending di A -> una sola notifica al proponente.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+SELECT public.approve_court((SELECT id FROM public.courts WHERE name = 'Resubmit Court'));
+RESET ROLE;
+DO $$ DECLARE v_n BIGINT; BEGIN
+  SELECT count(*) INTO v_n FROM public.push_notifications
+  WHERE user_id = '11111111-1111-1111-1111-111111111111'
+    AND title = 'Proposta approvata'
+    AND data->>'type' = 'court_moderation'
+    AND data->>'status' = 'approved'
+    AND (data->>'court_id')::uuid = (SELECT id FROM public.courts WHERE name = 'Resubmit Court');
+  IF v_n <> 1 THEN
+    RAISE EXCEPTION 'notifiche di approvazione per il proponente: % (atteso 1)', v_n;
+  END IF;
+END $$;
+
+-- 41g. positivo: A ripropone e B rifiuta con nota -> una sola notifica con il motivo.
+-- (Il resubmit serve: dalla 030+M1 solo una pending si puo' rifiutare.)
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+SELECT public.resubmit_submission((SELECT id FROM public.courts WHERE name = 'Resubmit Other'));
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+SELECT public.reject_court((SELECT id FROM public.courts WHERE name = 'Resubmit Other'), 'foto mossa');
+RESET ROLE;
+DO $$ DECLARE v_n BIGINT; BEGIN
+  SELECT count(*) INTO v_n FROM public.push_notifications
+  WHERE user_id = '11111111-1111-1111-1111-111111111111'
+    AND title = 'Proposta rifiutata'
+    AND body LIKE '%Motivo: foto mossa%'
+    AND data->>'type' = 'court_moderation'
+    AND data->>'status' = 'rejected'
+    AND (data->>'court_id')::uuid = (SELECT id FROM public.courts WHERE name = 'Resubmit Other');
+  IF v_n <> 1 THEN
+    RAISE EXCEPTION 'notifiche di rifiuto per il proponente: % (atteso 1)', v_n;
+  END IF;
+END $$;
+
+-- 41h. corte senza proponente: la moderazione notifica nulla e non fallisce.
+INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+VALUES ('Orphan Mod Court', 41.93, 12.53, ST_SetSRID(ST_MakePoint(12.53,41.93),4326)::geography, 'community',
+        NULL,'pending','active');
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+SELECT public.approve_court((SELECT id FROM public.courts WHERE name = 'Orphan Mod Court'));
+RESET ROLE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.push_notifications
+             WHERE (data->>'court_id')::uuid = (SELECT id FROM public.courts WHERE name = 'Orphan Mod Court')) THEN
+    RAISE EXCEPTION 'notifica creata per corte senza proponente';
+  END IF;
+END $$;
+-- ================= 42. #75: submit_court con indirizzo umano opzionale =================
+-- `p_address` (8o parametro, DEFAULT NULL): trimmato, vuoto -> NULL, max 200
+-- caratteri e niente control/newline (P0001); salvato in `courts.address`.
+-- La vecchia firma a 7 argomenti non esiste piu' (overload rimosso dal DROP
+-- in 031). Ogni submit riuscito consuma il rate limit 1/ora, quindi i due
+-- casi positivi usano utenti dedicati (D/E); i negativi non scrivono righe
+-- e riusano F.
+INSERT INTO auth.users (id, email) VALUES
+  ('44444444-4444-4444-4444-444444444444','d@test.local'),
+  ('55555555-5555-5555-5555-555555555555','e@test.local'),
+  ('66666666-6666-6666-6666-666666666666','f@test.local');
+
+-- 42a. positivo: D invia con indirizzo spaziato -> trimmato in courts.address.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"44444444-4444-4444-4444-444444444444","role":"authenticated"}';
+DO $$
+DECLARE v UUID;
+BEGIN
+  v := public.submit_court('Addr Court', 41.90, 12.50, NULL, NULL, NULL, NULL, '  Via Roma 10, Roma  ');
+  IF v IS NULL THEN RAISE EXCEPTION 'submit con address ha restituito null'; END IF;
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.courts WHERE name = 'Addr Court' AND address = 'Via Roma 10, Roma') THEN
+    RAISE EXCEPTION 'address non trimmato/salvato in courts.address';
+  END IF;
+END $$;
+
+-- 42b. positivo: indirizzo vuoto/bianco -> NULL.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+SELECT public.submit_court('Blank Addr Court', 41.901, 12.501, NULL, NULL, NULL, NULL, '   ');
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.courts WHERE name = 'Blank Addr Court' AND address IS NULL) THEN
+    RAISE EXCEPTION 'address bianco non normalizzato a NULL';
+  END IF;
+END $$;
+
+-- 42c. 250 caratteri -> P0001.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"66666666-6666-6666-6666-666666666666","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.submit_court('Long Addr Court', 41.902, 12.502, NULL, NULL, NULL, NULL, repeat('x', 250));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'address 250ch: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'address di 250 caratteri accettato';
+END $$;
+RESET ROLE;
+
+-- 42d. newline -> P0001.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"66666666-6666-6666-6666-666666666666","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.submit_court('NL Addr Court', 41.903, 12.503, NULL, NULL, NULL, NULL, 'Via Roma 10' || chr(10) || 'Roma');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'address con newline: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'address con newline accettato';
+END $$;
+RESET ROLE;
+
+-- 42e. la vecchia firma a 7 argomenti non esiste piu' (42883/undefined_function).
+DO $$
+DECLARE v_oid OID;
+BEGIN
+  BEGIN
+    SELECT 'public.submit_court(text, double precision, double precision, text, text, text, double precision)'::regprocedure INTO v_oid;
+  EXCEPTION WHEN undefined_function THEN
+    RETURN;
+  END;
+  RAISE EXCEPTION 'vecchio overload submit_court a 7 argomenti ancora presente';
+END $$;
+
+-- 42f. anon non esegue submit_court -> 42501 (nessun grant sulla nuova firma).
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.submit_court('Anon Addr', 41.904, 12.504, NULL, NULL, NULL, NULL, 'Via Roma 1');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'submit da anon: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'anon ha eseguito submit_court';
+END $$;
+RESET ROLE;
+
+-- 42g. resubmit conserva l'address (030 tocca solo moderation_status/duplicate_of).
+INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status, address)
+VALUES ('Addr Resubmit', 41.905, 12.505, ST_SetSRID(ST_MakePoint(12.505,41.905),4326)::geography, 'community',
+        '44444444-4444-4444-4444-444444444444','rejected','active','Via Milano 3');
+INSERT INTO public.court_submissions (court_id, submitter_id, raw_name, lat, lng, status, moderation_note)
+VALUES ((SELECT id FROM public.courts WHERE name = 'Addr Resubmit'),
+        '44444444-4444-4444-4444-444444444444', 'Addr Resubmit', 41.905, 12.505, 'rejected', 'indirizzo?');
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"44444444-4444-4444-4444-444444444444","role":"authenticated"}';
+SELECT public.resubmit_submission((SELECT id FROM public.courts WHERE name = 'Addr Resubmit'));
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.courts
+                 WHERE name = 'Addr Resubmit' AND moderation_status = 'pending' AND address = 'Via Milano 3') THEN
+    RAISE EXCEPTION 'resubmit ha perso address';
+  END IF;
+END $$;
+-- 42h. submit senza uid (claim senza sub) -> 42501 (m1: prima era P0001,
+-- stessa classe dei dinieghi come resubmit_submission).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.submit_court('No Uid Court', 41.908, 12.508);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'submit senza uid: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'submit senza uid riuscito';
+END $$;
+RESET ROLE;
+
+-- ================= 43. #47: storico audit intatto + transizione condizionale =================
+-- B2: approve/reject toccano solo la riga di audit ancora pending; le righe
+-- storiche (rejected con nota) non si riscrivono mai. M1: la transizione
+-- avviene solo da pending; un secondo approve fallisce con P0001 e non crea
+-- una seconda notifica.
+-- Fixture: 'Storia Court' (pending di F) con una riga di audit pending.
+INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+VALUES ('Storia Court', 41.906, 12.506, ST_SetSRID(ST_MakePoint(12.506,41.906),4326)::geography, 'community',
+        '66666666-6666-6666-6666-666666666666','pending','active');
+INSERT INTO public.court_submissions (court_id, submitter_id, raw_name, lat, lng, status)
+VALUES ((SELECT id FROM public.courts WHERE name = 'Storia Court'),
+        '66666666-6666-6666-6666-666666666666', 'Storia Court', 41.906, 12.506, 'pending');
+
+-- 43a. submit_court accetta un indirizzo non-ASCII (#75: [[:print:]] in UTF-8
+-- non deve rifiutare accentate e apostrofi).
+INSERT INTO auth.users (id, email) VALUES ('77777777-7777-7777-7777-777777777777','g@test.local');
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"77777777-7777-7777-7777-777777777777","role":"authenticated"}';
+DO $$
+DECLARE v UUID;
+BEGIN
+  v := public.submit_court('Via Niccolò Court', 41.907, 12.507, NULL, NULL, NULL, NULL, 'Via Niccolò 1, Città Sant''Angelo');
+  IF v IS NULL THEN RAISE EXCEPTION 'submit con address non-ASCII ha restituito null'; END IF;
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.courts
+                 WHERE name = 'Via Niccolò Court' AND address = 'Via Niccolò 1, Città Sant''Angelo') THEN
+    RAISE EXCEPTION 'address non-ASCII non salvato in courts.address';
+  END IF;
+END $$;
+
+-- 43b. B rifiuta la pending con nota: la riga diventa rejected con la nota.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+SELECT public.reject_court((SELECT id FROM public.courts WHERE name = 'Storia Court'), 'prima nota');
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.courts
+                 WHERE name = 'Storia Court' AND moderation_status = 'rejected') THEN
+    RAISE EXCEPTION 'corte non rifiutata';
+  END IF;
+END $$;
+
+-- 43c. F ripropone: torna pending con una NUOVA riga, la rejected resta storia.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"66666666-6666-6666-6666-666666666666","role":"authenticated"}';
+SELECT public.resubmit_submission((SELECT id FROM public.courts WHERE name = 'Storia Court'));
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.courts
+                 WHERE name = 'Storia Court' AND moderation_status = 'pending') THEN
+    RAISE EXCEPTION 'resubmit non ha rimesso la corte in pending';
+  END IF;
+  IF (SELECT count(*) FROM public.court_submissions cs JOIN public.courts c ON c.id = cs.court_id
+      WHERE c.name = 'Storia Court' AND cs.status = 'rejected') <> 1 THEN
+    RAISE EXCEPTION 'riga rejected sparita dopo resubmit (deve restare come storia)';
+  END IF;
+END $$;
+
+-- 43d. B approva: la pending diventa approved, la storica resta rejected con nota.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+SELECT public.approve_court((SELECT id FROM public.courts WHERE name = 'Storia Court'));
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.courts
+                 WHERE name = 'Storia Court' AND moderation_status = 'approved') THEN
+    RAISE EXCEPTION 'corte non approvata';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.court_submissions cs JOIN public.courts c ON c.id = cs.court_id
+                 WHERE c.name = 'Storia Court' AND cs.status = 'rejected' AND cs.moderation_note = 'prima nota') THEN
+    RAISE EXCEPTION 'approve ha riscritto la riga storica (nota persa)';
+  END IF;
+  IF (SELECT count(*) FROM public.court_submissions cs JOIN public.courts c ON c.id = cs.court_id
+      WHERE c.name = 'Storia Court' AND cs.status = 'approved') <> 1 THEN
+    RAISE EXCEPTION 'approve non ha aggiornato la sola pending (attesa 1 riga approved)';
+  END IF;
+END $$;
+
+-- 43e. secondo approve sulla stessa corte -> P0001 con messaggio dedicato,
+-- nessuna seconda notifica (M1: la notifica parte solo sulla transizione reale).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.approve_court((SELECT id FROM public.courts WHERE name = 'Storia Court'));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN
+      IF SQLERRM NOT LIKE '%non è più in attesa%' THEN
+        RAISE EXCEPTION 'secondo approve: messaggio inatteso: %', SQLERRM;
+      END IF;
+      RETURN;
+    END IF;
+    RAISE EXCEPTION 'secondo approve: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'secondo approve riuscito (doppia transizione/notifica?)';
+END $$;
+RESET ROLE;
+DO $$ DECLARE v_n BIGINT; BEGIN
+  SELECT count(*) INTO v_n FROM public.push_notifications
+  WHERE user_id = '66666666-6666-6666-6666-666666666666'
+    AND title = 'Proposta approvata'
+    AND data->>'type' = 'court_moderation'
+    AND data->>'status' = 'approved'
+    AND (data->>'court_id')::uuid = (SELECT id FROM public.courts WHERE name = 'Storia Court');
+  IF v_n <> 1 THEN
+    RAISE EXCEPTION 'notifiche di approvazione per Storia Court: % (attesa 1)', v_n;
+  END IF;
+END $$;
+
+-- 43f. reject su una pending con DUE righe di audit aggiorna solo la pending
+-- (B2): la storica resta rejected con la sua nota.
+INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+VALUES ('Doppia Court', 41.909, 12.509, ST_SetSRID(ST_MakePoint(12.509,41.909),4326)::geography, 'community',
+        '66666666-6666-6666-6666-666666666666','pending','active');
+INSERT INTO public.court_submissions (court_id, submitter_id, raw_name, lat, lng, status, moderation_note)
+VALUES
+  ((SELECT id FROM public.courts WHERE name = 'Doppia Court'),
+   '66666666-6666-6666-6666-666666666666', 'Doppia Court', 41.909, 12.509, 'rejected', 'vecchia nota'),
+  ((SELECT id FROM public.courts WHERE name = 'Doppia Court'),
+   '66666666-6666-6666-6666-666666666666', 'Doppia Court', 41.909, 12.509, 'pending', NULL);
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+SELECT public.reject_court((SELECT id FROM public.courts WHERE name = 'Doppia Court'), 'nuova nota');
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.court_submissions cs JOIN public.courts c ON c.id = cs.court_id
+                 WHERE c.name = 'Doppia Court' AND cs.status = 'rejected' AND cs.moderation_note = 'vecchia nota') THEN
+    RAISE EXCEPTION 'reject ha riscritto la riga storica (vecchia nota persa)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.court_submissions cs JOIN public.courts c ON c.id = cs.court_id
+                 WHERE c.name = 'Doppia Court' AND cs.status = 'rejected' AND cs.moderation_note = 'nuova nota') THEN
+    RAISE EXCEPTION 'reject non ha registrato la nuova nota sulla pending';
+  END IF;
+END $$;
 ROLLBACK;

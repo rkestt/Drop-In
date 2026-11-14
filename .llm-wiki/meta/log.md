@@ -51,3 +51,6 @@
 ## 2026-11-13
 
 - **retro**: {"slug":"e2e-hydration-server-utc-browser-roma","title":"E2E di idratazione: server in UTC e browser a Roma"}
+- **retro**: {"slug":"mappa-marker-geojson-clustering-preview","title":"Mappa: da 200 marker DOM a source GeoJSON con cluster, anteprima e un solo tab stop"}
+- **retro**: {"slug":"moderazione-esito-notifiche-resubmit","title":"Moderazione: esito al proponente, resubmit e storia di audit che non si riscrive"}
+- **retro**: {"slug":"submit-senza-gps-posizione-manuale","title":"Inviare un campo senza essere sul posto: posizione manuale, indirizzo e bozza migrabile"}

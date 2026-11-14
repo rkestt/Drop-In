@@ -24,8 +24,23 @@ const sourceSans = localFont({
   adjustFontFallback: false,
 });
 
+function resolveSiteUrl(): URL {
+  const raw = (process.env.NEXT_PUBLIC_SITE_URL ?? "")
+    .trim()
+    .replace(/\/+$/, "");
+  try {
+    return new URL(raw || "http://localhost:3000");
+  } catch {
+    return new URL("http://localhost:3000");
+  }
+}
+
 export const metadata: Metadata = {
-  title: "Drop-In — Street Edition",
+  metadataBase: resolveSiteUrl(),
+  title: {
+    default: "Drop-In — Street Edition",
+    template: "%s · Drop-In",
+  },
   description: "Trova campetti, unisciti a partite, gioca a basket in strada.",
   manifest: "/manifest.json",
   appleWebApp: {

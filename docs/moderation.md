@@ -101,11 +101,13 @@ Eseguito da Studio/psql. Il trigger `guard_profile_moderator` blocca la modifica
 
 ## Stato del materiale rifiutato
 
-La corte resta nel DB con `moderation_status='rejected'` e NON è visibile al pubblico (RLS). Il posto può essere riproposto da un altro utente. `dedup_candidates` esclude `rejected` e `duplicate`, ma vede le `pending`: altrimenti si duplica una proposta già in coda.
+La corte resta nel DB con `moderation_status='rejected'` e NON è visibile al pubblico (RLS). Il proprietario può riproporla con `resubmit_submission` (#47: torna `pending` con una nuova riga di audit, la rejected resta come storia, tetti anti-abuso 1/min per corte e 5/h per utente). Il posto può comunque essere riproposto da un altro utente. `dedup_candidates` esclude `rejected` e `duplicate`, ma vede le `pending`: altrimenti si duplica una proposta già in coda.
 
 ## Storage
 
 Bucket `court-photos`: pubblico in lettura, 5 MB, solo `image/jpeg|png|webp`. Scrittura consentita solo sotto il prefisso `{auth.uid()}/`. `submit_court` valida che `p_photo_path` inizi con quell'UUID, altrimenti rifiuta.
+
+Indirizzo umano opzionale (migration 031, #75): `submit_court` accetta `p_address TEXT DEFAULT NULL` (8° parametro) per le proposte inserite senza essere sul posto — trimmato, stringa vuota → NULL, max 200 caratteri e niente caratteri di controllo/a-capo (`P0001`, messaggi in italiano), salvato in `courts.address`. `resubmit_submission` non cambia firma e conserva l'indirizzo (tocca solo `moderation_status`/`duplicate_of`).
 
 ## dedup_candidates e accesso
 
@@ -133,9 +135,29 @@ Dopo che una corte passa ad `approved`, la sua foto su `court-photos` è **immut
 
 Per correggere una foto sbagliata su una corte approvata: riportare la corte a `rejected` (o `pending` con un nuovo invio) e ricaricare, oppure intervenire da Studio/psql come `postgres`.
 
+## UI (Phase 3) — `/admin`
+
+Route `app/(dashboard)/admin/page.tsx`, voce in `/settings` ("Moderazione") visibile solo ai moderatori; non compare nella bottom nav.
+
+**Permessi.** Gate server-side in due passi: senza sessione → redirect a `/?login=required&next=/admin`; sessione senza `profiles.is_moderator` → stato "Non hai i permessi" (pagina leggibile, mai 500). Le RPC restano comunque autoprotette: un 42501 viene mostrato così com'è, senza retry automatici.
+
+**Cosa legge.** Coda proposte: `courts` con `moderation_status = 'pending'`, più vecchie prima (la RLS `courts_select_all` lascia entrare il moderatore). Segnalazioni: `court_reports` con `expires_at > now()`, raggruppate per campo e ordinate per segnalazione più recente.
+
+**RPC chiamate** (stessi nomi di parametro della sezione SQL sopra):
+
+| Azione | RPC | Parametri |
+|---|---|---|
+| Approva | `approve_court` | `p_court_id` |
+| Rifiuta (nota facoltativa) | `reject_court` | `p_court_id`, `p_note` (omesso se vuota) |
+| Duplicato di… | `mark_duplicate` | `p_court_id`, `p_duplicate_of` |
+| Candidati simili | `dedup_candidates` | `p_lat`, `p_lng` (raggio default 100 m) |
+
+Dopo ogni RPC la coda viene **riletta dal DB**: nessun update ottimistico. Se la chiamata fallisce la riga resta in lista con il messaggio del server; se la rilettura fallisce compare "Riprova" ma la riga già modificata non viene rimessa in coda a mano.
+
+**Segnalazioni in sola lettura.** Il tab "Segnalazioni" non ha azioni di chiusura o rimozione e nessuna migration è stata aggiunta: le righe scadono da sole dopo 48 ore. Le righe mascherate di `dedup_candidates` (altre proposte pending) compaiono come "Proposta in attesa", senza coordinate, distanza né azione "Duplicato".
+
 ## Limiti noti
 
-- Nessuna UI di moderazione (Phase 3).
-- Nessuna notifica all'utente sull'esito.
+- Nessuna UI per lo storico delle proposte rifiutate (vive in `/submit-court`) né per promuovere un moderatore: resta Studio/psql (`UPDATE profiles SET is_moderator = true`).
 - Nessuna scadenza automatica delle proposte pending.
 - Nessun limite di coda.

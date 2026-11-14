@@ -56,21 +56,13 @@ test.describe("accessibility (axe) — statiche, verdi in CI", () => {
 });
 
 // `/` in CI non ha Supabase né seed: niente attese sui dati (marker,
-// liste). L'axe deve passare anche a mappa vuota; l'esclusione dei marker
-// sotto è no-op quando non ce ne sono.
+// liste). L'axe deve passare anche a mappa vuota.
 test.describe("accessibility (axe) — home, verde in CI anche senza DB", () => {
-  test("/ has no axe violations (marker sovrapposti esclusi)", async ({
-    page,
-  }) => {
+  test("/ has no axe violations", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     const results = await new AxeBuilder({ page })
       .withTags([...TAGS])
-      // Eccezione documentata (accessibility.md): con dati reali i court
-      // vicini si sovrappongono e axe `target-size` li segnala per
-      // geometria dei dati, non del codice. Con DB i marker sono coperti
-      // dal test dedicato nel describe gateato qui sotto.
-      .exclude(".court-marker")
       .analyze();
     expect(results.violations).toEqual([]);
   });
@@ -136,7 +128,6 @@ test.describe("accessibility (axe) — autenticate (E2E_WITH_DB)", () => {
         await page.waitForLoadState("networkidle");
         const results = await new AxeBuilder({ page })
           .withTags([...TAGS])
-          .exclude(".court-marker")
           .analyze();
         expect(results.violations).toEqual([]);
       });
@@ -167,27 +158,48 @@ test.describe("accessibility (axe) — autenticate (E2E_WITH_DB)", () => {
     });
 
     // Questi test vogliono il DB con seed: non girano in CI.
-    test("i marker sono operabili da tastiera e nominati", async ({
+    test("mappa: un tab stop, lista campi e anteprima da tastiera", async ({
       page,
     }) => {
       await page.goto("/");
       await page.waitForLoadState("networkidle");
-      const first = page.locator(".court-marker").first();
-      await first.waitFor({ timeout: 20_000 });
-      await expect
-        .poll(async () => page.locator(".court-marker").count(), {
-          timeout: 20_000,
-        })
-        .toBeGreaterThan(0);
-      await expect(first).toHaveAttribute("role", "button");
-      await expect(first).toHaveAttribute("tabindex", "0");
-      const label = await first.getAttribute("aria-label");
-      expect(label).toMatch(/^Campo: .+/);
-      // Focus visibile: l'anello del progetto, non outline:none secco.
-      await first.focus();
-      await expect(first).toBeFocused();
-      // Attivazione reale: Invio naviga alla scheda campo.
-      await first.press("Enter");
+
+      // La superficie mappa è un solo ingresso da tastiera: il canvas è
+      // decorativo, i tasti li gestisce il contenitore (#44).
+      const mapSurface = page.getByRole("group", {
+        name: "Area mappa interattiva",
+      });
+      await expect(mapSurface).toBeVisible({ timeout: 20_000 });
+      await mapSurface.focus();
+      await expect(mapSurface).toBeFocused();
+      await page.keyboard.press("ArrowRight");
+      await page.keyboard.press("+");
+      await page.keyboard.press("Home");
+
+      // Lista dei campi visibili: bottone sulla mappa, dialog non modale.
+      const listButton = page.getByRole("button", { name: /Lista campi/i });
+      await expect(listButton).toBeVisible({ timeout: 20_000 });
+      await listButton.focus();
+      await page.keyboard.press("Enter");
+
+      const list = page.getByRole("dialog", { name: /Lista campi/i });
+      await expect(list).toBeVisible();
+      const firstItem = list.locator("li button").first();
+      await expect(firstItem).toBeFocused();
+
+      // Invio: anteprima senza reload, nome del campo e CTA client.
+      await page.keyboard.press("Enter");
+      const openDetail = page.getByRole("link", { name: "Apri dettaglio" });
+      await expect(openDetail).toBeVisible({ timeout: 15_000 });
+      await page.keyboard.press("Escape");
+      await expect(mapSurface).toBeFocused();
+
+      // La CTA resta una navigazione client, non un full reload.
+      await listButton.focus();
+      await page.keyboard.press("Enter");
+      await firstItem.focus();
+      await page.keyboard.press("Enter");
+      await openDetail.click();
       await page.waitForURL(/\/courts\/[0-9a-f-]+$/, { timeout: 15_000 });
     });
 
@@ -224,7 +236,6 @@ test.describe("accessibility (axe) — autenticate (E2E_WITH_DB)", () => {
       });
       const results = await new AxeBuilder({ page })
         .withTags([...TAGS])
-        .exclude(".court-marker")
         .analyze();
       expect(results.violations).toEqual([]);
     });
