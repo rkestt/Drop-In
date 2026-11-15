@@ -1,7 +1,16 @@
 {
   "version": "1.0",
-  "last_updated": "2026-11-13T17:48:38.471Z",
+  "last_updated": "2026-11-15T22:05:02.363Z",
   "pages": {
+    "sources/drop-in-check-in-accuratezza-adattiva-e-permessi-ios": {
+      "type": "source",
+      "title": "Check-in Drop-In: accuratezza GPS adattiva e permessi posizione iOS separati dalla PWA",
+      "category": "source",
+      "status": "insight",
+      "slug": "drop-in-check-in-accuratezza-adattiva-e-permessi-ios",
+      "created": "2026-11-15",
+      "updated": "2026-11-15"
+    },
     "sources/e2e-hydration-server-utc-browser-roma": {
       "type": "source",
       "title": "E2E di idratazione: server in UTC e browser a Roma",

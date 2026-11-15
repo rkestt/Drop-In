@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Drawer } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StartTimePicker } from "@/components/lobby/start-time-picker";
 import { NextHighlight } from "@/components/motion/next-highlight";
 import { StepTransition } from "@/components/motion/step-transition";
 import { SuccessPop } from "@/components/motion/success-pop";
@@ -39,6 +40,11 @@ const LibraryShowcase = dynamic(
   },
 );
 import { cn } from "@/lib/utils";
+import {
+  firstSelectableSlot,
+  lobbyDayOptions,
+  lobbyTimeSlots,
+} from "@/lib/lobby/slots";
 
 const STYLEGUIDE_VERSION = "1.0";
 
@@ -499,6 +505,85 @@ function FieldLabel({
     >
       {children}
     </label>
+  );
+}
+
+/**
+ * Picker data+ora della lobby (#81) a 360 px, come nel drawer «Crea lobby».
+ * Stato locale, niente react-hook-form: i tap cambiano davvero selezione.
+ *
+ * I picker compaiono dopo il mount: il componente fissa "adesso" alla prima
+ * render (giusto nel drawer, che vive in un Portal client-only), mentre in
+ * SSR server e client possono cadere su slot diversi. Stessa ragione del
+ * `ssr: false` degli esempi librerie.
+ */
+function StartTimePickerShowcase() {
+  const [ready, setReady] = useState(false);
+  const [withValue, setWithValue] = useState<string | null>(null);
+  const [empty, setEmpty] = useState<string | null>(null);
+  const [withError, setWithError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setReady(true);
+    const now = new Date();
+    for (const day of lobbyDayOptions(now)) {
+      // Un minuto di margine: il picker azzera i valori già passati al mount.
+      const slot = firstSelectableSlot(
+        lobbyTimeSlots(day.key, now, { leadMinutes: 1 })
+      );
+      if (slot) {
+        setWithValue(slot.iso);
+        break;
+      }
+    }
+  }, []);
+
+  const previews = [
+    {
+      caption: "con selezione",
+      value: withValue,
+      onChange: setWithValue,
+      error: undefined,
+    },
+    {
+      caption: "senza selezione",
+      value: empty,
+      onChange: setEmpty,
+      error: undefined,
+    },
+    {
+      caption: "errore",
+      value: withError,
+      onChange: setWithError,
+      error: "L'orario di inizio deve essere nel futuro.",
+    },
+  ];
+
+  if (!ready) {
+    return (
+      <p className="text-sm text-[var(--text-secondary)]">
+        Calcolo degli orari di Roma…
+      </p>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {previews.map((preview) => (
+        <figure key={preview.caption} className="w-full max-w-[360px]">
+          <figcaption className="mb-2 font-mono text-label text-[var(--text-secondary)]">
+            {preview.caption}
+          </figcaption>
+          <div className="rounded-card border border-[var(--cool-muted)]/25 bg-[var(--bg-elevated)] p-5">
+            <StartTimePicker
+              value={preview.value}
+              onChange={preview.onChange}
+              error={preview.error}
+            />
+          </div>
+        </figure>
+      ))}
+    </div>
   );
 }
 
@@ -1602,6 +1687,18 @@ export function StyleguideClient() {
                   <span className="font-mono">aria-describedby</span>.
                 </p>
               </Specimen>
+            </SubSection>
+
+            <SubSection title="Picker orario" note="360 px, tre stati, tap reali">
+              <StartTimePickerShowcase />
+              <p className="mt-4 max-w-[680px] border-t border-[var(--cool-muted)]/15 pt-3 text-label leading-relaxed text-[var(--text-secondary)]">
+                Come nel drawer «Crea lobby»: 7 giorni nel fuso di Roma, slot
+                ogni 30 minuti dalle 07:00 alle 23:30, i passati restano spenti.
+                Giorno e ora usano{" "}
+                <span className="font-mono">aria-pressed</span> e corsie da 44
+                px; la logica è in{" "}
+                <span className="font-mono">lib/lobby/slots.ts</span>.
+              </p>
             </SubSection>
 
             <SubSection title="Badge" note="default, accent, success, warning, danger">

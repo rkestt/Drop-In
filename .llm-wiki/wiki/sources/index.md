@@ -2,6 +2,7 @@
 
 ## Concepts
 
+- [Check-in Drop-In: accuratezza GPS adattiva e permessi posizione iOS separati dalla PWA](drop-in-check-in-accuratezza-adattiva-e-permessi-ios.md)
 - [E2E di idratazione: server in UTC e browser a Roma](e2e-hydration-server-utc-browser-roma.md)
 - [Una riscrittura di trigger ha cancellato un INSERT: le notifiche karma non esistevano più](karma-loss-notification-persa-in-una-riscrittura-di-trigger.md)
 - [Mappa: da 200 marker DOM a source GeoJSON con cluster, anteprima e un solo tab stop](mappa-marker-geojson-clustering-preview.md)

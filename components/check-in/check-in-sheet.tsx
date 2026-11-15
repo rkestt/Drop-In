@@ -14,7 +14,7 @@ import { SuccessPop } from "@/components/motion/success-pop";
 import { CheckoutButton } from "@/components/check-in/checkout-button";
 import { MapPin, Navigation, AlertTriangle, Clock } from "lucide-react";
 import {
-  CHECK_IN_MAX_ACCURACY_M,
+  CHECK_IN_IDEAL_ACCURACY_M,
   CHECK_IN_RADIUS_M,
   expiryFromCheckin,
   formatExpiry,
@@ -28,6 +28,7 @@ import {
 } from "@/lib/checkin/errors";
 import { classifyOutboxError } from "@/lib/offline/outbox";
 import { enqueue } from "@/lib/offline/outbox-store";
+import { isIosDevice } from "@/lib/pwa/install";
 
 export interface ActiveCheckIn {
   id: string;
@@ -103,6 +104,8 @@ export function CheckInSheet({
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [since, setSince] = useState<string | null>(null);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [accuracyWarning, setAccuracyWarning] =
+    useState<CheckInErrorInfo | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const supabase = createClient();
 
@@ -120,6 +123,7 @@ export function CheckInSheet({
       queueMicrotask(() => {
         setState("idle");
         setError(null);
+        setAccuracyWarning(null);
         setExpiresAt(null);
         setSince(null);
         setGpsAccuracy(null);
@@ -150,6 +154,7 @@ export function CheckInSheet({
   const handleCheckIn = async () => {
     setState("loading");
     setError(null);
+    setAccuracyWarning(null);
 
     // Coordinate note fin qui: servono al catch per accodare un insert
     // mai partito (rete caduta dopo il GPS).
@@ -180,11 +185,16 @@ export function CheckInSheet({
       userId = user.id;
       coords = { latitude, longitude, accuracy };
 
-      const accuracyError = fromAccuracy(accuracy);
-      if (accuracyError) {
-        setError(accuracyError);
+      const verdict = fromAccuracy(accuracy);
+      if (verdict.level === "block") {
+        setError(verdict.info);
         setState("error");
         return;
+      }
+      if (verdict.level === "warn") {
+        // Non bloccante: si prosegue con l'insert, l'avviso resta visibile
+        // prima e dopo senza mandare la scheda in stato "error".
+        setAccuracyWarning(verdict.info);
       }
 
       // Nessun successo ottimistico: confermato solo dopo l'insert.
@@ -218,8 +228,10 @@ export function CheckInSheet({
           setError(
             outOfRangeError(parseDistanceMeters(insertError.message).meters)
           );
+          setAccuracyWarning(null);
         } else {
           setError(fromInsertError(insertError.message));
+          setAccuracyWarning(null);
         }
         setState("error");
         return;
@@ -237,7 +249,17 @@ export function CheckInSheet({
     } catch (err) {
       const geoErr = err as GeolocationPositionError & { message?: string };
       if (typeof geoErr.code === "number") {
-        setError(fromGeolocationCode(geoErr.code));
+        // Flag calcolati qui a runtime: il modulo errori resta puro
+        // (nessun accesso a navigator/window al suo interno).
+        const standalone =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          (navigator as { standalone?: boolean }).standalone === true;
+        setError(
+          fromGeolocationCode(geoErr.code, {
+            ios: isIosDevice(navigator.userAgent),
+            standalone,
+          })
+        );
       } else if (
         userId !== null &&
         coords !== null &&
@@ -257,6 +279,29 @@ export function CheckInSheet({
   const stepKey =
     state === "success" ? "done" : state === "inside" ? "inside" : state === "error" ? "error" : "form";
 
+  // Avviso non bloccante (accuratezza 20–50 m): visibile sia prima sia dopo
+  // il check-in, non manda in stato "error" né disabilita il bottone.
+  const accuracyNote = accuracyWarning ? (
+    <div
+      className="flex items-start gap-2.5 rounded-card border border-[var(--warning)]/40 bg-[var(--warning)]/10 p-3"
+      role="status"
+      aria-live="polite"
+    >
+      <AlertTriangle
+        className="mt-0.5 h-5 w-5 shrink-0 text-[var(--warning)]"
+        aria-hidden="true"
+      />
+      <div className="space-y-1">
+        <p className="text-base font-semibold text-[var(--text-primary)]">
+          {accuracyWarning.title}
+        </p>
+        <p className="text-sm text-[var(--text-primary)]">
+          {accuracyWarning.body}
+        </p>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
       <Drawer open={open} onClose={onClose} title="Check-in">
@@ -269,6 +314,7 @@ export function CheckInSheet({
               title="Check-in attivo"
               description={`Check-in attivo fino alle ${expiresAt}. Sei dentro per 2 ore. Puoi fare check-out dalla scheda del campo quando vuoi.`}
             />
+            {accuracyNote}
             <Button onClick={onClose} className="w-full">
               Chiudi
             </Button>
@@ -345,12 +391,14 @@ export function CheckInSheet({
 
             {gpsAccuracy !== null &&
               gpsAccuracy > 0 &&
-              gpsAccuracy <= CHECK_IN_MAX_ACCURACY_M && (
+              gpsAccuracy <= CHECK_IN_IDEAL_ACCURACY_M && (
               <div className="flex items-center gap-2 text-sm text-[var(--success)]">
                 <Navigation className="h-4 w-4" aria-hidden="true" />
                 Precisione GPS: {Math.round(gpsAccuracy)} m
               </div>
             )}
+
+            {state !== "error" && accuracyNote}
 
             {state === "loading" && (
               <p className="text-sm text-[var(--text-secondary)]" role="status" aria-live="polite">
@@ -380,11 +428,19 @@ export function CheckInSheet({
                       Come fare
                     </summary>
                     <div className="px-3.5 pb-3.5 text-sm leading-relaxed text-[var(--text-secondary)]">
-                      <ol className="list-decimal space-y-1.5 ps-4">
-                        <li>Apri le Impostazioni del telefono.</li>
-                        <li>Cerca Drop-In e apri la voce Posizione.</li>
-                        <li>Scegli «Consenti» e torna qui.</li>
-                      </ol>
+                      {error.steps ? (
+                        <ol className="list-decimal space-y-1.5 ps-4">
+                          {error.steps.map((step) => (
+                            <li key={step}>{step}</li>
+                          ))}
+                        </ol>
+                      ) : (
+                        <ol className="list-decimal space-y-1.5 ps-4">
+                          <li>Apri le Impostazioni del telefono.</li>
+                          <li>Cerca Drop-In e apri la voce Posizione.</li>
+                          <li>Scegli «Consenti» e torna qui.</li>
+                        </ol>
+                      )}
                       <p className="mt-2.5">Poi tocca Riprova.</p>
                     </div>
                   </details>
