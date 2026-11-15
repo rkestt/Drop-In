@@ -247,7 +247,9 @@ export function lobbyDayOptions(
     options.push({
       key,
       label: relative ?? dateLabel,
-      ariaLabel: relative ? `${relative}, ${ariaDate}` : ariaDate,
+      ariaLabel: relative
+        ? `${relative}, ${dateLabel}, ${ariaDate}`
+        : `${dateLabel}, ${ariaDate}`,
     });
   }
 

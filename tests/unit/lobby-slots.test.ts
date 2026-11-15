@@ -42,8 +42,8 @@ describe("lobbyDayOptions", () => {
     expect(days[1].label).toBe("Domani");
     // 2026-11-15 è una domenica: il 17 è martedì.
     expect(days[2].label).toBe("mar 17 nov");
-    expect(days[2].ariaLabel).toBe("martedì 17 novembre");
-    expect(days[0].ariaLabel).toBe("Oggi, domenica 15 novembre");
+    expect(days[2].ariaLabel).toBe("mar 17 nov, martedì 17 novembre");
+    expect(days[0].ariaLabel).toBe("Oggi, dom 15 nov, domenica 15 novembre");
   });
 
   it("a cavallo della mezzanotte di Roma parte dal giorno civile di Roma", () => {
