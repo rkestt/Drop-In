@@ -93,6 +93,12 @@ npx supabase db reset # Apply migrations + seed (200 courts Roma dev, 10k prod)
 - **Wiki** (`.llm-wiki/`): memoria durable (concept/entity/synthesis). `wiki_retro` per insight atomici.
 - **Quality gate unico**: `npm run test:all` = `npm run lint && tsc --noEmit && vitest run && npm run test:rls && playwright test` — deve essere verde prima di ogni commit harness-relevant.
 
+## Git & deploy (2026-11-16)
+
+- Branch: `master`/`develop` = sviluppo, `stage` = staging, `production` = prod congelata (`00fa9cf`, schema `022`).
+- Vercel **Production Branch = `production`**: push su master/develop non deployano prod.
+- Mai pushare `master` → `production` senza backup prod + migrazioni `023`→`032` applicate. Dettagli in `docs/staging.md`.
+
 ## Agent skills
 
 ### Issue tracker

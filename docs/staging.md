@@ -3,6 +3,16 @@
 Fonte di verità per il loop quotidiano migrazioni: `docs/database-workflow.md`.
 Roadmap post-1.5: `docs/plans/post-1.5.md`. Qui solo ambienti, limiti e procedure remote.
 
+## Modello branch (2026-11-16)
+
+| Branch | Ruolo | Note |
+|---|---|---|
+| `master` / `develop` | sviluppo | allineati, schema `032`; push → deploy Preview |
+| `stage` | staging | schema `032`, alias https://drop-in-stage.vercel.app |
+| `production` | produzione | **fermo a `00fa9cf`, schema `022`**; Vercel Production Branch = `production` |
+
+Regola: **non pushare `master` su `production`** finché prod non è a `032` e non si è fatto backup + push migrazioni. Il branch `production` esiste apposta per congelare prod e permettere a master/develop di avanzare senza deploy prod.
+
 ## Ambienti
 
 | Ambiente | Frontend | Backend |
