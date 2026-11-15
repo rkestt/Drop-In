@@ -54,3 +54,7 @@
 - **retro**: {"slug":"mappa-marker-geojson-clustering-preview","title":"Mappa: da 200 marker DOM a source GeoJSON con cluster, anteprima e un solo tab stop"}
 - **retro**: {"slug":"moderazione-esito-notifiche-resubmit","title":"Moderazione: esito al proponente, resubmit e storia di audit che non si riscrive"}
 - **retro**: {"slug":"submit-senza-gps-posizione-manuale","title":"Inviare un campo senza essere sul posto: posizione manuale, indirizzo e bozza migrabile"}
+
+## 2026-11-15
+
+- **retro**: {"slug":"drop-in-check-in-accuratezza-adattiva-e-permessi-ios","title":"Check-in Drop-In: accuratezza GPS adattiva e permessi posizione iOS separati dalla PWA"}
