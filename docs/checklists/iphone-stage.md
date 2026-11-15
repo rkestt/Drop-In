@@ -38,6 +38,10 @@ Data: 2026-11-14. Stage allineato a migrazione `032`.
 - [ ] Entro 50 m: check-in OK.
 - [ ] Fuori raggio: messaggio metri, niente crash.
 - [ ] Accuratezza bassa: messaggio dedicato.
+- [ ] Permesso Safari: prova “Chiedi”, “Mai” e “Durante l'uso” con “Posizione precisa” attiva/disattiva.
+- [ ] Permesso negato su iOS: messaggio specifico Safari con «Posizione precisa» (non quello generico).
+- [ ] Accuratezza 20–50 m: check-in consentito con avviso “GPS impreciso” non bloccante.
+- [ ] Accuratezza >50 m: check-in bloccato con messaggio “Segnale GPS debole”.
 - [ ] Check-in attivo: scadenza visibile; check-out.
 - [ ] Con rete off: check-in va in coda; al reconnect si invia.
 - [ ] Check-in in coda da >2h: scartato.

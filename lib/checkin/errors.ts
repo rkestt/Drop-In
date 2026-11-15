@@ -2,12 +2,13 @@
  * Mappa errori del check-in in testi italiani con recovery (d21).
  *
  * Modulo puro: nessuna I/O, nessuna geolocalizzazione, nessun Supabase.
- * Le regole (50 m, accuratezza 20 m, timeout 2h) restano nel DB/pg_cron:
+ * Le regole (50 m, accuratezza ideale 20 m / bloccante 50 m, timeout 2h) restano nel DB/pg_cron:
  * qui si traducono solo i messaggi in stati UI raggiungibili.
  */
 
 export const CHECK_IN_RADIUS_M = 50;
-export const CHECK_IN_MAX_ACCURACY_M = 20;
+export const CHECK_IN_IDEAL_ACCURACY_M = 20;
+export const CHECK_IN_MAX_ACCURACY_M = 50;
 export const CHECK_IN_DURATION_MS = 2 * 60 * 60 * 1000;
 
 export type CheckInErrorKind =
@@ -28,45 +29,129 @@ export interface CheckInErrorInfo {
   body: string;
   hint?: string;
   retryLabel: string;
+  /** Passi di recovery mostrati nel <details> "Come fare" (solo denied). */
+  steps?: string[];
 }
 
 const RETRY = "Riprova";
 
-export function fromGeolocationCode(code: number): CheckInErrorInfo {
+export interface GeolocationCodeOpts {
+  /** True su iPhone/iPad: messaggi specifici per Safari/iOS. */
+  ios?: boolean;
+  /** True quando la PWA gira standalone (icona Home), false in Safari. */
+  standalone?: boolean;
+}
+
+export function fromGeolocationCode(
+  code: number,
+  opts?: GeolocationCodeOpts
+): CheckInErrorInfo {
+  const ios = opts?.ios === true;
+  const standalone = opts?.standalone;
   if (code === 1) {
+    if (ios) {
+      if (standalone === false) {
+        return {
+          kind: "denied",
+          title: "Permesso posizione negato",
+          body: "Safari non ha il permesso per la posizione. Apri Impostazioni › Privacy e sicurezza › Localizzazione, scegli Safari e attiva «Posizione precisa».",
+          hint: "Riapri Drop-In dalla sua icona sulla Home: nella PWA installata i permessi sono separati da quelli di Safari.",
+          retryLabel: RETRY,
+          steps: [
+            "Apri Impostazioni › Privacy e sicurezza › Localizzazione.",
+            "Scegli Safari, consenti la posizione e attiva «Posizione precisa».",
+            "Riapri Drop-In dalla sua icona sulla Home: in Safari i permessi sono separati dalla PWA installata.",
+          ],
+        };
+      }
+      return {
+        kind: "denied",
+        title: "Permesso posizione negato",
+        body: "Safari non ha il permesso per la posizione. Apri Impostazioni › Privacy e sicurezza › Localizzazione, scegli Safari e attiva «Posizione precisa».",
+        hint: "Se hai aggiunto Drop-In alla Home, i permessi si gestiscono nella voce Drop-In.",
+        retryLabel: RETRY,
+        steps: [
+          "Apri Impostazioni › Privacy e sicurezza › Localizzazione.",
+          "Scegli Safari (o la voce Drop-In, se hai installato la PWA).",
+          "Consenti la posizione e attiva «Posizione precisa».",
+        ],
+      };
+    }
     return {
       kind: "denied",
       title: "Permesso posizione negato",
-      body: "Abilitalo nelle impostazioni e riprova.",
+      body: "Il browser ha bloccato l'accesso alla posizione. Consentilo nelle impostazioni del sito e riprova.",
+      hint: "Di solito basta toccare l'icona del lucchetto nella barra degli indirizzi e consentire la posizione.",
       retryLabel: RETRY,
+      steps: [
+        "Apri le impostazioni del sito nel browser.",
+        "Consenti l'accesso alla posizione per Drop-In.",
+        "Torna qui.",
+      ],
     };
   }
   if (code === 2) {
     return {
       kind: "unavailable",
       title: "Posizione non disponibile",
-      body: "Non riusciamo a leggere la posizione. Esci all'aperto e riprova.",
-      hint: "Controlla anche che il GPS del telefono sia attivo.",
+      body: "Non riusciamo a leggere la posizione. Scendi all'aperto e riprova.",
+      hint: ios
+        ? "Controlla che la Localizzazione sia attiva e che la «Posizione precisa» sia abilitata."
+        : "Controlla anche che il GPS del telefono sia attivo.",
       retryLabel: RETRY,
     };
   }
   return {
     kind: "timeout",
     title: "Posizione non disponibile",
-    body: "La lettura della posizione ha impiegato troppo tempo. Riprova.",
-    hint: "Esci all'aperto: al chiuso il segnale GPS è più lento.",
+    body: "La lettura della posizione ha impiegato troppo tempo. Scendi all'aperto e riprova.",
+    hint: ios
+      ? "Al chiuso il segnale GPS è più lento: attiva la «Posizione precisa» e riprova all'aperto."
+      : "Esci all'aperto: al chiuso il segnale GPS è più lento.",
     retryLabel: RETRY,
   };
 }
 
-/** Null quando l'accuratezza va bene: nessuno stato d'errore da mostrare. */
-export function fromAccuracy(accuracyM: number): CheckInErrorInfo | null {
-  if (accuracyM <= CHECK_IN_MAX_ACCURACY_M) return null;
+/**
+ * Verdetto sull'accuratezza GPS (soglia adattiva, #82):
+ * - ok (<= 20 m): nessun avviso.
+ * - warn (20–50 m): non bloccante, si prosegue con l'insert + avviso.
+ * - block (> 50 m): bloccante, niente insert.
+ * Il kind resta "low-accuracy" in warn e block: la distinzione è `level`.
+ */
+export type AccuracyVerdict =
+  | { level: "ok"; info: null }
+  | { level: "warn"; info: CheckInErrorInfo }
+  | { level: "block"; info: CheckInErrorInfo };
+
+export function fromAccuracy(accuracyM: number): AccuracyVerdict {
+  // Precisione ignota (NaN/Infinity/negativa): non giudicabile, mai
+  // banner con "NaN m"/"±Infinity m" — il trigger DB resta l'unico giudice.
+  if (!Number.isFinite(accuracyM) || accuracyM < 0)
+    return { level: "ok", info: null };
+  if (accuracyM <= CHECK_IN_IDEAL_ACCURACY_M)
+    return { level: "ok", info: null };
+  const meters = Math.round(accuracyM);
+  if (accuracyM <= CHECK_IN_MAX_ACCURACY_M) {
+    return {
+      level: "warn",
+      info: {
+        kind: "low-accuracy",
+        title: "GPS impreciso",
+        body: `GPS impreciso (±${meters} m): il check-in potrebbe risultare meno affidabile.`,
+        retryLabel: RETRY,
+      },
+    };
+  }
   return {
-    kind: "low-accuracy",
-    title: "Segnale GPS debole",
-    body: `Segnale GPS debole (±${Math.round(accuracyM)} m). Esci all'aperto e riprova.`,
-    retryLabel: RETRY,
+    level: "block",
+    info: {
+      kind: "low-accuracy",
+      title: "Segnale GPS debole",
+      body: `Segnale GPS troppo debole (±${meters} m) per un check-in affidabile. Avvicinati al campo, scendi all'aperto e riprova.`,
+      hint: "Il check-in richiede una precisione entro 50 m.",
+      retryLabel: RETRY,
+    },
   };
 }
 

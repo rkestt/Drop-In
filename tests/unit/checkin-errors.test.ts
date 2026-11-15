@@ -17,6 +17,39 @@ describe("fromGeolocationCode", () => {
     expect(info.retryLabel).toBe("Riprova");
   });
 
+  it("code 1 iOS → messaggio Safari con Posizione precisa", () => {
+    const info = fromGeolocationCode(1, { ios: true });
+    expect(info.kind).toBe("denied");
+    expect(info.body).toMatch(/Safari/);
+    expect(info.body).toMatch(/Posizione precisa/);
+    expect(info.steps?.join(" ")).toMatch(/Posizione precisa/);
+  });
+
+  it("code 1 non-iOS → messaggio diverso, senza riferimenti a Safari", () => {
+    const ios = fromGeolocationCode(1, { ios: true });
+    const other = fromGeolocationCode(1, { ios: false });
+    expect(other.kind).toBe("denied");
+    expect(other.body).not.toBe(ios.body);
+    expect(other.body).not.toMatch(/Safari/);
+  });
+
+  it("code 1 iOS non-standalone → rimanda all'icona PWA", () => {
+    const info = fromGeolocationCode(1, { ios: true, standalone: false });
+    expect(info.kind).toBe("denied");
+    expect(`${info.hint ?? ""} ${info.steps?.join(" ") ?? ""}`).toMatch(
+      /icona/
+    );
+  });
+
+  it("code 1 iOS standalone → permessi nella voce Drop-In", () => {
+    const info = fromGeolocationCode(1, { ios: true, standalone: true });
+    expect(info.kind).toBe("denied");
+    expect(info.body).toMatch(/Safari/);
+    expect(info.body).toMatch(/Posizione precisa/);
+    expect(info.hint).toMatch(/voce Drop-In/);
+    expect(info.steps?.join(" ")).toMatch(/Drop-In/);
+  });
+
   it("code 2 → posizione non disponibile", () => {
     const info = fromGeolocationCode(2);
     expect(info.kind).toBe("unavailable");
@@ -29,18 +62,62 @@ describe("fromGeolocationCode", () => {
     expect(timeout.kind).toBe("timeout");
     expect(timeout.body).not.toBe(unavailable.body);
   });
+
+  it("code 2/3 su iOS → stessi kind, consiglio Posizione precisa", () => {
+    const unavailable = fromGeolocationCode(2, { ios: true });
+    const timeout = fromGeolocationCode(3, { ios: true });
+    expect(unavailable.kind).toBe("unavailable");
+    expect(timeout.kind).toBe("timeout");
+    expect(`${unavailable.hint ?? ""}`).toMatch(/Posizione precisa/);
+    expect(`${timeout.hint ?? ""}`).toMatch(/Posizione precisa/);
+  });
 });
 
 describe("fromAccuracy", () => {
-  it("≤ 20 m → nessun errore", () => {
-    expect(fromAccuracy(12)).toBeNull();
-    expect(fromAccuracy(20)).toBeNull();
+  it("0 e 20 m → ok, nessuna info", () => {
+    expect(fromAccuracy(0)).toEqual({ level: "ok", info: null });
+    expect(fromAccuracy(20)).toEqual({ level: "ok", info: null });
   });
 
-  it("> 20 m → segnale debole con metri arrotondati", () => {
-    const info = fromAccuracy(45.4);
-    expect(info?.kind).toBe("low-accuracy");
-    expect(info?.body).toMatch(/±45 m/);
+  it("21 e 50 m → warn non bloccante con metri arrotondati", () => {
+    for (const [input, meters] of [
+      [21, "±21 m"],
+      [45.4, "±45 m"],
+      [50, "±50 m"],
+    ] as const) {
+      const verdict = fromAccuracy(input);
+      expect(verdict.level).toBe("warn");
+      expect(verdict.info?.kind).toBe("low-accuracy");
+      expect(verdict.info?.body).toContain(meters);
+      expect(verdict.info?.title).toMatch(/impreciso/i);
+    }
+  });
+
+  it("51 e 120 m → block con messaggio dedicato", () => {
+    for (const input of [51, 120]) {
+      const verdict = fromAccuracy(input);
+      expect(verdict.level).toBe("block");
+      expect(verdict.info?.kind).toBe("low-accuracy");
+      expect(verdict.info?.body).toMatch(/±120 m|±51 m/);
+      expect(verdict.info?.title).toMatch(/debole/i);
+    }
+  });
+
+  it("NaN/Infinity/negativi → ok, mai banner con metri assurdi", () => {
+    for (const input of [NaN, Infinity, -Infinity, -1]) {
+      const verdict = fromAccuracy(input);
+      expect(verdict.level).toBe("ok");
+      expect(verdict.info).toBeNull();
+    }
+  });
+
+  it("confini float: 20.0001 → warn, 50.1 → block", () => {
+    const warn = fromAccuracy(20.0001);
+    expect(warn.level).toBe("warn");
+    expect(warn.info?.kind).toBe("low-accuracy");
+    const block = fromAccuracy(50.1);
+    expect(block.level).toBe("block");
+    expect(block.info?.kind).toBe("low-accuracy");
   });
 });
 
