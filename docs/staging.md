@@ -20,6 +20,7 @@ Progetto `drop-in`, org `andrea-fioris-projects-14d416c7`, piano Hobby, framewor
 - Env Preview `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` puntano al progetto staging (verificato via pull delle env Preview).
 - Custom environment "staging" solo Pro: lo stage usa lo scope Preview + alias fisso.
 - `ssoProtection` messo a null: i preview sono pubblici (di default la Vercel Authentication richiederebbe login Vercel).
+- **Production Branch = `production`** (impostato 2026-11-16 via API `/v9/projects/{id}/branch`). `production` è fermo a `00fa9cf` (schema 022); `master`/`develop`/`stage` sono a `53a2e12` (schema 032). Push su master non deployano più prod.
 - **403 "Vercel Security Checkpoint" sull'alias leggibile** (2026-11-13): `https://drop-in-stage.vercel.app` può rispondere 403 con `x-vercel-mitigated: challenge`; l'alias per-branch `drop-in-git-stage-…` serve l'app normalmente. È una challenge anti-bot di Vercel, non deployment protection: si gestisce da Dashboard → Firewall/Deployment Protection o con `vercel firewall system-mitigations pause` (24h, impatta anche prod: usare con cautela).
 
 ## Supabase staging (provisionato e verificato)
