@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, type FieldErrors } from "react-hook-form";
+import { Controller, useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   createLobbySchema,
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Drawer } from "@/components/ui/drawer";
 import { StepTransition } from "@/components/motion/step-transition";
 import { SuccessPop } from "@/components/motion/success-pop";
+import { StartTimePicker } from "@/components/lobby/start-time-picker";
 
 interface CreateLobbyDrawerProps {
   open: boolean;
@@ -33,6 +34,7 @@ export function CreateLobbyDrawer({
   // Orario e posti in react-hook-form (schema zod = unica fonte).
   // Restano useState solo per: loading, errori di rete/DB, esito.
   const {
+    control,
     register,
     handleSubmit,
     setFocus,
@@ -178,26 +180,19 @@ export function CreateLobbyDrawer({
             )}
 
             <form onSubmit={handleSubmit(onValidCreate, focusFirstError)} className="space-y-3" noValidate>
-              <div>
-                <label
-                  htmlFor="lobby-start-time"
-                  className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium block mb-1.5"
-                >
-                  Orario inizio
-                </label>
-                <Input
-                  id="lobby-start-time"
-                  type="datetime-local"
-                  {...register("startTime")}
-                  aria-invalid={errors.startTime ? "true" : undefined}
-                  aria-describedby={errors.startTime ? "lobby-start-time-error" : undefined}
-                />
-                {errors.startTime && (
-                  <p id="lobby-start-time-error" role="alert" className="mt-1.5 text-sm text-[var(--danger)]">
-                    {errors.startTime.message}
-                  </p>
+              <Controller
+                control={control}
+                name="startTime"
+                render={({ field, fieldState }) => (
+                  <StartTimePicker
+                    value={field.value ? field.value : null}
+                    onChange={field.onChange}
+                    focusRef={field.ref}
+                    invalid={Boolean(fieldState.error)}
+                    error={fieldState.error?.message}
+                  />
                 )}
-              </div>
+              />
 
               <div>
                 <label
