@@ -159,3 +159,27 @@ export const reportSchema = z.object({
 });
 
 export type ReportValues = z.infer<typeof reportSchema>;
+
+export const REVIEW_BODY_MAX = 500;
+
+/**
+ * Recensione di un campo (#34). Il rating è obbligatorio (CHECK 1..5 nel DB);
+ * il testo è facoltativo e viene trimmato. Lo scheletro vuoto va scritto come
+ * NULL (`bodyToNull`): il CHECK della 033 rifiuta la stringa di soli spazi.
+ */
+export const reviewSchema = z.object({
+  rating: z
+    .number({ error: "Scegli quante stelle dare." })
+    .int("Scegli quante stelle dare.")
+    .min(1, "Scegli quante stelle dare.")
+    .max(5, "Scegli quante stelle dare."),
+  body: z
+    .string()
+    .trim()
+    .max(
+      REVIEW_BODY_MAX,
+      `Accorcia il testo a ${REVIEW_BODY_MAX} caratteri.`
+    ),
+});
+
+export type ReviewValues = z.infer<typeof reviewSchema>;

@@ -1882,4 +1882,250 @@ DO $$ BEGIN
     RAISE EXCEPTION 'reject non ha registrato la nuova nota sulla pending';
   END IF;
 END $$;
+
+-- ================= 44. #34: court_reviews, una riga per utente+corte =================
+-- Fixture dedicate (setup come postgres, bypassa RLS): una corte approvata e
+-- una pending. Seed con recensioni di A su entrambe (media/count della view
+-- verificati al punto g con altre due righe).
+INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+VALUES
+  ('Review Approved', 41.90, 12.50, ST_SetSRID(ST_MakePoint(12.50,41.90),4326)::geography, 'community',
+   '11111111-1111-1111-1111-111111111111','approved','active'),
+  ('Review Pending', 41.91, 12.51, ST_SetSRID(ST_MakePoint(12.51,41.91),4326)::geography, 'community',
+   '11111111-1111-1111-1111-111111111111','pending','active');
+INSERT INTO public.court_reviews (user_id, court_id, rating, body)
+VALUES
+  ('11111111-1111-1111-1111-111111111111',
+   (SELECT id FROM public.courts WHERE name = 'Review Approved'), 4, 'Bel campo'),
+  ('11111111-1111-1111-1111-111111111111',
+   (SELECT id FROM public.courts WHERE name = 'Review Pending'), 5, NULL);
+
+-- 44a. anon legge le recensioni della corte approvata, nulla della pending.
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$ DECLARE v_n BIGINT; BEGIN
+  SELECT count(*) INTO v_n FROM public.court_reviews
+  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Review Approved');
+  IF v_n <> 1 THEN
+    RAISE EXCEPTION 'anon vede % recensioni su corte approvata (attesa 1)', v_n;
+  END IF;
+  SELECT count(*) INTO v_n FROM public.court_reviews
+  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Review Pending');
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'anon vede % recensioni su corte pending (attese 0)', v_n;
+  END IF;
+  -- Totale: a questo punto esistono 2 recensioni (una per corte); anon ne
+  -- vede esattamente 1 (la subselect qui sopra da' NULL per la pending anche
+  -- senza RLS, il totale no).
+  SELECT count(*) INTO v_n FROM public.court_reviews;
+  IF v_n <> 1 THEN
+    RAISE EXCEPTION 'anon vede % recensioni totali (attesa 1)', v_n;
+  END IF;
+END $$;
+RESET ROLE;
+-- L'autore rivede la propria riga anche sulla pending de-approvata.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.court_reviews
+                 WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Review Pending')) THEN
+    RAISE EXCEPTION 'autore non rivede la propria recensione su pending';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 44b. positivo: A inserisce rating 1..5; rating 0/6 -> 23514, body 501ch e
+-- body di soli spazi -> 23514.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+INSERT INTO public.court_reviews (user_id, court_id, rating, body)
+VALUES ('11111111-1111-1111-1111-111111111111',
+        (SELECT id FROM public.courts WHERE name = 'C Court'), 5, 'Ottimo!');
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.court_reviews
+                 WHERE user_id = '11111111-1111-1111-1111-111111111111'
+                   AND court_id = (SELECT id FROM public.courts WHERE name = 'C Court')
+                   AND rating = 5) THEN
+    RAISE EXCEPTION 'insert rating 5 di A non riuscito';
+  END IF;
+END $$;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.court_reviews (user_id, court_id, rating)
+    VALUES ('22222222-2222-2222-2222-222222222222',
+            (SELECT id FROM public.courts WHERE name = 'C Court'), 0);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '23514' THEN RETURN; END IF;
+    RAISE EXCEPTION 'rating 0: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'rating 0 accettato';
+END $$;
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.court_reviews (user_id, court_id, rating)
+    VALUES ('22222222-2222-2222-2222-222222222222',
+            (SELECT id FROM public.courts WHERE name = 'C Court'), 6);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '23514' THEN RETURN; END IF;
+    RAISE EXCEPTION 'rating 6: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'rating 6 accettato';
+END $$;
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.court_reviews (user_id, court_id, rating, body)
+    VALUES ('22222222-2222-2222-2222-222222222222',
+            (SELECT id FROM public.courts WHERE name = 'C Court'), 3, repeat('x', 501));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '23514' THEN RETURN; END IF;
+    RAISE EXCEPTION 'body 501ch: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'body di 501 caratteri accettato';
+END $$;
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.court_reviews (user_id, court_id, rating, body)
+    VALUES ('22222222-2222-2222-2222-222222222222',
+            (SELECT id FROM public.courts WHERE name = 'C Court'), 3, '   ');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '23514' THEN RETURN; END IF;
+    RAISE EXCEPTION 'body spazi: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'body di soli spazi accettato (va inviato NULL)';
+END $$;
+RESET ROLE;
+
+-- 44c. B non aggiorna né cancella la recensione di A: 0 righe, riga invariata.
+-- (La RLS filtra in silenzio: si asserisce l'effetto, non l'errore.)
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+DO $$
+DECLARE v_n INTEGER;
+BEGIN
+  UPDATE public.court_reviews SET rating = 1
+  WHERE user_id = '11111111-1111-1111-1111-111111111111'
+    AND court_id = (SELECT id FROM public.courts WHERE name = 'Review Approved');
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'B ha aggiornato % righe di A', v_n;
+  END IF;
+  DELETE FROM public.court_reviews
+  WHERE user_id = '11111111-1111-1111-1111-111111111111'
+    AND court_id = (SELECT id FROM public.courts WHERE name = 'Review Approved');
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'B ha cancellato % righe di A', v_n;
+  END IF;
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.court_reviews
+                 WHERE user_id = '11111111-1111-1111-1111-111111111111'
+                   AND court_id = (SELECT id FROM public.courts WHERE name = 'Review Approved')
+                   AND rating = 4) THEN
+    RAISE EXCEPTION 'recensione di A alterata da B';
+  END IF;
+END $$;
+
+-- 44d. insert su corte pending -> 42501 (nessun insert-oracle sulla moderazione).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.court_reviews (user_id, court_id, rating)
+    VALUES ('33333333-3333-3333-3333-333333333333',
+            (SELECT id FROM public.courts WHERE name = 'Review Pending'), 4);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'review su pending: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'recensione su corte pending riuscita';
+END $$;
+RESET ROLE;
+
+-- 44e. seconda recensione dello stesso utente sulla stessa corte -> 23505.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.court_reviews (user_id, court_id, rating)
+    VALUES ('11111111-1111-1111-1111-111111111111',
+            (SELECT id FROM public.courts WHERE name = 'Review Approved'), 2);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '23505' THEN RETURN; END IF;
+    RAISE EXCEPTION 'doppia review: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'doppia recensione riuscita (manca unique)';
+END $$;
+RESET ROLE;
+
+-- 44f. il guard nega il cambio di court_id (P0001) ma lascia passare il
+-- cambio di rating.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.court_reviews
+    SET court_id = (SELECT id FROM public.courts WHERE name = 'C Court')
+    WHERE user_id = '11111111-1111-1111-1111-111111111111'
+      AND court_id = (SELECT id FROM public.courts WHERE name = 'Review Approved');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'cambio court_id: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'cambio di court_id riuscito (guard mancante?)';
+END $$;
+UPDATE public.court_reviews SET rating = 5
+WHERE user_id = '11111111-1111-1111-1111-111111111111'
+  AND court_id = (SELECT id FROM public.courts WHERE name = 'Review Approved');
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.court_reviews
+                 WHERE user_id = '11111111-1111-1111-1111-111111111111'
+                   AND court_id = (SELECT id FROM public.courts WHERE name = 'Review Approved')
+                   AND rating = 5) THEN
+    RAISE EXCEPTION 'cambio rating lecito bloccato dal guard';
+  END IF;
+END $$;
+
+-- 44g. `court_rating_summary`: media/count giusti sulla corte approvata,
+-- niente righe per la pending ad anon.
+INSERT INTO public.court_reviews (user_id, court_id, rating)
+VALUES
+  ('22222222-2222-2222-2222-222222222222',
+   (SELECT id FROM public.courts WHERE name = 'Review Approved'), 5),
+  ('33333333-3333-3333-3333-333333333333',
+   (SELECT id FROM public.courts WHERE name = 'Review Approved'), 2);
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$ DECLARE v_avg NUMERIC; v_n INTEGER; BEGIN
+  SELECT average, count INTO v_avg, v_n FROM public.court_rating_summary
+  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Review Approved');
+  -- Rating: A=5 (punto f), B=5, C=2 -> media 4.0, count 3.
+  IF v_avg <> 4.0 OR v_n <> 3 THEN
+    RAISE EXCEPTION 'summary su approvata: average=%, count=% (attesi 4.0, 3)', v_avg, v_n;
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.court_rating_summary
+             WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Review Pending')) THEN
+    RAISE EXCEPTION 'summary leaka la pending ad anon';
+  END IF;
+  -- Totale: 3 corti recensite (Review Approved, C Court, Review Pending);
+  -- anon ne vede 2 (la subselect qui sopra da' NULL per la pending anche
+  -- senza RLS, il totale no).
+  SELECT count(*) INTO v_n FROM public.court_rating_summary;
+  IF v_n <> 2 THEN
+    RAISE EXCEPTION 'summary ad anon: % righe (attese 2)', v_n;
+  END IF;
+END $$;
+RESET ROLE;
 ROLLBACK;

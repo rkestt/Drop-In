@@ -68,6 +68,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"court_reviews": {
+                  Row: {
+                    "body": string | null,"court_id": string,"created_at": string,"id": string,"rating": number,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "body"?: string | null,"court_id": string,"created_at"?: string,"id"?: string,"rating": number,"user_id": string
+                  }
+                  Update: {
+                    "body"?: string | null,"court_id"?: string,"created_at"?: string,"id"?: string,"rating"?: number,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "court_reviews_court_id_fkey"
+      columns: ["court_id"]
+isOneToOne: false
+      referencedRelation: "courts"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"court_submissions": {
                   Row: {
                     "court_id": string | null,"created_at": string | null,"gps_accuracy": number | null,"id": string,"lat": number,"lng": number,"moderation_note": string | null,"photo_path": string | null,"raw_name": string | null,"status": string,"submitter_id": string
@@ -227,7 +247,21 @@ isOneToOne: false
                 }
           }
           Views: {
-            "geography_columns": {
+            "court_rating_summary": {
+                  Row: {
+                    "average": number | null,"count": number | null,"court_id": string,"last_created_at": string | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "court_reviews_court_id_fkey"
+      columns: ["court_id"]
+isOneToOne: false
+      referencedRelation: "courts"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"geography_columns": {
                   Row: {
                     "coord_dimension": number | null,"f_geography_column": unknown,"f_table_catalog": unknown,"f_table_name": unknown,"f_table_schema": unknown,"srid": number | null,"type": string | null
                   }

@@ -3,6 +3,7 @@ import {
   createLobbySchema,
   editProfileSchema,
   reportSchema,
+  reviewSchema,
   submitCourtSchema,
 } from "@/lib/validation/schemas";
 
@@ -152,5 +153,36 @@ describe("submitCourtSchema", () => {
       hasPhoto: false,
     });
     expect(r.success).toBe(true);
+  });
+});
+
+describe("reviewSchema", () => {
+  it("rifiuta la valutazione mancante con il messaggio delle stelle", () => {
+    const r = reviewSchema.safeParse({ body: "" });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues[0]?.message).toBe("Scegli quante stelle dare.");
+    }
+  });
+
+  it("rifiuta valutazioni fuori da 1..5 e i decimali", () => {
+    expect(reviewSchema.safeParse({ rating: 0, body: "" }).success).toBe(false);
+    expect(reviewSchema.safeParse({ rating: 6, body: "" }).success).toBe(false);
+    expect(reviewSchema.safeParse({ rating: 3.5, body: "" }).success).toBe(false);
+  });
+
+  it("trimma il testo e accetta il corpo vuoto (payload: null)", () => {
+    const r = reviewSchema.safeParse({ rating: 4, body: "  ottimo campo  " });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.body).toBe("ottimo campo");
+    expect(reviewSchema.safeParse({ rating: 4, body: "   " }).success).toBe(true);
+  });
+
+  it("rifiuta il testo oltre i 500 caratteri", () => {
+    const r = reviewSchema.safeParse({ rating: 4, body: "a".repeat(501) });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues[0]?.message).toMatch(/500/);
+    }
   });
 });

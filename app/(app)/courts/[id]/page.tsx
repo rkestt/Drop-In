@@ -19,6 +19,12 @@ import { formatAppDateTime, formatAppTime } from "@/lib/datetime";
 import { LoginPrompt } from "@/components/auth/login-prompt";
 import { ShareButton } from "@/components/share/share-button";
 import { BanBannerWrapper } from "@/components/karma/ban-banner-wrapper";
+import { ReviewsSection } from "@/components/court/reviews-section";
+import {
+  REVIEW_PAGE_SIZE,
+  type ReviewItem,
+  type ReviewSummary,
+} from "@/lib/reviews/format";
 import { MapPin, AlertTriangle, Clock, Users } from "lucide-react";
 import { courtDetailKey } from "@/lib/offline/cache";
 import { CacheWriter } from "@/components/offline/cache-writer";
@@ -227,8 +233,81 @@ export default async function CourtPage({
     }
   }
 
-  const photoUrl = courtPhotoPublicUrl(court.photo_path);
+  // #34: recensioni. Ogni lettura ha il suo try/catch: un errore qui non deve
+  // mai rompere la pagina (stessa regola di check_ins/user_favorites).
+  // Il nickname non è embeddabile (FK user_id → auth.users): seconda query
+  // su profiles + map lato server, come in app/(dashboard)/lobbies/page.tsx.
+  let reviewSummary: ReviewSummary = { average: 0, count: 0 };
+  let reviewItems: ReviewItem[] = [];
+  let ownReview: { rating: number; body: string | null } | null = null;
 
+  if (!isPending) {
+    try {
+      const { data, error } = await supabase
+        .from("court_rating_summary")
+        .select("average, count")
+        .eq("court_id", id)
+        .maybeSingle();
+      if (error) throw error;
+      reviewSummary = {
+        average: data?.average ?? 0,
+        count: data?.count ?? 0,
+      };
+    } catch {
+      reviewSummary = { average: 0, count: 0 };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("court_reviews")
+        .select("id, user_id, rating, body, created_at")
+        .eq("court_id", id)
+        // Secondario su id: "Mostra altre" pagina con range stabile.
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(REVIEW_PAGE_SIZE);
+      if (error) throw error;
+      const rows = data ?? [];
+      const userIds = [...new Set(rows.map((row) => row.user_id))];
+      let nicknames = new Map<string, string | null>();
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, nickname")
+          .in("user_id", userIds);
+        nicknames = new Map(
+          (profiles ?? []).map((p) => [p.user_id, p.nickname] as const),
+        );
+      }
+      reviewItems = rows.map((row) => ({
+        id: row.id,
+        user_id: row.user_id,
+        nickname: nicknames.get(row.user_id) ?? null,
+        rating: row.rating,
+        body: row.body,
+        created_at: row.created_at,
+      }));
+    } catch {
+      reviewItems = [];
+    }
+
+    if (user) {
+      try {
+        const { data, error } = await supabase
+          .from("court_reviews")
+          .select("rating, body")
+          .eq("court_id", id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (error) throw error;
+        ownReview = data ? { rating: data.rating, body: data.body } : null;
+      } catch {
+        ownReview = null;
+      }
+    }
+  }
+
+  const photoUrl = courtPhotoPublicUrl(court.photo_path);
   const activeReportRows: ReportRow[] = activeReports(
     (reports ?? []).map((r) => ({
       id: r.id,
@@ -401,6 +480,20 @@ export default async function CourtPage({
 
       {/* Ban/Karma Warning */}
       <BanBannerWrapper userId={user?.id ?? null} />
+
+      {/* #34: recensioni. Sulle pending la sezione non esiste: la scheda ha
+          già l'avviso di revisione e le azioni chiuse (content.md: una cosa
+          per volta). Lista e media restano pubbliche sulle corti approvate. */}
+      {!isPending && (
+        <ReviewsSection
+          courtId={court.id}
+          signedIn={!!user}
+          currentUserId={user?.id ?? null}
+          summary={reviewSummary}
+          initialReviews={reviewItems}
+          ownReview={ownReview}
+        />
+      )}
 
       {/* Active Lobbies */}
       {/* #76: sulle pending niente lista e niente crea-lobby, solo spiegazione. */}
