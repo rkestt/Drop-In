@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Invito a Drop-In</title>
+  </head>
+  <body style="margin:0;padding:0;background:#141414;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#141414;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#1e1e1e;border:1px solid #2e2e2e;border-radius:12px;">
+            <tr>
+              <td style="padding:28px 28px 8px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                <p style="margin:0 0 4px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#24ae56;font-weight:700;">Drop-In</p>
+                <h1 style="margin:0;font-size:22px;line-height:1.3;color:#f0f0f0;">Ti hanno invitato su Drop-In</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 28px 0 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#c9c9c9;">
+                <p style="margin:0 0 18px 0;">C'è un account pronto per <strong style="color:#f0f0f0;">{{ .Email }}</strong>. Accetta l'invito per entrare.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 18px 0;">
+                  <tr>
+                    <td style="border-radius:999px;background:#24ae56;">
+                      <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#141414;text-decoration:none;border-radius:999px;">Accetta l'invito</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 8px 0;font-size:13px;color:#a3a3a3;">Se il bottone non funziona, copia questo indirizzo nel browser:</p>
+                <p style="margin:0 0 18px 0;font-size:12px;line-height:1.4;word-break:break-all;color:#24ae56;">{{ .ConfirmationURL }}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 28px 28px 28px;border-top:1px solid #2e2e2e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;color:#a3a3a3;">
+                <p style="margin:16px 0 0 0;">Se non aspettavi un invito, ignora questa email.</p>
+                <p style="margin:8px 0 0 0;">Drop-In · Street Edition</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
