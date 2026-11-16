@@ -7,6 +7,7 @@ import { SportSection } from "@/components/settings/sport-section";
 import { AccountSection } from "@/components/settings/account-section";
 import { ModerationSection } from "@/components/settings/moderation-section";
 import { InfoSection } from "@/components/settings/info-section";
+import { LegalLinks } from "@/components/legal/legal-links";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export default async function SettingsPage() {
         nickname={profile?.nickname ?? null}
       />
       {profile?.is_moderator === true && <ModerationSection />}
+      <LegalLinks />
       <InfoSection />
     </main>
   );
