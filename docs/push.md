@@ -123,6 +123,36 @@ curl -X POST https://<ref>.supabase.co/functions/v1/send-push \
 - `push_failed_at` valorizzato: 5 sweep falliti, la riga non viene piu'
   ritentata. Resta comunque nel centro notifiche in-app.
 
+## Stato staging (16 nov 2026, #87)
+
+Configurazione completa e verificata sul progetto `drop-in-staging`
+(`ygnjqqgnxdmgpeeidkbn`):
+
+| Pezzo | Stato | Come verificarlo |
+| --- | --- | --- |
+| Secrets function (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `PUSH_SECRET`) | impostati 2026-11-12 | `npx supabase secrets list` |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | su Vercel, scope Preview | `npx vercel env ls preview` |
+| Edge Function `send-push` | ACTIVE, `verify_jwt=false` | `npx supabase functions list` |
+| Estensioni `pg_cron`, `pg_net`, `pgcrypto` | attive | `select extname from pg_extension ...` |
+| Cron `send-push-sweep` (`* * * * *`, jobid 6) | attivo, run `succeeded` | `select * from cron.job_run_details where jobid = 6` |
+| `vault.push_secret` | matcha il `PUSH_SECRET` della function | `net._http_response` risponde `200 {"ok":true,...}`, mai 401 |
+| Recapito reale | **verificato**: riga di test con `push_sent_at` valorizzato entro lo sweep successivo, `push_attempts = 0` | `select push_sent_at, push_attempts from push_notifications order by sent_at desc limit 3` |
+
+Il recapito reale e' la prova che la chiave pubblica su Vercel e la privata
+nella function sono la stessa coppia: con VAPID diverse il push service
+risponderebbe 401/403 e `push_attempts` salirebbe.
+
+Ripetere la prova da zero, senza dipendere da un trigger:
+
+```sql
+-- come postgres/service_role, su staging
+insert into push_notifications (id, user_id, title, body, data)
+values (gen_random_uuid(), '<uuid utente con subscription>',
+        'Drop-In · test push', 'Se leggi questa notifica la consegna funziona.',
+        '{"type":"test"}'::jsonb);
+-- entro un minuto: push_sent_at valorizzato, push_attempts = 0
+```
+
 ## Cosa non e' verificabile in locale
 
 - Il recapito vero: richiede VAPID reali, HTTPS e un browser con SW
