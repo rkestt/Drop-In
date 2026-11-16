@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Drawer as BaseDrawer } from "@base-ui/react/drawer";
 import { cn } from "@/lib/utils";
+import { focusableElements, nextTrapTarget } from "@/lib/a11y/focus-trap";
 
 interface DrawerProps {
   open: boolean;
@@ -64,6 +65,19 @@ export function Drawer({
             aria-describedby={describedBy}
             initialFocus={initialFocus}
             finalFocus={finalFocus}
+            onKeyDown={(event) => {
+              if (event.key !== "Tab") return;
+              const popup = event.currentTarget;
+              const items = focusableElements(popup);
+              const activeIndex = items.indexOf(
+                document.activeElement as HTMLElement
+              );
+              const target = nextTrapTarget(items, activeIndex, event.shiftKey);
+              // Sempre preventDefault: il ciclo è nostro, il browser non deve
+              // poter uscire dal popup (vedi lib/a11y/focus-trap.ts).
+              event.preventDefault();
+              target?.focus();
+            }}
             className={cn(
               "w-full max-w-[720px] rounded-t-sheet bg-[var(--bg-elevated)] shadow-lg outline-none pb-safe",
               className
