@@ -82,6 +82,106 @@ test.describe("accessibility (axe) — reduced motion", () => {
   });
 });
 
+// #29: focus trap e focus restore nei drawer/sheet. Un Drawer di progetto
+// (Base UI, modal) copre login, primo avvio, check-in, modifica profilo e
+// anteprima campo: qui si fissa il contratto sul caso statico (login).
+test.describe("accessibility — drawer: focus trap e restore", () => {
+  test("Tab/Shift+Tab restano nel dialog, Escape chiude e torna al trigger", async ({
+    page,
+  }) => {
+    await seedOnboarded(page);
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await dismissOnboarding(page);
+
+    const trigger = page.getByRole("button", { name: "Accedi" }).first();
+    await expect(trigger).toBeVisible({ timeout: 20_000 });
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
+    // Il focus entra nel dialog all'apertura (Base UI applica initialFocus).
+    const inDialog = () =>
+      page.evaluate(
+        () => document.activeElement?.closest('[role="dialog"]') !== null
+      );
+    expect(await inDialog()).toBe(true);
+
+    // Giro completo in avanti: nessun Tab esce dal dialog.
+    for (let i = 0; i < 24; i++) {
+      await page.keyboard.press("Tab");
+      expect(await inDialog(), `Tab #${i + 1} uscito dal dialog`).toBe(true);
+    }
+    // ... e all'indietro, incluso il wrap dal primo elemento.
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press("Shift+Tab");
+      expect(await inDialog(), `Shift+Tab #${i + 1} uscito dal dialog`).toBe(
+        true
+      );
+    }
+
+    // Il contenuto sotto è inerte: la pagina non è raggiungibile da tastiera.
+    const navFocusable = await page.evaluate(() => {
+      const nav = document.querySelector('nav[aria-label="Navigazione principale"]');
+      if (!nav) return 0;
+      return nav.querySelectorAll("a[href], button:not([disabled])").length;
+    });
+    expect(navFocusable).toBeGreaterThan(0);
+
+    // Escape chiude e il focus torna al bottone che l'ha aperto.
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden({ timeout: 10_000 });
+    await expect(trigger).toBeFocused();
+  });
+});
+
+// #29: target touch 44px sulle superfici interattive della mappa (view 360px).
+test.describe("accessibility — touch target 44px (360px)", () => {
+  test.use({ viewport: { width: 360, height: 800 } });
+
+  test("nav, CTA e controlli mappa sono almeno 44x44", async ({ page }) => {
+    await seedOnboarded(page);
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await dismissOnboarding(page);
+    // La mappa è lazy: i controlli MapLibre compaiono solo dopo il mount del
+    // chunk. Senza questa attesa il test è flaky sotto carico (verificato in
+    // una run parallela: count 0).
+    await expect(page.locator(".maplibregl-ctrl-zoom-in")).toBeVisible({
+      timeout: 20_000,
+    });
+
+    // Attribuzione mappa: i link sono testo inline dentro una frase, quindi
+    // l'eccezione WCAG 2.2 SC 2.5.8 (inline) si applica — 14px di altezza
+    // non sono un target autonomo. Il test copre solo i target veri.
+    const targets = [
+      'nav[aria-label="Navigazione principale"] a',
+      'a[aria-label="Aggiungi un campo"]',
+      ".maplibregl-ctrl-zoom-in",
+      ".maplibregl-ctrl-zoom-out",
+      'button:has-text("Lista campi")',
+      'input[type="search"]',
+      'button:has-text("Accedi")',
+    ];
+    for (const selector of targets) {
+      const elements = page.locator(selector);
+      const count = await elements.count();
+      expect(count, `nessun elemento per ${selector}`).toBeGreaterThan(0);
+      for (let i = 0; i < count; i++) {
+        const el = elements.nth(i);
+        if (!(await el.isVisible())) continue;
+        const box = await el.boundingBox();
+        expect(box, `${selector}[${i}] senza box`).not.toBeNull();
+        // Tolleranza 0.5px: il layout subpixel a 360px arrotonda.
+        expect(box!.width, `${selector}[${i}] largo ${box!.width}`).toBeGreaterThanOrEqual(43.5);
+        expect(box!.height, `${selector}[${i}] alto ${box!.height}`).toBeGreaterThanOrEqual(43.5);
+      }
+    }
+  });
+});
+
+
 // Route con DB: fuori dalla CI finché la CI non ha Supabase (nessun
 // webServer riuso qui: girano con E2E_WITH_DB=1 e Supabase locale up).
 test.describe("accessibility (axe) — autenticate (E2E_WITH_DB)", () => {
@@ -238,6 +338,46 @@ test.describe("accessibility (axe) — autenticate (E2E_WITH_DB)", () => {
         .withTags([...TAGS])
         .analyze();
       expect(results.violations).toEqual([]);
+    });
+
+    // #29: contrasto "runtime" dei componenti nuovi. L'anteprima campo è un
+    // bottom sheet con foto, badge e CTA: axe la controlla aperta, non solo
+    // nello stato chiuso della pagina. Il trap è già fissato nel test mappa;
+    // qui si controlla che Tab non scappi dal dialog.
+    test("anteprima campo: axe con sheet aperto, Tab resta dentro", async ({
+      page,
+    }) => {
+      await page.goto("/");
+      await page.waitForLoadState("networkidle");
+      const listButton = page.getByRole("button", { name: /Lista campi/i });
+      await expect(listButton).toBeVisible({ timeout: 20_000 });
+      await listButton.focus();
+      await page.keyboard.press("Enter");
+      const list = page.getByRole("dialog", { name: /Lista campi/i });
+      await expect(list).toBeVisible();
+      await list.locator("li button").first().focus();
+      await page.keyboard.press("Enter");
+
+      const sheet = page.getByRole("dialog").filter({
+        has: page.getByRole("link", { name: "Apri dettaglio" }),
+      });
+      await expect(sheet).toBeVisible({ timeout: 15_000 });
+
+      const results = await new AxeBuilder({ page })
+        .withTags([...TAGS])
+        .analyze();
+      expect(results.violations).toEqual([]);
+
+      const inSheet = () =>
+        page.evaluate(() => {
+          const dialogs = document.querySelectorAll('[role="dialog"]');
+          const active = document.activeElement;
+          return Array.from(dialogs).some((d) => active && d.contains(active));
+        });
+      for (let i = 0; i < 12; i++) {
+        await page.keyboard.press("Tab");
+        expect(await inSheet(), `Tab #${i + 1} fuori dall'anteprima`).toBe(true);
+      }
     });
   });
 });

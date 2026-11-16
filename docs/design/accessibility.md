@@ -47,7 +47,14 @@ Regole:
 
 - Skip link "Vai al contenuto" (`components/a11y/skip-link.tsx`), primo nell'ordine di Tab su tutte le pagine con nav (gruppi `(app)` e `(dashboard)`), punta al `main#contenuto` e ci sposta il focus (`tabIndex={-1}`).
 - Mappa (#44): **un solo tab stop** per la superficie (il contenitore è `tabIndex=0`, il canvas è `aria-hidden` e fuori dal tab order). Frecce = pan, `+`/`-` = zoom, `Home` = posizione utente o Roma. La lista “Lista campi” è un dialog non modale (niente trap) con voci ordinate e tetto di 30: Invio apre l’anteprima e sposta la mappa; Escape chiude e riporta il focus al bottone. L’anteprima è un bottom sheet (`role="dialog"`, trap Base UI), si chiude con Escape/backdrop/“Chiudi” e restituisce il focus alla mappa.
-- Drawer (login, primo avvio, sheet): focus trap di Base UI; chiusura con Escape; a chiusura il focus torna al trigger.
+- Drawer (login, primo avvio, sheet): **focus trap esplicito** in
+  `components/ui/drawer.tsx` (Tab/Shift+Tab con wrap, `preventDefault`
+  sempre): Base UI da solo lasciava atterrare il focus su un sentinella fuori
+  dal dialog per un frame, quindi il focus visibile spariva e il body poteva
+  essere annunciato. La logica pura è in `lib/a11y/focus-trap.ts` (test
+  `tests/unit/focus-trap.test.ts`); Escape chiude e il focus torna al trigger
+  (`finalFocus` di Base UI). Verificato da `tests/e2e/a11y.spec.ts`
+  (24 Tab avanti + 12 indietro, nessuna uscita; Escape → trigger focalizzato).
 - Nessun `tabindex` positivo nel codice (`grep -rn 'tabindex="[1-9]'` pulito); `outline: none` solo con anello `focus-visible` sostitutivo.
 
 Percorsi verificati da tastiera (test in `tests/e2e/a11y.spec.ts`):
@@ -80,6 +87,25 @@ Già presente in `globals.css`. Verificare che ogni nuova animazione rispetti qu
 - Bottom sheet: `role="dialog"`, `aria-modal="true"`, trappola focus.
 - Form: label associate agli input (`htmlFor`/`id`).
 
+## Target misurati (#29, 2026-11-16)
+
+Misurati a runtime a 360px (`tests/e2e/a11y.spec.ts`, blocco "touch target
+44px"). Minimo di progetto 44×44 (WCAG 2.2 SC 2.5.8 ne chiede 24):
+
+| Target | Misura |
+|---|---|
+| Link bottom nav (Mappa, Profilo) | 64×56 |
+| FAB "Aggiungi un campo" | 56×56 |
+| Zoom in/out MapLibre | 44×44 |
+| "Lista campi" | 119×44 |
+| Campo di ricerca | 328×54 |
+| "Accedi" (header home) | 71×44 |
+
+Eccezione documentata: i **link di attribuzione mappa** (OpenStreetMap,
+OpenFreeMap) sono testo inline dentro una frase e misurano 14px di altezza:
+rientrano nell'eccezione "inline" di SC 2.5.8, non sono target autonomi. Se
+diventassero blocchi o icone, tornano nel minimo di 44px.
+
 ## Test da fare
 
 1. Navigazione tastiera su tutti gli elementi interattivi.
@@ -89,8 +115,8 @@ Già presente in `globals.css`. Verificare che ogni nuova animazione rispetti qu
 
 ## Esiti — sweep del 2026-11-10 (`tests/e2e/a11y.spec.ts`)
 
-Suite axe (tag wcag2a/wcag2aa/wcag21a/wcag21aa/wcag22aa), 15 test verdi
-(`E2E_WITH_DB=1`; senza flag i 5 senza DB passano e i 10 con DB sono
+Suite axe (tag wcag2a/wcag2aa/wcag21a/wcag21aa/wcag22aa), 19 test verdi
+(`E2E_WITH_DB=1`; senza flag i 7 senza DB passano e i 12 con DB sono
 skippati, quindi la CI resta verde senza Supabase):
 
 | Route | Contesto | Esito |
@@ -101,6 +127,9 @@ skippati, quindi la CI resta verde senza Supabase):
 | `/` con `reducedMotion: reduce` | locale | regione mappa e contenuto restano visibili/leggibili |
 | Skip link su `/` e `/settings` | tastiera | primo Tab → link visibile → Invio → focus su `#contenuto` |
 | Login da tastiera | tastiera | compila + Invio → errore annunciato (`role="alert"`) |
+| Drawer: trap + restore | tastiera | 24 Tab + 12 Shift+Tab restano nel dialog; Escape chiude e il focus torna al bottone "Accedi" |
+| Target touch 44px | 360×800 | nav, FAB, zoom, "Lista campi", ricerca, "Accedi" ≥44px (tabella sopra) |
+| Anteprima campo aperta | `E2E_WITH_DB=1` | axe 0 violazioni con lo sheet aperto (foto, badge, CTA) e 12 Tab dentro il dialog |
 
 Violate e corrette nello sweep:
 
