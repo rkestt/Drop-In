@@ -12,7 +12,7 @@ davvero (spoiler: su piano free il nostro `pg_dump` è l'unico).
 | `ci.yml` → `rls` | idem | Supabase locale (`supabase start` + `db reset`) e `npm run test:rls`: 46 blocchi SQL su RLS/trigger/grant/rate limit | sì |
 | `ci.yml` → `e2e` | idem | Supabase locale + Playwright completa con `E2E_WITH_DB=1` (62 test, inclusi i flussi autenticati) | sì |
 | `backup.yml` | lunedì 02:23 UTC, manuale | `pg_dump` custom format di staging, artifact 90 giorni | no (ma fallisce visibilmente) |
-| `stage-smoke.yml` | push su `stage`, manuale | aspetta l'alias stage e lancia `scripts/smoke.mjs` | sì sul branch stage |
+| `stage-smoke.yml` | push su `stage`, manuale | aspetta che il **branch alias** serva il commit del push, poi smoke su branch alias e su `drop-in-stage.vercel.app` con `--expect-commit`; fallisce se l'alias pubblico è rimasto al build vecchio | sì sul branch stage |
 | `stage-keepalive.yml` | giornaliero | una SELECT anonima per non far pausare il progetto free | no |
 
 `quality` gira senza Supabase: le pagine che costruiscono il client a build
@@ -36,12 +36,30 @@ npm run smoke -- https://drop-in-stage.vercel.app
 
 `test:all` richiede Docker attivo e `npx supabase start` già eseguito.
 
+## Alias stage: un passo manuale (finché non c'è `VERCEL_TOKEN`)
+
+Vercel aggiorna da solo l'alias per-branch
+(`drop-in-git-stage-andrea-fioris-projects-14d416c7.vercel.app`), **non** il
+dominio leggibile `drop-in-stage.vercel.app`. Dopo ogni push su `stage`:
+
+```bash
+npm run stage:alias   # richiede la CLI Vercel autenticata in locale
+node scripts/smoke.mjs https://drop-in-stage.vercel.app --with-health --expect-commit "$(git rev-parse HEAD)"
+```
+
+`stage-smoke.yml` è costruito per accorgersene: aspetta il commit sul branch
+alias e poi verifica lo stesso commit sull'alias pubblico; se è rimasto al
+build precedente il job diventa rosso con il messaggio "esegui
+`npm run stage:alias`". È successo davvero: un 200 sull'alias vecchio veniva
+scambiato per deploy nuovo. Per automatizzare la riassegnazione serve il
+secret `VERCEL_TOKEN` e un passo `vercel alias set` nel workflow.
+
 ## Modello branch → deploy
 
 | Branch | Vercel | Supabase | Note |
 |---|---|---|---|
 | `master` / `develop` | nessun deploy prod | — | sviluppo |
-| `stage` | Preview + alias `drop-in-stage.vercel.app` | `drop-in-staging` (`ygnjqqgnxdmgpeeidkbn`) | ogni push ri-deploya |
+| `stage` | Preview + alias `drop-in-stage.vercel.app` | `drop-in-staging` (`ygnjqqgnxdmgpeeidkbn`) | ogni push ri-deploya il branch alias; **l'alias pubblico no** (vedi sotto) |
 | `production` | **Production** (Production Branch) | `Drop-in` (`jeuqmmiebzeqtdctmtzj`) | prod congelata a `022` finché non si fa la promotion |
 
 Dettagli ambiente e variabili: `docs/staging.md`. Il `site_url`/redirect di
