@@ -58,7 +58,7 @@ Trovato e corretto in coda un bug di sviluppo che rendeva impossibile testare da
 
 ### Frontier (sbloccati)
 
-Nessun ticket aperto: **il piano 1.5 è completo** (F0–F4). Prossimi lavori fuori piano: mappa (epica #40), hardening dati, i18n, admin panel.
+Nessun ticket aperto: **il piano 1.5 è completo** (F0–F4). I lavori fuori piano dell'epica mappa (#40–#44, #39) e l'admin panel (#33) sono chiusi con evidenza il 2026-11-16: restano aperti hardening dati (#63), i18n (#64) e i gap di piattaforma tracciati in `docs/roadmap.md`.
 
 ### F4 chiuso (2026-11-11)
 
