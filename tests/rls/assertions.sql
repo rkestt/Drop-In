@@ -1901,9 +1901,17 @@ VALUES
    (SELECT id FROM public.courts WHERE name = 'Review Pending'), 5, NULL);
 
 -- 44a. anon legge le recensioni della corte approvata, nulla della pending.
+-- L'atteso del totale si calcola da postgres (bypassa RLS): il DB locale puo'
+-- contenere recensioni preesistenti, quindi un numero scritto a mano
+-- fallirebbe appena qualcuno recensisce dalla UI.
+SELECT set_config('test.anon_reviews', (
+  SELECT count(*)::text
+  FROM public.court_reviews r
+  JOIN public.courts c ON c.id = r.court_id
+  WHERE c.moderation_status = 'approved'), true);
 SET LOCAL ROLE anon;
 SET LOCAL request.jwt.claims = '';
-DO $$ DECLARE v_n BIGINT; BEGIN
+DO $$ DECLARE v_n BIGINT; v_expected BIGINT; BEGIN
   SELECT count(*) INTO v_n FROM public.court_reviews
   WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Review Approved');
   IF v_n <> 1 THEN
@@ -1914,12 +1922,12 @@ DO $$ DECLARE v_n BIGINT; BEGIN
   IF v_n <> 0 THEN
     RAISE EXCEPTION 'anon vede % recensioni su corte pending (attese 0)', v_n;
   END IF;
-  -- Totale: a questo punto esistono 2 recensioni (una per corte); anon ne
-  -- vede esattamente 1 (la subselect qui sopra da' NULL per la pending anche
-  -- senza RLS, il totale no).
+  -- Totale: tutte e sole le recensioni di corti approvate. Contare solo per
+  -- corte non basta: la subselect da' NULL per la pending anche senza RLS.
+  v_expected := current_setting('test.anon_reviews')::bigint;
   SELECT count(*) INTO v_n FROM public.court_reviews;
-  IF v_n <> 1 THEN
-    RAISE EXCEPTION 'anon vede % recensioni totali (attesa 1)', v_n;
+  IF v_n <> v_expected THEN
+    RAISE EXCEPTION 'anon vede % recensioni totali (attese %)', v_n, v_expected;
   END IF;
 END $$;
 RESET ROLE;
@@ -2106,9 +2114,14 @@ VALUES
    (SELECT id FROM public.courts WHERE name = 'Review Approved'), 5),
   ('33333333-3333-3333-3333-333333333333',
    (SELECT id FROM public.courts WHERE name = 'Review Approved'), 2);
+SELECT set_config('test.anon_summary', (
+  SELECT count(*)::text
+  FROM public.court_rating_summary s
+  JOIN public.courts c ON c.id = s.court_id
+  WHERE c.moderation_status = 'approved'), true);
 SET LOCAL ROLE anon;
 SET LOCAL request.jwt.claims = '';
-DO $$ DECLARE v_avg NUMERIC; v_n INTEGER; BEGIN
+DO $$ DECLARE v_avg NUMERIC; v_n INTEGER; v_expected BIGINT; BEGIN
   SELECT average, count INTO v_avg, v_n FROM public.court_rating_summary
   WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Review Approved');
   -- Rating: A=5 (punto f), B=5, C=2 -> media 4.0, count 3.
@@ -2119,12 +2132,12 @@ DO $$ DECLARE v_avg NUMERIC; v_n INTEGER; BEGIN
              WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Review Pending')) THEN
     RAISE EXCEPTION 'summary leaka la pending ad anon';
   END IF;
-  -- Totale: 3 corti recensite (Review Approved, C Court, Review Pending);
-  -- anon ne vede 2 (la subselect qui sopra da' NULL per la pending anche
-  -- senza RLS, il totale no).
+  -- Totale: righe di corti approvate, calcolate da postgres prima del cambio
+  -- ruolo. Un numero fisso fallirebbe appena il DB locale ha altre recensioni.
+  v_expected := current_setting('test.anon_summary')::bigint;
   SELECT count(*) INTO v_n FROM public.court_rating_summary;
-  IF v_n <> 2 THEN
-    RAISE EXCEPTION 'summary ad anon: % righe (attese 2)', v_n;
+  IF v_n <> v_expected THEN
+    RAISE EXCEPTION 'summary ad anon: % righe (attese %)', v_n, v_expected;
   END IF;
 END $$;
 RESET ROLE;
