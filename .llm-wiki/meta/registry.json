@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-11-16T00:01:40.406Z",
+  "last_updated": "2026-11-16T01:17:59.450Z",
   "pages": {
     "sources/drop-in-check-in-accuratezza-adattiva-e-permessi-ios": {
       "type": "source",
@@ -154,6 +154,24 @@
       "slug": "vercel-alias-custom-non-segue-la-release",
       "created": "2026-11-12",
       "updated": "2026-11-12"
+    },
+    "sources/verifica-push-staging-senza-leggere-i-secret": {
+      "type": "source",
+      "title": "Verificare la Web Push su staging senza leggere i secret",
+      "category": "source",
+      "status": "insight",
+      "slug": "verifica-push-staging-senza-leggere-i-secret",
+      "created": "2026-11-16",
+      "updated": "2026-11-16"
+    },
+    "sources/view-security-invoker-e-privilegi-default-supabase": {
+      "type": "source",
+      "title": "View `security_invoker` su Supabase: la RLS passa, i grant di scrittura no",
+      "category": "source",
+      "status": "insight",
+      "slug": "view-security-invoker-e-privilegi-default-supabase",
+      "created": "2026-11-16",
+      "updated": "2026-11-16"
     },
     "sources/visual-regression-falso-verde-font-non-applicati": {
       "type": "source",

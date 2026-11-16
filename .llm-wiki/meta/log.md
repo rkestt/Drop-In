@@ -62,3 +62,5 @@
 ## 2026-11-16
 
 - **retro**: {"slug":"tracker-issue-evidenza-non-commit","title":"Tracker Drop-In: chiudere una issue con evidenza file/migrazione, non con git log"}
+- **retro**: {"slug":"verifica-push-staging-senza-leggere-i-secret","title":"Verificare la Web Push su staging senza leggere i secret"}
+- **retro**: {"slug":"view-security-invoker-e-privilegi-default-supabase","title":"View `security_invoker` su Supabase: la RLS passa, i grant di scrittura no"}

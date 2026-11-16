@@ -19,5 +19,7 @@
 - [Inviare un campo senza essere sul posto: posizione manuale, indirizzo e bozza migrabile](submit-senza-gps-posizione-manuale.md)
 - [Tracker Drop-In: chiudere una issue con evidenza file/migrazione, non con git log](tracker-issue-evidenza-non-commit.md)
 - [Vercel: l'alias custom non segue la release](vercel-alias-custom-non-segue-la-release.md)
+- [Verificare la Web Push su staging senza leggere i secret](verifica-push-staging-senza-leggere-i-secret.md)
+- [View `security_invoker` su Supabase: la RLS passa, i grant di scrittura no](view-security-invoker-e-privilegi-default-supabase.md)
 - [Visual regression: falso verde quando next/font non applica i font](visual-regression-falso-verde-font-non-applicati.md)
 - [Wayfinder map execution via parallel subsessions](wayfinder-subsession-orchestration.md)

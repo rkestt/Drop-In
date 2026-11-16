@@ -18,3 +18,5 @@
 {"timestamp":"2026-11-13T17:48:38.471Z","kind":"retro","slug":"submit-senza-gps-posizione-manuale","title":"Inviare un campo senza essere sul posto: posizione manuale, indirizzo e bozza migrabile"}
 {"timestamp":"2026-11-15T22:05:02.363Z","kind":"retro","slug":"drop-in-check-in-accuratezza-adattiva-e-permessi-ios","title":"Check-in Drop-In: accuratezza GPS adattiva e permessi posizione iOS separati dalla PWA"}
 {"timestamp":"2026-11-16T00:01:40.406Z","kind":"retro","slug":"tracker-issue-evidenza-non-commit","title":"Tracker Drop-In: chiudere una issue con evidenza file/migrazione, non con git log"}
+{"timestamp":"2026-11-16T01:17:34.311Z","kind":"retro","slug":"verifica-push-staging-senza-leggere-i-secret","title":"Verificare la Web Push su staging senza leggere i secret"}
+{"timestamp":"2026-11-16T01:17:59.450Z","kind":"retro","slug":"view-security-invoker-e-privilegi-default-supabase","title":"View `security_invoker` su Supabase: la RLS passa, i grant di scrittura no"}
