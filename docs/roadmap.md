@@ -118,8 +118,11 @@ e, per #63, finché i 203 batch di audit non sono passati da una persona.
 
 Resta fuori da questa fase (richiede l'utente o un ambiente esterno):
 
-- deploy su staging (`git push origin master`, alias Vercel) e prova reale di
-  email/backup con credenziali di staging;
+- **deploy stage fatto**: `drop-in-stage.vercel.app` serve `a9e29bc` (smoke
+  con commit atteso verde, `/api/health` ok sul DB di staging). Restano da
+  provare con credenziali reali email e backup; `prod` non è toccata
+  (`production` ferma a `022`). CI su `master` verde (quality + rls + e2e)
+  dal commit `c7323f2`;
 - `REVOKE` su `public.spatial_ref_sys` (owner `supabase_admin`, SQL in
   `docs/security.md`) su staging/prod;
 - VAPID + `functions deploy` per la push (#87, già codice completo);
