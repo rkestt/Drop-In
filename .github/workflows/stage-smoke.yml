@@ -1,12 +1,17 @@
 name: Stage smoke
 
-# Dopo ogni push su `stage` Vercel crea il Preview e sposta l'alias.
-# Questo job verifica l'alias vero (non il deploy URL per-preview), cosi' un
-# problema di alias o un 500 di runtime si vede subito.
+# Dopo un push su `stage`: il deploy "per-branch" di Vercel si aggiorna da
+# solo, l'alias leggibile `drop-in-stage.vercel.app` NO (va riassegnato con
+# `npm run stage:alias`, che richiede la CLI autenticata: non gira in CI).
 #
-# Non serve nessun secret: checks HTTP anonimi su pagine pubbliche.
-# `/api/health` viene controllato quando esiste (lane observability): senza,
-# lo smoke lo segnala e va avanti.
+# Per questo lo smoke:
+#  1. aspetta che il branch alias serva ESATTAMENTE il commit del push
+#     (un 200 non basta: un deploy vecchio risponde 200);
+#  2. verifica che l'alias leggibile serva lo stesso commit; se no, fallisce
+#     dicendo di riassegnarlo. Così un alias fermo al build precedente non
+#     passa più inosservato (è già successo: 19 h di build vecchio).
+#
+# Nessun secret richiesto: check HTTP anonimi.
 
 on:
   push:
@@ -17,23 +22,40 @@ concurrency:
   group: stage-smoke
   cancel-in-progress: true
 
+env:
+  BRANCH_ALIAS: https://drop-in-git-stage-andrea-fioris-projects-14d416c7.vercel.app
+  PUBLIC_ALIAS: https://drop-in-stage.vercel.app
+
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Attendi che l'alias serva il nuovo deploy
+
+      - name: Attendi il deploy del commit (branch alias)
         run: |
-          for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 \
-              https://drop-in-stage.vercel.app/ || true)
-            echo "tentativo $i: HTTP $code"
-            [ "$code" = "200" ] && exit 0
-            sleep 10
+          for i in $(seq 1 40); do
+            body=$(curl -sS --max-time 20 "$BRANCH_ALIAS/api/health" || true)
+            sha=$(printf '%s' "$body" | sed -n 's/.*"commit":"\([a-f0-9]*\)".*/\1/p')
+            echo "tentativo $i: commit=${sha:-nessuno}"
+            if [ -n "$sha" ] && [ "${sha:0:12}" = "${GITHUB_SHA:0:12}" ]; then
+              echo "deploy del commit pronto"; exit 0
+            fi
+            sleep 15
           done
-          echo "alias non pronto dopo 5 minuti"; exit 1
-      - run: node scripts/smoke.mjs https://drop-in-stage.vercel.app
+          echo "Il branch alias non serve ${GITHUB_SHA:0:12} dopo 10 minuti: build fallita o non partita"
+          exit 1
+
+      - name: Smoke branch alias (commit atteso)
+        run: node scripts/smoke.mjs "$BRANCH_ALIAS" --with-health --expect-commit "$GITHUB_SHA"
+
+      - name: Smoke alias pubblico (stesso commit)
+        run: |
+          node scripts/smoke.mjs "$PUBLIC_ALIAS" --with-health --expect-commit "$GITHUB_SHA" || {
+            echo "::error::drop-in-stage.vercel.app non serve il commit del push: esegui 'npm run stage:alias' e rilancia (l'alias custom non segue le release)."
+            exit 1
+          }

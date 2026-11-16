@@ -48,9 +48,11 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      # CLI da npm, non `supabase/setup-cli`: l'action risolve "latest" via
+      # API GitHub e sui runner condivisi prende 403/rate limit (visto nella
+      # prima run, job e2e morto prima di partire). La versione è la stessa
+      # usata in locale.
+      - run: npm install --global supabase@3.1.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -74,9 +76,11 @@ jobs:
       E2E_WITH_DB: "1"
     steps:
       - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      # CLI da npm, non `supabase/setup-cli`: l'action risolve "latest" via
+      # API GitHub e sui runner condivisi prende 403/rate limit (visto nella
+      # prima run, job e2e morto prima di partire). La versione è la stessa
+      # usata in locale.
+      - run: npm install --global supabase@3.1.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22

@@ -155,15 +155,22 @@ test.describe("accessibility — touch target 44px (360px)", () => {
     // Attribuzione mappa: i link sono testo inline dentro una frase, quindi
     // l'eccezione WCAG 2.2 SC 2.5.8 (inline) si applica — 14px di altezza
     // non sono un target autonomo. Il test copre solo i target veri.
-    const targets = [
+    //
+    // "Lista campi" esiste solo quando ci sono campi nel raggio: in CI (senza
+    // Supabase) non c'è, quindi si misura solo con E2E_WITH_DB. I target
+    // sempre presenti vanno invece pretesi, altrimenti il test passerebbe
+    // vuoto su un layout rotto.
+    const alwaysTargets = [
       'nav[aria-label="Navigazione principale"] a',
       'a[aria-label="Aggiungi un campo"]',
       ".maplibregl-ctrl-zoom-in",
       ".maplibregl-ctrl-zoom-out",
-      'button:has-text("Lista campi")',
       'input[type="search"]',
       'button:has-text("Accedi")',
     ];
+    const targets = process.env.E2E_WITH_DB
+      ? [...alwaysTargets, 'button:has-text("Lista campi")']
+      : alwaysTargets;
     for (const selector of targets) {
       const elements = page.locator(selector);
       const count = await elements.count();

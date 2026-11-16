@@ -4,6 +4,7 @@
  *
  *   node scripts/smoke.mjs https://drop-in-stage.vercel.app
  *   node scripts/smoke.mjs https://drop-in-stage.vercel.app --with-health
+ *   node scripts/smoke.mjs URL --with-health --expect-commit "$GITHUB_SHA"
  *
  * Controlla:
  *  1. `/` risponde 200 e contiene il titolo dell'app.
@@ -15,7 +16,18 @@
  */
 
 const args = process.argv.slice(2);
-const base = args.find((a) => !a.startsWith("-"));
+const positional = [];
+let expectCommit = "";
+for (let i = 0; i < args.length; i += 1) {
+  if (args[i] === "--expect-commit") {
+    expectCommit = args[i + 1] ?? "";
+    i += 1;
+    continue;
+  }
+  if (args[i].startsWith("-")) continue;
+  positional.push(args[i]);
+}
+const base = positional[0];
 const withHealth = args.includes("--with-health");
 
 if (!base) {
@@ -65,6 +77,17 @@ async function main() {
       fail("/api/health non è JSON");
     }
     if (payload.status !== "ok") fail(`/api/health status=${payload.status}`);
+    if (expectCommit) {
+      const deployed = String(payload.commit ?? "");
+      // commit accorciato o assente (build locale): solo il confronto esatto
+      // prova che l'alias serve davvero QUESTO push.
+      if (!deployed || !deployed.startsWith(expectCommit.slice(0, 12))) {
+        fail(
+          `alias su commit ${deployed || "assente"}, atteso ${expectCommit.slice(0, 12)}: deploy non ancora propagato o alias non riassegnato (npm run stage:alias)`
+        );
+      }
+      console.log(`✓ commit ${deployed.slice(0, 12)} corrisponde al push`);
+    }
     console.log(`✓ /api/health ok (${health.ms} ms)`);
   } else {
     const health = await get("/api/health");
