@@ -1,6 +1,6 @@
 # Drop-In — Roadmap & Feature Coverage
 
-Last updated: 2026-11-16. Scope: Next.js 15 PWA + Supabase + MapLibre. Source of truth for what ships, what is partial, and what is missing. Companion to `README.md` and `AGENTS.md`.
+Last updated: 2026-11-16 (Phase 4B). Scope: Next.js 15 PWA + Supabase + MapLibre. Source of truth for what ships, what is partial, and what is missing. Companion to `README.md` and `AGENTS.md`.
 
 Tracker: le issue GitHub sono state ripulite il 2026-11-16 (30 chiuse con evidenza, 6 ticket nuovi sui gap che non ne avevano). Vedi `## Tracker (2026-11-16)` in fondo per l'elenco e il perché.
 
@@ -31,8 +31,8 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 | Theming | ✅ | Un solo tema, dark: niente toggle, niente `data-theme`, niente varianti `dark:` (`docs/design/themes.md`). Le superfici di sistema (404, error page, `<meta name="theme-color">`) sono allineate al tema. |
 | Lazy-loaded map | ✅ | `next/dynamic` con `ssr:false` + `MapSkeleton`; MapLibre fuori dal bundle iniziale. |
 | World-wide data | 🟡 | Invio comunitario e dedup/moderation attivi; `extract_osm.py` accetta `--bbox/--country/--city` con `--upsert-sql`. Manca un'estrazione globale eseguita e il seed resta Roma. |
-| i18n (Italian only) | 🔴 | Stringhe italiane hardcoded nei componenti, `<html lang="it">` fisso, nessun routing locale. Decisione ancora aperta in #64. |
-| Accessibility audit | 🟡 | Mappa coperta (#44: un tab stop, lista campi, live region, 44px) e axe verde su `/`, `/admin`, `/submit-court` (wcag2a/2aa/21aa/22aa). Restano non verificati i focus trap degli sheet e il contrasto dei componenti nuovi in condizioni reali (#29 resta aperta per questo). |
+| i18n (Italian only) | 🟡 | Fondazione pronta (#64): `lib/i18n/*` con dizionario IT/EN tipizzato (nav, auth, azioni, errori, a11y), `Accept-Language` con q-values, `localePath` (IT non prefissato, EN sotto `/en`), 10 test. UI non migrata e routing non attivo di proposito: piano a fasi in `docs/i18n.md`. |
+| Accessibility audit | ✅ | Mappa coperta (#44: un tab stop, lista campi, live region, 44px) e axe verde su `/`, `/admin`, `/submit-court` (wcag2a/2aa/21aa/22aa). Phase 4B (#29): focus trap **deterministico** in `lib/a11y/focus-trap.ts` (24 Tab + 12 Shift+Tab restano nel drawer, Escape → trigger), axe con l'anteprima campo aperta, misure 44px a 360px documentate in `docs/design/accessibility.md`. |
 | Test coverage | 🟡 | Vitest (**599** unit su 42 file, +129 tra mappa/clustering, logger, share, posizione manuale, coda moderazione, mio invio — tutti verdi al 2026-11-16), **43 blocchi** di asserzioni RLS su `db reset` (fino a §43: favorites, avatars, sport NULL, retract/edit, history, karma, delivery push, resubmit/storia audit, indirizzo), Playwright `e2e` (**58** test su 19 file: i flussi autenticati con `E2E_WITH_DB=1` — drawer-nickname, offline-queue ×3, hydration ×5, court-pending ×3, lobby-pending ×2, password-toggle ×2, settings-push, a11y mappa da tastiera) + `visual-static` (12) + `visual-full` (24), `deno test` per la Edge Function (fuori da `test:all`), CI su ogni PR. Il webServer e2e gira con `TZ=UTC` (come stage/prod) e il browser a Europe/Rome: un `toLocale*` senza fuso fa fallire i test di idratazione. |
 | Error boundaries / loading states | ✅ | `app/error.tsx` (per rotta, log + Riprova) e `app/global-error.tsx` (fallback con colori/font di sistema, Riprova e uscita verso la mappa), loading per pagina, toast `sonner` sulle azioni fallite (#31). Non c'è retry automatico delle richieste di rete fallite: si riprova dall'azione. |
 | Court photos / media | ✅ | Upload con ri-encodaggio, bucket `court-photos`, foto congelata dopo l'approvazione (014); miniatura 56×56 con placeholder in home e card lobby (#66, `CourtPhotoThumb`). Pulizia orfani: `npm run photos:gc` copre **entrambi** i bucket (`court-photos` e `avatars`), dry-run di default, finestra 24 h (#52); procedura e cadenza in `docs/photos-gc.md` — da schedularla solo quando c'è traffico reale. |
@@ -40,7 +40,7 @@ Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
 | Favorites / saved courts | ✅ | `user_favorites` (024, RLS own-rows, solo campi `approved`), toggle ottimistico nella scheda campo, `/favorites` con empty state, riga "Campi salvati" nel profilo. |
 | Install prompt (PWA) | ✅ | Banner in-flow (`components/pwa/install-prompt.tsx`), dismiss persistito 30 giorni, fallback iOS "Condividi → Aggiungi a Home", toast "Nuova versione attiva" su `controllerchange`; seam puro `lib/pwa/install.ts`. |
 | Offline mutation queue | ✅ | `lib/offline/outbox.ts` (seam puro) + store + runner montato in `(app)` e `(dashboard)`; check-in, join e leave accodati offline e reinviati a `online`; e2e offline→online senza duplicati. |
-| Analytics / observability | 🟡 | `lib/logger.ts` con livelli espliciti (`debug` = Verbose, default `info` in dev), boot log a `info` e `docs/logging.md` (#37, #9). Manca l'error tracking (Sentry, #32) e ogni metrica d'uso (#88: uptime, DAU, funnel, log retention). |
+| Analytics / observability | ✅ | `lib/logger.ts` (#37) + `/api/health` (200/503, latenza DB, commit, uptime) e log JSON per evento (`lib/observability/structured.ts`, redazione chiavi) con `server.boot` da `instrumentation.ts` (#88). Decisioni tracciate in `docs/observability.md`: niente Sentry (#32) e niente analytics terzo (#9) ora, con criteri di riapertura. Retention reale: ~1 giorno sui piani free. |
 | Moderation / admin | ✅ | `/admin` (#33): coda proposte con dettaglio, candidati duplicati (righe altrui mascherate), Approva / Rifiuta con nota / Duplicato di, refetch dopo l'azione senza optimistic update; segnalazioni attive raggruppate per campo in sola lettura (scadono da sole). Gate server-side in due passi (sessione → `profiles.is_moderator`) e RPC che si autoproteggono; voce "Moderazione" in Impostazioni solo per moderatori. L'esito torna al proponente: notifica in `approve_court`/`reject_court` e percorso di correzione `resubmit_submission` (con nuova riga di audit, storia conservata), UI "Rifiutata" + `Motivo:` + "Riprova" (#47, migration `030`). Modello e limiti in `docs/moderation.md`. |
 | Court verification / dedup | ✅ | `dedup_candidates` a 100 m con conferma esplicita, mascheramento delle proposte altrui, coda di moderazione. |
 
@@ -94,6 +94,42 @@ Questa sezione non raccoglie più proposte: i gap nuovi si aprono direttamente s
 - DB changes: new migration file under `supabase/migrations/` with RLS policies; `npx supabase db reset` succeeds.
 - No regression: existing map/courts/lobbies/check-in flows still functional.
 
+## Phase 4B — platform hardening (2026-11-16)
+
+Otto lane eseguite in sequenza su branch dedicati (`phase4b/*`) e unite su
+`master` con merge `--no-ff` nell'ordine concordato. Ogni lane ha un commit
+proprio; il dettaglio tecnico sta nel documento della lane, non qui.
+
+| Lane | Ticket | Cosa è entrato | Verifica |
+|---|---|---|---|
+| security | #84 | `034` rate limit per (bucket, utente) su report/lobby/join/review/check-in + guard anti-link; `035` grant al minimo; header di sicurezza nel middleware (`lib/security/headers.ts`) | RLS blocchi 45-46, 4 unit header; suite e2e completa verde |
+| email | #86 | 5 template auth brandizzati + `[auth.email.template.*]`, runbook SMTP `docs/email.md` (Resend/Brevo vs built-in 2/h) | 8 unit template; recupero password reale su Mailpit |
+| ci | #85 | job `rls` ed `e2e` (Supabase locale) in `ci.yml`, `backup.yml`, `stage-smoke.yml`, `scripts/backup-db.sh` + `restore-db.sh`, `scripts/smoke.mjs`, `docs/ci.md` | backup 1,1 MB; restore drill 10.130 courts/35 migrazioni; smoke 200 |
+| a11y | #29 | focus trap deterministico nel Drawer (`lib/a11y/focus-trap.ts`), test 44px, axe con anteprima aperta | 19 e2e a11y (7 senza DB), 7 unit trap |
+| observability | #32/#9/#88 | `GET /api/health` (ok/degraded, 503), `lib/observability/*` (health + log JSON con redazione), `instrumentation.ts` server.boot, `docs/observability.md` con decisioni (niente Sentry/analytics ora) | 11 unit, curl reale 200, build |
+| legal | #83 | pagine `/legal/{privacy,terms,cookies}` + link in Impostazioni, inventario dati e checklist `docs/legal/README.md` | 6 e2e legal (axe 0, senza DB), build |
+| data audit | #63 | `scripts/audit_courts.py` (batch, priorità, doppioni <50 m, link), `docs/audit/` con batch 01, `docs/audit-courts.md` | 19 test python offline, statistiche reali 6.329/3.405/340/56 |
+| i18n | #64 | `lib/i18n/*` (dizionario IT/EN tipizzato, `Accept-Language`, `localePath`), `docs/i18n.md` con piano a fasi | 10 unit; routing non attivato di proposito |
+
+Stato dei ticket dopo il merge: **#84, #85, #86, #83, #63, #29, #88, #32, #9,
+#64 hanno ora codice/evidenza in master ma restano aperti** finché non si
+chiudono sul tracker con il commento di evidenza (operazione del coordinatore)
+e, per #63, finché i 203 batch di audit non sono passati da una persona.
+
+Resta fuori da questa fase (richiede l'utente o un ambiente esterno):
+
+- deploy su staging (`git push origin master`, alias Vercel) e prova reale di
+  email/backup con credenziali di staging;
+- `REVOKE` su `public.spatial_ref_sys` (owner `supabase_admin`, SQL in
+  `docs/security.md`) su staging/prod;
+- VAPID + `functions deploy` per la push (#87, già codice completo);
+- validazione legale dei testi e rimozione dei placeholder.
+
+Gate usati: `npm run test:all` verde su master (666 unit, 46 blocchi RLS, e2e
+senza DB), `E2E_WITH_DB=1 npx playwright test --project=e2e` (71 test; un flake di
+animazione rientrato al secondo giro), `npm run build` e
+`python3 -m unittest discover -s tests/python`.
+
 ## Tracker (2026-11-16)
 
 Regola: un ticket si chiude solo con evidenza (file, migrazione, test, deploy). Punto di partenza: 38 issue aperte.
@@ -113,19 +149,19 @@ Regola: un ticket si chiude solo con evidenza (file, migrazione, test, deploy). 
 
 | Issue | Perché resta aperta |
 |---|---|
-| #9 | Contenitore della decisione sullo stack di osservabilità: logging fatto (#37), analytics/replay/perf no |
-| #29 | Restano focus trap degli sheet e contrasto runtime dei componenti nuovi |
-| #32 | Sentry/error tracking non integrato (logging sì, #37) |
+| #9 | **Decisione presa in Phase 4B**: niente analytics terzo ora, log first-party + criteri di riapertura (`docs/observability.md`). Issue da chiudere con evidenza. |
+| #29 | **Implementato in Phase 4B**: trap deterministico, axe con sheet aperto, target 44px (`docs/design/accessibility.md`). Issue da chiudere con evidenza. |
+| #32 | **Decisione presa**: niente Sentry ora (bundle/costo/PII), con trigger di riapertura; log strutturati e boundary coprono (`docs/observability.md`). Issue da chiudere con evidenza. |
 | #34 | Ratings/reviews: nessuna tabella in `supabase/migrations/` |
 | #45 | Onboarding sport: dipendenze pronte (`lib/sport/`), flusso multi-step mai scritto; serve decisione di prodotto |
-| #63 | Audit manuale dei 10.130 punti OSM: richiede occhi umani |
-| #64 | i18n: decisione presa ma lavoro non iniziato (nessuna dipendenza `next-intl`) |
+| #63 | **Strumenti pronti, lavoro umano aperto**: script + primo batch (`docs/audit-courts.md`), restano 203 batch. |
+| #64 | **Fondazione pronta** (dizionario IT/EN, detection, test); routing e migrazione UI pianificati (`docs/i18n.md`). |
 | #80 | Retest su iPhone reale (Safari vs PWA): codice già in master |
-| #83 | Nuovo — legal/privacy (GDPR) |
-| #84 | Nuovo — sicurezza/abuso (rate limit, moderazione foto, WAF) |
-| #85 | Nuovo — CI/CD (stage→prod, backup/DR, rollback) |
-| #86 | Nuovo — email/SMTP deliverability |
+| #83 | **Pagine pubblicate** con bozza tecnica; restano i `[DA COMPILARE]` e la validazione legale (`docs/legal/README.md`). |
+| #84 | **Implementato** eccetto la query una-tantum su `spatial_ref_sys` e le regole WAF (piano Pro, non adottate) — `docs/security.md`. |
+| #85 | **Job CI, backup/restore e runbook pronti**; restano i secret (`STAGE_DB_URL`), il primo run e il backup prod (`docs/ci.md`). |
+| #86 | **Template e runbook pronti**; restano dominio/DNS e credenziali SMTP (`docs/email.md`). |
 | #87 | Nuovo — deploy della push (VAPID, secrets, cron) |
-| #88 | Nuovo — osservabilità (uptime, metriche, log retention) |
+| #88 | **Health endpoint e log strutturati**; uptime monitor da configurare e metriche prodotto ancora da decidere (`docs/observability.md`). |
 
 Nessun ticket aperto senza un gap corrispondente in `## Gaps aperti, con ticket`; nessuno chiuso senza un commento con l'evidenza.
