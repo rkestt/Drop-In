@@ -1,0 +1,39 @@
+name: Stage smoke
+
+# Dopo ogni push su `stage` Vercel crea il Preview e sposta l'alias.
+# Questo job verifica l'alias vero (non il deploy URL per-preview), cosi' un
+# problema di alias o un 500 di runtime si vede subito.
+#
+# Non serve nessun secret: checks HTTP anonimi su pagine pubbliche.
+# `/api/health` viene controllato quando esiste (lane observability): senza,
+# lo smoke lo segnala e va avanti.
+
+on:
+  push:
+    branches: [stage]
+  workflow_dispatch:
+
+concurrency:
+  group: stage-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Attendi che l'alias serva il nuovo deploy
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 \
+              https://drop-in-stage.vercel.app/ || true)
+            echo "tentativo $i: HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "alias non pronto dopo 5 minuti"; exit 1
+      - run: node scripts/smoke.mjs https://drop-in-stage.vercel.app

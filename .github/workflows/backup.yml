@@ -1,0 +1,54 @@
+name: Backup database
+
+# Backup logico settimanale di staging. La produzione resta congelata e si
+# esegue a mano (docs/ci.md): un workflow che tocca il DSN di prod e' una
+# superficie di rischio in piu' per un beneficio che il backup manuale
+# copre gia'.
+#
+# Richiede il secret STAGE_DB_URL (connection string con password del
+# progetto staging, Settings -> Database -> Connection string). Senza il
+# secret il job esce con errore esplicito, non silenzioso.
+#
+# Il dump e' un artifact GitHub (retention 90 giorni). Per conservarlo piu' a
+# lungo va scaricato e archiviato fuori: gli artifact non sono un backup
+# offsite.
+
+on:
+  schedule:
+    - cron: "23 2 * * 1" # lunedì 02:23 UTC
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verifica secret
+        env:
+          STAGE_DB_URL: ${{ secrets.STAGE_DB_URL }}
+        run: |
+          if [ -z "$STAGE_DB_URL" ]; then
+            echo "Secret STAGE_DB_URL mancante: vedi docs/ci.md"; exit 1
+          fi
+
+      - name: pg_dump (custom format)
+        env:
+          STAGE_DB_URL: ${{ secrets.STAGE_DB_URL }}
+        run: |
+          mkdir -p backups
+          ./scripts/backup-db.sh --dsn "$STAGE_DB_URL" --label staging \
+            --out backups --keep 1
+
+      - name: Checksum e riepilogo
+        run: |
+          ls -lh backups
+          du -sh backups
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: staging-db-dump-${{ github.run_id }}
+          path: backups/*.dump
+          retention-days: 90
+          if-no-files-found: error

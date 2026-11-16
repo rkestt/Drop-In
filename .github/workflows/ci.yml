@@ -5,6 +5,14 @@ on:
     branches: [master, main]
   pull_request:
 
+# Gate unico del repo: quello che `npm run test:all` fa in locale, spezzato in
+# job paralleli. `test:all` resta la verifica locale completa; qui ogni job
+# copre un pezzo e il merge e' bloccato dal rosso.
+#
+# Supabase locale nei job rls/e2e: immagini Docker (~2-4 min con cache della
+# runner; i runner GitHub non hanno cache immagini fra run, quindi il primo
+# step e' il piu' lento). Vedi docs/ci.md.
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -23,6 +31,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      - run: npm run lint:design
       - run: npx tsc --noEmit
       - run: npm run test:unit
       - run: npm run build
@@ -31,9 +40,59 @@ jobs:
       - run: npx playwright test tests/e2e/a11y.spec.ts
       - run: npx playwright test --project=visual-static tests/e2e/styleguide-visual.spec.ts
       - run: npx playwright test --project=visual-static tests/e2e/screens-visual.spec.ts
-      # E2E richiede Supabase + Playwright browsers - step separato opzionale
-      # - run: npx playwright install --with-deps chromium
-      # - run: npm run test:e2e
 
-  # e2e opzionale su richiesta (supabase locale via docker)
-  # see: npx supabase start in CI requires docker setup - defer to manual
+  rls:
+    # 43 blocchi di asserzioni SQL contro un Supabase locale vero: RLS,
+    # trigger, grant, rate limit. Deterministico, niente rete esterna.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: supabase start
+      - run: supabase db reset
+      - run: npm run test:rls
+
+  e2e:
+    # Suite completa Playwright con DB locale (E2E_WITH_DB=1): i test
+    # autenticati altrimenti si skippano.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      # Chiavi demo del Supabase locale (pubbliche, non secret): stesse che
+      # `supabase start` stampa a ogni run.
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+      E2E_WITH_DB: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: supabase start
+      - run: supabase db reset
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --project=e2e
+      - name: Artifacts (trace/screenshot) se fallisce
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore

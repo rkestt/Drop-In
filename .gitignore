@@ -67,3 +67,6 @@ certificates
 
 # QA screenshots (local artefacts)
 qa/screenshots/
+
+# Dump di backup locali (scripts/backup-db.sh)
+backups/
