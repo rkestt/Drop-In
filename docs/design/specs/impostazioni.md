@@ -6,11 +6,15 @@ Ticket: `.wayfinder/tickets/d18-impl-settings.md`.
 
 ## Obiettivo
 
-Cambiare le sole preferenze che funzionano davvero: pallino avvisi,
-permesso posizione, nickname/logout, e leggere versione e attribuzioni.
+Cambiare le sole preferenze che funzionano davvero: sport attivo, pallino
+avvisi, permesso posizione, nickname/logout, e leggere versione e attribuzioni.
 
 ## Stati
 
+- **Sport scelto.** Griglia di chip single-select con le stesse 8 opzioni del
+  primo passo dell'onboarding (7 discipline + «Tutti»), nel riquadro della
+  sezione. La scelta scrive subito (`sport`, «Tutti» = `all`): nessun «Salva»,
+  nessun toast — il chip cambia stato e la mappa lo applica al ritorno.
 - **Default (posizione da chiedere).** Badge “Da chiedere”, descrizione
   “Serve per la mappa, il check-in entro 50 m e le lobby vicine.”,
   CTA “Consenti posizione” + hint “Il telefono ti chiederà il permesso.”
@@ -30,6 +34,10 @@ permesso posizione, nickname/logout, e leggere versione e attribuzioni.
 
 ## Copy
 
+- Sport: “La mappa e le lobby vicine seguono questa scelta.” + chip
+  “Basket · Calcio · Tennis · Padel · Calcio a 5 · Pallavolo · Polivalente ·
+  Tutti” (“Tutti” = nessun filtro). Sezione dopo «Posizione», prima di
+  «Account».
 - Notifiche: “Avvisi nell’app” / “Le novità su campi, lobby e check-in.”;
   “Pallino degli avvisi non letti” / “Un punto sulla campanella quando c’è
   qualcosa di nuovo.”; push: “Notifiche push” / “Non disponibili in questa
@@ -47,6 +55,10 @@ permesso posizione, nickname/logout, e leggere versione e attribuzioni.
 
 - Switch `role="switch"` + `aria-checked` + label; stato anche testuale
   (“Attivo/Spento”), non solo colore.
+- Sport: `role="radiogroup"` nominato dall'`h2` della sezione, opzioni
+  `role="radio"` + `aria-checked`; una sola tab stop (roving tabindex), frecce
+  che spostano selezione e fuoco in ciclo; stato non solo colore (spunta,
+  bordo `--accent`, fondo `--accent-subtle`).
 - Live region `role="status"` per toggle pallino e cambio permesso.
 - Icone decorative `aria-hidden`; target ≥ 44px (righe 56px, bottoni `sm`).
 - Focus visibile (ring); `motion-safe:` sulle transizioni dello switch.

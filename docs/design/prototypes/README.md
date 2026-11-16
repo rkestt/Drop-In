@@ -27,7 +27,7 @@ npx playwright screenshot --viewport-size="360,780" \
 | File | Schermata | Ticket proto | Stato |
 |---|---|---|---|
 | `index.html` | Indice di review: le 8 schermate, cosa guardare | — | — |
-| `onboarding.html` | Primo avvio (3 passi sopra la mappa) | d9 | approvato 2026-11-10 |
+| `onboarding.html` | Primo avvio (3 passi sopra la mappa; il codice ne ha 4, +1 step sport da #45: vedi `specs/onboarding.md`) | d9 | approvato 2026-11-10 |
 | `settings.html` | Impostazioni | d10 | approvato 2026-11-10 |
 | `profile.html` | Profilo e modifica nickname | d11 | approvato 2026-11-10 |
 | `lobby.html` | Lobby: lista, crea, dettaglio, join | d12 | approvato 2026-11-10 |

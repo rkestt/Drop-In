@@ -32,6 +32,16 @@ Contratti brevi dei componenti esistenti. Dettagli (anatomia, snippet) in `compo
 - **A11y:** testo 12px maiuscolo — non usarlo per informazioni critiche solo-colore; se lo stato è essenziale, affianca testo o icona con label.
 - Dettagli: [components/badge.md](components/badge.md).
 
+## SportChipGroup — `components/sport/sport-chip-group.tsx`
+
+- **Scopo (task utente):** scegliere lo sport attivo tra le 7 discipline e «Tutti» (primo passo del primo avvio, sezione «Sport» delle impostazioni).
+- **NON usarlo per:** filtri multipli o tag (è single-select, una scelta sola); opzioni non-sport.
+- **API pubblica:** `labelledBy?` (id del titolo che nomina il gruppo; senza, `aria-label="Sport"`), `className?`. Nessuna prop di valore: legge e scrive `useSport()`, che persiste la chiave `sport` (`null` = «Tutti» → `"all"`).
+- **Stati:** selezionato (`border-accent` + `bg-accent-subtle` + spunta), non selezionato (`border-strong`, testo secondary), hover (bordo `text-muted`, testo primary), focus (outline accent 2px, offset 2), press (`scale-[0.98]`). Nessun disabled/loading: non c'è un «Salva».
+- **Token:** `--accent`, `--accent-subtle`, `--text-primary`, `--text-secondary`, `--text-muted`, `--border-strong`, `--focus-ring`, `--radius-chip`.
+- **A11y:** `role="radiogroup"` + `role="radio"`/`aria-checked`; roving tabindex (il gruppo è una sola tab stop), frecce in ciclo; stato non affidato al solo colore; chip ≥ 44px; griglia 2 colonne, 4 da 640px.
+- Dettagli: [specs/onboarding.md](specs/onboarding.md), [specs/impostazioni.md](specs/impostazioni.md).
+
 ## Drawer — `components/ui/drawer.tsx`
 
 - **Scopo (task utente):** dettagli campo, filtri o azioni contestuali, form brevi senza lasciare la mappa.

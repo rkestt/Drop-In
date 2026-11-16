@@ -5,14 +5,16 @@ import { ChevronLeft } from "lucide-react";
 import { Drawer } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { StepTransition } from "@/components/motion/step-transition";
+import { SportStep } from "@/components/onboarding/sport-step";
 import { ONBOARDED_KEY, hasSeen, markSeen } from "@/lib/onboarding/storage";
 import { cn } from "@/lib/utils";
 
 /**
- * Primo avvio: drawer a 3 passi sopra la mappa, una volta sola, skippabile.
+ * Primo avvio: drawer a 4 passi sopra la mappa, una volta sola, skippabile.
  * Copy, passi e gerarchia vincolati dal prototipo approvato d9
- * (`docs/design/prototypes/onboarding.html`). Nessuna route, nessun blocco:
- * chi chiude usa subito la mappa.
+ * (`docs/design/prototypes/onboarding.html`) più lo step sport (#45), che il
+ * prototipo non aveva: `docs/design/specs/onboarding.md` è la fonte aggiornata.
+ * Nessuna route, nessun blocco: chi chiude usa subito la mappa.
  *
  * Apertura: solo al primo mount se `dropin:onboarded:v1` non è impostata e il
  * drawer non è già stato chiuso in questa sessione. «Salta», l'ultimo passo,
@@ -20,8 +22,8 @@ import { cn } from "@/lib/utils";
  * Il cambio passo è uno swap di contenuto via `StepTransition`: istantaneo
  * con reduced motion, senza pop (l'informazione resta in testo e focus).
  *
- * Login (passo 3): «Accedi per salvare i progressi» chiude l'onboarding
- * (segnandolo come visto: l'utente ha letto i 3 passi) e apre il login in un
+ * Login (passo 4): «Accedi per salvare i progressi» chiude l'onboarding
+ * (segnandolo come visto: l'utente ha letto i 4 passi) e apre il login in un
  * microtask. Niente modali a catena: due dialog modali impilati rubano il
  * focus e rompono il restore; il login apre da solo a drawer chiuso.
  *
@@ -38,11 +40,27 @@ import { cn } from "@/lib/utils";
 // (Safari privato): in quel caso il drawer si chiude e non blocca l'app.
 let dismissedThisSession = false;
 
-const STEPS = [
+interface OnboardingStep {
+  title: string;
+  /** Righe del corpo. Assente nello step sport: il contenuto è la griglia. */
+  body?: readonly string[];
+  cta: string;
+  /** Step interattivo (scelta sport) invece del solo testo. */
+  sport?: boolean;
+}
+
+const STEPS: readonly OnboardingStep[] = [
+  {
+    // Lo step sport non è nel prototipo d9: la scelta scrive subito nello
+    // `SportContext`, quindi "Inizia" avanza e basta (non c'è un "Salva").
+    title: "Che sport giochi?",
+    cta: "Inizia",
+    sport: true,
+  },
   {
     title: "Trova il campo più vicino",
     body: ["La mappa è il navigatore.", "Tocca un campo e vedi chi gioca."],
-    cta: "Inizia",
+    cta: "Avanti",
   },
   {
     title: "Fai check-in quando arrivi",
@@ -57,7 +75,7 @@ const STEPS = [
     body: ["C'è già una partita? Entra.", "Non c'è? Aprine una."],
     cta: "Cerca un campo",
   },
-] as const;
+];
 
 function stepSrLabel(index: number, current: number): string {
   const title = STEPS[index].title;
@@ -136,7 +154,7 @@ export function FirstRun({
           </button>
         )}
         <p className="text-[13px] font-semibold tracking-wide text-[var(--text-muted)]">
-          Passo {step + 1} di 3
+          Passo {step + 1} di {STEPS.length}
         </p>
         <button
           type="button"
@@ -175,13 +193,17 @@ export function FirstRun({
         >
           {current.title}
         </h2>
-        <div id={bodyId} className="flex flex-col gap-0.5 mb-5 text-base leading-normal text-[var(--text-secondary)]">
-          {current.body.map((line) => (
-            <p key={line} className="m-0">
-              {line}
-            </p>
-          ))}
-        </div>
+        {current.sport ? (
+          <SportStep bodyId={bodyId} titleId={titleId} />
+        ) : (
+          <div id={bodyId} className="flex flex-col gap-0.5 mb-5 text-base leading-normal text-[var(--text-secondary)]">
+            {(current.body ?? []).map((line) => (
+              <p key={line} className="m-0">
+                {line}
+              </p>
+            ))}
+          </div>
+        )}
         <div className="flex flex-col gap-2">
           <Button
             className="w-full"

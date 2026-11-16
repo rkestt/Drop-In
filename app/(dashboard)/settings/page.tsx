@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loginRedirectUrl } from "@/lib/auth/routes";
 import { NotificationsSection } from "@/components/settings/notifications-section";
 import { LocationSection } from "@/components/settings/location-section";
+import { SportSection } from "@/components/settings/sport-section";
 import { AccountSection } from "@/components/settings/account-section";
 import { ModerationSection } from "@/components/settings/moderation-section";
 import { InfoSection } from "@/components/settings/info-section";
@@ -42,6 +43,7 @@ export default async function SettingsPage() {
       </h1>
       <NotificationsSection />
       <LocationSection />
+      <SportSection />
       <AccountSection
         email={user.email ?? ""}
         userId={user.id}

@@ -16,6 +16,7 @@ import {
   toRpcSport,
   type SportFilter,
 } from "@/lib/sport/sports";
+import { sportToStorage } from "@/lib/sport/chip-options";
 
 interface SportContextValue {
   sport: SportFilter;
@@ -41,7 +42,7 @@ export function SportProvider({ children }: { children: ReactNode }) {
   const setSport = useCallback((s: SportFilter) => {
     setSportState(s);
     try {
-      window.localStorage.setItem(SPORT_STORAGE_KEY, s === null ? "all" : s);
+      window.localStorage.setItem(SPORT_STORAGE_KEY, sportToStorage(s));
     } catch {
       // ignore
     }
