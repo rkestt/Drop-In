@@ -520,10 +520,20 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 27c. anon non aggiorna: read_at invariato.
+-- 27c. anon non aggiorna: nessun privilegio (42501) prima ancora della RLS
+-- (la 035 revoca ogni scrittura ad anon su push_notifications).
 SET LOCAL ROLE anon;
 SET LOCAL request.jwt.claims = '';
-UPDATE public.push_notifications SET read_at = NOW() WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.push_notifications SET read_at = NOW() WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'update anon su push_notifications: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'anon ha aggiornato read_at';
+END $$;
 RESET ROLE;
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM public.push_notifications WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' AND read_at IS NOT NULL) THEN
@@ -2141,4 +2151,138 @@ DO $$ DECLARE v_avg NUMERIC; v_n INTEGER; v_expected BIGINT; BEGIN
   END IF;
 END $$;
 RESET ROLE;
+
+-- ================= 45. #84/034: rate limit per utente + anti-spam testo =================
+-- Corte di appoggio (postgres: nessun claim -> i trigger di rate limit non
+-- contano, come per seed e cron).
+INSERT INTO public.courts (name, lat, lng, location, source, moderation_status, status)
+VALUES ('Rate Limit Court', 41.91, 12.51,
+        ST_SetSRID(ST_MakePoint(12.51, 41.91),4326)::geography,
+        'community', 'approved', 'active');
+
+-- A inserisce 5 segnalazioni (limite 5/ora), la sesta viene fermata.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+INSERT INTO public.court_reports (court_id, user_id, category, expires_at)
+SELECT (SELECT id FROM public.courts WHERE name = 'Rate Limit Court'),
+       '11111111-1111-1111-1111-111111111111',
+       'other',
+       now() + interval '1 hour'
+FROM generate_series(1, 5);
+
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.court_reports (court_id, user_id, category, expires_at)
+    VALUES ((SELECT id FROM public.courts WHERE name = 'Rate Limit Court'),
+            '11111111-1111-1111-1111-111111111111',
+            'other',
+            now() + interval '1 hour');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'sesta segnalazione: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'sesta segnalazione accettata (rate limit assente?)';
+END $$;
+RESET ROLE;
+
+-- B non eredita gli eventi di A: la finestra e' per (bucket, utente).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+INSERT INTO public.court_reports (court_id, user_id, category, expires_at)
+VALUES ((SELECT id FROM public.courts WHERE name = 'Rate Limit Court'),
+        '33333333-3333-3333-3333-333333333333',
+        'other',
+        now() + interval '1 hour');
+RESET ROLE;
+
+-- Gli eventi non sono leggibili dal client, nemmeno dal proprietario.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DO $$
+BEGIN
+  -- Nessun grant: il client riceve 42501 già sul privilegio, prima della RLS.
+  BEGIN
+    PERFORM count(*) FROM public.rate_limit_events;
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'rate_limit_events: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'rate_limit_events leggibile dal client (grant mancante?)';
+END $$;
+RESET ROLE;
+
+-- Anti-spam: nome/indirizzo con un link viene fermato (guard su courts).
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+    VALUES ('Campo https://spam.example', 41.92, 12.52,
+            ST_SetSRID(ST_MakePoint(12.52, 41.92),4326)::geography,
+            'community', '11111111-1111-1111-1111-111111111111', 'pending', 'active');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'nome con link: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'nome con link accettato (guard assente?)';
+END $$;
+
+-- ... e un nome normale passa (il guard non e' un blocco generico).
+INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+VALUES ('Campo Via dei Test 12', 41.93, 12.53,
+        ST_SetSRID(ST_MakePoint(12.53, 41.93),4326)::geography,
+        'community', '11111111-1111-1111-1111-111111111111', 'pending', 'active');
+
+-- ================= 46. #84/035: grant al minimo, nessun privilegio inutile =================
+DO $$
+DECLARE v_pair RECORD;
+BEGIN
+  -- Matrice "tabella -> privilegio che deve restare": tutto il resto deve
+  -- essere negato. Se un privilegio torna per default (nuova migrazione),
+  -- questo blocco lo segnala.
+  FOR v_pair IN
+    SELECT * FROM (VALUES
+      ('courts', 'SELECT'),
+      ('court_submissions', 'SELECT'),
+      ('profiles', 'SELECT'),
+      ('profiles', 'UPDATE'),
+      ('lobbies', 'SELECT'),
+      ('lobbies', 'INSERT'),
+      ('lobbies', 'UPDATE'),
+      ('lobby_participants', 'SELECT'),
+      ('lobby_participants', 'DELETE'),
+      ('check_ins', 'SELECT'),
+      ('check_ins', 'INSERT'),
+      ('check_ins', 'UPDATE'),
+      ('court_reports', 'SELECT'),
+      ('court_reports', 'INSERT'),
+      ('court_reviews', 'SELECT'),
+      ('push_notifications', 'SELECT'),
+      ('push_notifications', 'UPDATE'),
+      ('push_subscriptions', 'INSERT'),
+      ('push_subscriptions', 'DELETE'),
+      ('user_favorites', 'INSERT'),
+      ('user_favorites', 'DELETE')
+    ) AS t(tab, priv)
+  LOOP
+    IF NOT has_table_privilege('authenticated', 'public.' || v_pair.tab, v_pair.priv) THEN
+      RAISE EXCEPTION 'grant mancante: authenticated % su %', v_pair.priv, v_pair.tab;
+    END IF;
+  END LOOP;
+
+  -- Scritture che non devono esistere nemmeno con RLS.
+  IF has_table_privilege('authenticated', 'public.courts', 'UPDATE') THEN
+    RAISE EXCEPTION 'authenticated puo'' aggiornare courts via grant';
+  END IF;
+  IF has_table_privilege('authenticated', 'public.lobbies', 'DELETE') THEN
+    RAISE EXCEPTION 'authenticated puo'' cancellare lobbies via grant';
+  END IF;
+  IF has_table_privilege('anon', 'public.push_notifications', 'SELECT') THEN
+    RAISE EXCEPTION 'anon legge push_notifications via grant';
+  END IF;
+  IF has_table_privilege('authenticated', 'public.courts', 'TRUNCATE') THEN
+    RAISE EXCEPTION 'TRUNCATE concesso su courts';
+  END IF;
+END $$;
+
 ROLLBACK;

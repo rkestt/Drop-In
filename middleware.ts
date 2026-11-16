@@ -1,8 +1,11 @@
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { withSecurityHeaders } from "@/lib/security/headers";
 
 export async function middleware(request: NextRequest) {
-  return await updateSession(request);
+  // Anche i redirect del login passano di qui: gli header vanno su ogni
+  // risposta, non solo su `NextResponse.next()`.
+  return withSecurityHeaders(await updateSession(request));
 }
 
 export const config = {
