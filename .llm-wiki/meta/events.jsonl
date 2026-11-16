@@ -17,3 +17,4 @@
 {"timestamp":"2026-11-13T17:48:38.465Z","kind":"retro","slug":"moderazione-esito-notifiche-resubmit","title":"Moderazione: esito al proponente, resubmit e storia di audit che non si riscrive"}
 {"timestamp":"2026-11-13T17:48:38.471Z","kind":"retro","slug":"submit-senza-gps-posizione-manuale","title":"Inviare un campo senza essere sul posto: posizione manuale, indirizzo e bozza migrabile"}
 {"timestamp":"2026-11-15T22:05:02.363Z","kind":"retro","slug":"drop-in-check-in-accuratezza-adattiva-e-permessi-ios","title":"Check-in Drop-In: accuratezza GPS adattiva e permessi posizione iOS separati dalla PWA"}
+{"timestamp":"2026-11-16T00:01:40.406Z","kind":"retro","slug":"tracker-issue-evidenza-non-commit","title":"Tracker Drop-In: chiudere una issue con evidenza file/migrazione, non con git log"}

@@ -58,3 +58,7 @@
 ## 2026-11-15
 
 - **retro**: {"slug":"drop-in-check-in-accuratezza-adattiva-e-permessi-ios","title":"Check-in Drop-In: accuratezza GPS adattiva e permessi posizione iOS separati dalla PWA"}
+
+## 2026-11-16
+
+- **retro**: {"slug":"tracker-issue-evidenza-non-commit","title":"Tracker Drop-In: chiudere una issue con evidenza file/migrazione, non con git log"}

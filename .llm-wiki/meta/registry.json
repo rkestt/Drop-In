@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-11-15T22:05:02.363Z",
+  "last_updated": "2026-11-16T00:01:40.406Z",
   "pages": {
     "sources/drop-in-check-in-accuratezza-adattiva-e-permessi-ios": {
       "type": "source",
@@ -136,6 +136,15 @@
       "slug": "submit-senza-gps-posizione-manuale",
       "created": "2026-11-13",
       "updated": "2026-11-13"
+    },
+    "sources/tracker-issue-evidenza-non-commit": {
+      "type": "source",
+      "title": "Tracker Drop-In: chiudere una issue con evidenza file/migrazione, non con git log",
+      "category": "insight",
+      "status": "insight",
+      "slug": "tracker-issue-evidenza-non-commit",
+      "created": "2026-11-16",
+      "updated": "2026-11-16"
     },
     "sources/vercel-alias-custom-non-segue-la-release": {
       "type": "source",

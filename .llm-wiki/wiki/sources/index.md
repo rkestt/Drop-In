@@ -17,6 +17,7 @@
 - [Decisione: `sport IS NULL` = "non specificato", visibile con qualunque filtro sport](sport-null-visibile-con-qualsiasi-filtro.md)
 - [Drop-In: staging = Vercel Preview + progetto Supabase free separato](staging-env-vercel-preview-supabase-free.md)
 - [Inviare un campo senza essere sul posto: posizione manuale, indirizzo e bozza migrabile](submit-senza-gps-posizione-manuale.md)
+- [Tracker Drop-In: chiudere una issue con evidenza file/migrazione, non con git log](tracker-issue-evidenza-non-commit.md)
 - [Vercel: l'alias custom non segue la release](vercel-alias-custom-non-segue-la-release.md)
 - [Visual regression: falso verde quando next/font non applica i font](visual-regression-falso-verde-font-non-applicati.md)
 - [Wayfinder map execution via parallel subsessions](wayfinder-subsession-orchestration.md)
