@@ -43,6 +43,44 @@ enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
 enable_signup = true
 
+# --- Email auth -----------------------------------------------------------
+# Template brandizzati (lane email, #86): stessi file in locale, staging e
+# prod. content_path e' relativo alla radice del repo.
+# Runbook (SMTP dedicato, quota, deliverability): docs/email.md.
+# Nota: su un progetto hosted il pannello Auth > Emails resta la fonte di
+# verita'; questi file servono al dev locale e a `supabase config push`
+# quando il campo e' supportato dalla CLI.
+[auth.email.template.confirmation]
+subject = "Conferma il tuo indirizzo email · Drop-In"
+content_path = "./supabase/auth/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Reimposta la password · Drop-In"
+content_path = "./supabase/auth/templates/recovery.html"
+
+[auth.email.template.magic_link]
+subject = "Il tuo link di accesso · Drop-In"
+content_path = "./supabase/auth/templates/magic-link.html"
+
+[auth.email.template.email_change]
+subject = "Conferma il nuovo indirizzo · Drop-In"
+content_path = "./supabase/auth/templates/email-change.html"
+
+[auth.email.template.invite]
+subject = "Invito a Drop-In"
+content_path = "./supabase/auth/templates/invite.html"
+
+# SMTP dedicato: si abilita per ambiente passando i valori via env (mai
+# segreti nel repo). Lasciato spento in locale: il dev usa Mailpit (54334).
+# [auth.smtp]
+# enabled = true
+# host = "env(SMTP_HOST)"
+# port = 587
+# user = "env(SMTP_USER)"
+# pass = "env(SMTP_PASSWORD)"
+# admin_email = "noreply@drop-in.app"
+# sender_name = "Drop-In"
+
 [auth.external.google]
 enabled = true
 client_id = "env(NEXT_PUBLIC_GOOGLE_CLIENT_ID)"
