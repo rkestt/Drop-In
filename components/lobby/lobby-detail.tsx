@@ -325,7 +325,11 @@ export function LobbyDetail({
               </Button>
             )}
             {courtApproved && (
-              <CreateLobbyButton courtId={court.id} courtName={court.name} />
+              <CreateLobbyButton
+                courtId={court.id}
+                courtName={court.name}
+                courtSport={court.sport}
+              />
             )}
           </div>
         </div>
@@ -500,7 +504,11 @@ export function LobbyDetail({
         )}
         {showCreateCta && (
           <div className="[&_button]:min-h-11 [&_button]:w-full">
-            <CreateLobbyButton courtId={court.id} courtName={court.name} />
+            <CreateLobbyButton
+              courtId={court.id}
+              courtName={court.name}
+              courtSport={court.sport}
+            />
           </div>
         )}
         {showLeaveCta && (

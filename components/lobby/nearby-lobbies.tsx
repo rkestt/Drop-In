@@ -24,7 +24,7 @@ type NearbyState =
   | {
       kind: "ready";
       lobbies: LobbySummary[];
-      nearestCourt: { id: string; name: string } | null;
+      nearestCourt: { id: string; name: string; sport: string | null } | null;
       /** Vuoto perche': "radius" = niente nel raggio, "sport" = lobby nel
           raggio ma non per questo sport, null = non vuote. */
       emptyCause: "radius" | "sport" | null;
@@ -153,9 +153,13 @@ export function NearbyLobbies({
           lobbies.sort((a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity));
 
           // Corte più vicina per la CTA "Crea una lobby" quando non c'è nulla.
-          let nearestCourt: { id: string; name: string } | null =
+          let nearestCourt: { id: string; name: string; sport: string | null } | null =
             lobbies.length > 0
-              ? { id: lobbies[0].court_id, name: lobbies[0].court_name }
+              ? {
+                  id: lobbies[0].court_id,
+                  name: lobbies[0].court_name,
+                  sport: lobbies[0].court_sport ?? null,
+                }
               : null;
           if (!nearestCourt) {
             const { data: courts } = await supabase.rpc("nearby_courts", {
@@ -164,8 +168,15 @@ export function NearbyLobbies({
               p_radius_m: NEARBY_RADIUS_M,
               p_limit: 1,
             });
-            const first = (courts as Array<{ id: string; name: string }> | null)?.[0];
-            if (first) nearestCourt = { id: first.id, name: first.name };
+            const first = (
+              courts as Array<{ id: string; name: string; sport: string | null }> | null
+            )?.[0];
+            if (first)
+              nearestCourt = {
+                id: first.id,
+                name: first.name,
+                sport: first.sport ?? null,
+              };
           }
 
           if (!cancelled) {
@@ -328,6 +339,7 @@ export function NearbyLobbies({
             <CreateLobbyButton
               courtId={state.nearestCourt.id}
               courtName={state.nearestCourt.name}
+              courtSport={state.nearestCourt.sport}
             />
           ) : (
             <Link

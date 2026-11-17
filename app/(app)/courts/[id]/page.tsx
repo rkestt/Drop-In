@@ -106,6 +106,7 @@ export default async function CourtPage({
     surface_type: string | null;
     hoop_count: number | null;
     photo_path: string | null;
+    sport: string | null;
     moderation_status: string;
   } | null = null;
   let lobbies: {
@@ -452,6 +453,7 @@ export default async function CourtPage({
               <CreateLobbyButton
                 courtId={court.id}
                 courtName={court.name}
+                courtSport={court.sport}
               />
               <ReportButton
                 courtId={court.id}
@@ -557,6 +559,7 @@ export default async function CourtPage({
               <CreateLobbyButton
                 courtId={court.id}
                 courtName={court.name}
+                courtSport={court.sport}
               />
             </div>
           </div>
