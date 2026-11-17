@@ -54,3 +54,7 @@ The child that orchestrates also owns three rules:
 - **Check that it can dispatch before accepting the ticket.** If the agent has no subagent tool in its configuration, it is a single lane, not an orchestrator, and a large ticket handed to it will run out of context mid-way.
 - **Fold review findings into the tester's checklist before the live round.** A tester verifies the list it was given; a green report and an open defect can arrive in the same hour (#96: the designer's six cases all passed while the reviewer found the drawer never reset on reopen).
 - **Write what must survive into the issue or the diff.** The child sees none of its parent's background tasks and nothing of its parent's conversation.
+
+## Asking the user
+
+A decision reaches the user with what it changes in real use: what a player or an organiser sees, how many people are affected, and what happens at the two extremes. The ticket number is a pointer for whoever wants the detail, never the explanation. The user decides without opening GitHub.
