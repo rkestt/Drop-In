@@ -122,6 +122,7 @@ export function CreateLobbyDrawer({
     setFocus,
     getValues,
     setValue,
+    reset,
     watch,
     formState: { errors },
   } = useForm<CreateLobbyInput, unknown, CreateLobbyValues>({
@@ -173,21 +174,37 @@ export function CreateLobbyDrawer({
     if (overlap) warningRef.current?.focus();
   }, [overlap]);
 
+  // `defaultValues` vale solo al mount: senza reset, la riapertura sullo
+  // stesso campo ritrova orario/sport/durata precedenti — con un orario ormai
+  // passato il submit fallisce. Solo sulla transizione chiuso→aperto: mai
+  // mentre l'utente sta scrivendo. La durata riparte dal default dello sport
+  // iniziale, quindi l'euristica "segue lo sport finché non la tocchi" resta.
+  const prevOpen = useRef(open);
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      if (!prevOpen.current) {
+        reset({
+          startTime: "",
+          maxPlayers: 10,
+          durationMinutes: defaultDurationForSport(initialSport ?? null),
+          sport: initialSport,
+        });
+      }
+    } else {
       queueMicrotask(() => {
         setError(null);
         setCreated(false);
         setOverlap(null);
       });
     }
+    prevOpen.current = open;
     return () => {
       if (closeTimer.current !== null) {
         window.clearTimeout(closeTimer.current);
         closeTimer.current = null;
       }
     };
-  }, [open]);
+  }, [open, reset, initialSport]);
 
   const durationMinutes = Number(durationValue);
   const durationValid =
@@ -235,7 +252,9 @@ export function CreateLobbyDrawer({
         .in("status", ["open", "in_progress"])
         .lt("start_time", lobbyEndsAtIso(startTime, lobbyDuration))
         .gt("ends_at", startTime);
-      if (sport !== null) {
+      if (sport !== null && (SPORT_VALUES as readonly string[]).includes(sport)) {
+        // Allowlist prima di interpolare in PostgREST: la stringa non dipende
+        // da chi fornisce il valore (oggi lo zod enum, domani chissà).
         query = query.or(`sport.is.null,sport.eq.${sport}`);
       }
       const { data, error: selectError } = await query
