@@ -4,6 +4,8 @@ Last updated: 2026-11-16 (Phase 4B). Scope: Next.js 15 PWA + Supabase + MapLibre
 
 Tracker: le issue GitHub sono state ripulite il 2026-11-16 (30 chiuse con evidenza, 6 ticket nuovi sui gap che non ne avevano). Vedi `## Tracker (2026-11-16)` in fondo per l'elenco e il perché.
 
+> Questo file è la **fotografia**: cosa è spedito, cosa è parziale, cosa manca. La **direzione** — orizzonti, lane, e quale piano ne nasce — sta in `docs/roadmaps/README.md`.
+
 ## Coverage status
 
 Legend: ✅ Shipped · 🟡 Partial · 🔴 Missing
