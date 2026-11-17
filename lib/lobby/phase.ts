@@ -18,6 +18,16 @@ export interface LobbyPhaseInput {
 }
 
 /**
+ * Etichetta italiana della fase per badge e aria-label (lane client #91):
+ * unica mappa fase→etichetta, usata da card, dettaglio e lista del campo.
+ * Le varianti "Al completo"/"Sei dentro" restano ai chiamanti: dipendono da
+ * posti e partecipazione, non dalla fase.
+ */
+export function lobbyPhaseLabel(phase: LobbyPhase): string {
+  return phase === "open" ? "Aperta" : phase === "in_progress" ? "In corso" : "Chiusa";
+}
+
+/**
  * `in_progress` = `status = 'open'` e `now` dentro `[start_time, ends_at)`.
  *
  * Intervallo semiaperto come `tstzrange` e come l'avviso doppioni: alle

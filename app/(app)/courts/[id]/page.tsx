@@ -16,6 +16,7 @@ import {
   formatReportExpiry,
 } from "@/lib/reports/active";
 import { formatAppDateTime, formatAppTime } from "@/lib/datetime";
+import { lobbyPhase, lobbyPhaseLabel } from "@/lib/lobby/phase";
 import { LoginPrompt } from "@/components/auth/login-prompt";
 import { ShareButton } from "@/components/share/share-button";
 import { BanBannerWrapper } from "@/components/karma/ban-banner-wrapper";
@@ -113,6 +114,7 @@ export default async function CourtPage({
     id: string;
     start_time: string;
     ends_at: string | null;
+    status: string | null;
     max_players: number;
     lobby_participants?: { count: number }[];
   }[] | null = null;
@@ -518,11 +520,17 @@ export default async function CourtPage({
         </h2>
         {lobbies && lobbies.length > 0 ? (
           <div className="space-y-3">
-            {lobbies.map((lobby: { id: string; start_time: string; max_players: number; lobby_participants?: { count: number }[] }) => (
+            {lobbies.map((lobby: { id: string; start_time: string; ends_at: string | null; status: string | null; max_players: number; lobby_participants?: { count: number }[] }) => {
+              // Stessa fase di card e dettaglio (#91): una partita iniziata
+              // non resta "Aperta". Pagina server: niente guardia mount.
+              const count = lobby.lobby_participants?.[0]?.count ?? 0;
+              const full = count >= lobby.max_players;
+              const phase = lobbyPhase(lobby);
+              return (
               <Link
                 key={lobby.id}
                 href={`/lobbies/${lobby.id}`}
-                aria-label={`Lobby delle ${formatAppTime(lobby.start_time)}, ${(lobby.lobby_participants?.[0]?.count ?? 0)} su ${lobby.max_players}`}
+                aria-label={`Lobby delle ${formatAppTime(lobby.start_time)}, ${count} su ${lobby.max_players}`}
                 className="block rounded-xl bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
@@ -536,15 +544,18 @@ export default async function CourtPage({
                     <div className="flex items-center gap-2 mt-1 text-sm text-[var(--text-secondary)]">
                       <Users className="w-4 h-4" aria-hidden="true" />
                       <span>
-                        {(lobby.lobby_participants?.[0]?.count ?? 0)} /{" "}
+                        {count} /{" "}
                         {lobby.max_players}
                       </span>
                     </div>
                   </div>
-                  <Badge variant="accent">Aperta</Badge>
+                  <Badge variant={phase === "open" && !full ? "accent" : phase === "in_progress" ? "warning" : "default"}>
+                    {phase === "open" && full ? "Al completo" : lobbyPhaseLabel(phase)}
+                  </Badge>
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-4">

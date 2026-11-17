@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lobbyPhase } from "@/lib/lobby/phase";
+import { lobbyPhase, lobbyPhaseLabel } from "@/lib/lobby/phase";
 
 // #91: "in corso" non è più uno stato scritto nel DB, si deriva da
 // start_time/ends_at. Intervallo semiaperto [inizio, fine).
@@ -11,6 +11,14 @@ const lobby = (status: string | null, start: string, end: string | null) => ({
 
 const START = "2026-11-18T19:00:00.000Z";
 const END = "2026-11-18T20:00:00.000Z";
+
+describe("lobbyPhaseLabel", () => {
+  it("unica mappa fase->etichetta per badge e aria-label", () => {
+    expect(lobbyPhaseLabel("open")).toBe("Aperta");
+    expect(lobbyPhaseLabel("in_progress")).toBe("In corso");
+    expect(lobbyPhaseLabel("closed")).toBe("Chiusa");
+  });
+});
 
 describe("lobbyPhase", () => {
   it("prima dell'inizio è aperta", () => {

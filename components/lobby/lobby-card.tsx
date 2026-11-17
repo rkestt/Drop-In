@@ -8,7 +8,7 @@ import { NextHighlight } from "@/components/motion/next-highlight";
 import { Users, Clock } from "lucide-react";
 import { formatDistanceM } from "@/lib/lobbies/nearby";
 import { formatAppDateTime } from "@/lib/datetime";
-import { lobbyPhase, type LobbyPhase } from "@/lib/lobby/phase";
+import { lobbyPhase, lobbyPhaseLabel, type LobbyPhase } from "@/lib/lobby/phase";
 import { sportDisplayLabel } from "@/lib/courts/search";
 import type { LobbySummary } from "./types";
 
@@ -35,13 +35,9 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
       ? "open"
       : "closed";
   const statusLabel =
-    phase === "open"
-      ? isFull
-        ? "Al completo"
-        : "Aperta"
-      : phase === "in_progress"
-        ? "In corso"
-        : "Chiusa";
+    phase === "open" && isFull
+      ? "Al completo"
+      : lobbyPhaseLabel(phase);
   const statusVariant =
     phase === "open" && !isFull
       ? "accent"
@@ -52,7 +48,7 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
     ? "sei dentro"
     : isFull
       ? "al completo"
-      : lobby.status;
+      : lobbyPhaseLabel(phase).toLowerCase();
   // Nome accessibile completo: campo, sport, orario, posti, distanza, stato.
   // Lo sport usa l'etichetta UI ("Sport non specificato" quando NULL, #71).
   const ariaLabel = [
