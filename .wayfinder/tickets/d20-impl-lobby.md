@@ -30,7 +30,7 @@ closed_at: 2026-11-10
 - **Dettaglio**: raggiungibile a freddo; mostra nome campo (link), orario, `3/5`, stato, partecipanti (iniziali + nickname), requisito karma. Una sola CTA: "Unisciti" se aperta e non piena; "Esci" secondaria se sei dentro; nessuna CTA se piena/in corso/chiusa, solo il motivo.
 - **Crea**: orario futuro, max 2–30, riepilogo; errori inline per "orario passato", "max fuori range", "bannato", "karma basso". Al successo: drawer chiuso, card nuova visibile in "Le tue" (refresh/realtime), nessun reload.
 - **Join**: conferma; stato ottimistico "Sei dentro"; se il server rifiuta (piena, scaduta, già dentro) rollback + motivo + recovery ("Posti esauriti: crea la tua lobby").
-- **Uscita**: "Esci" chiede conferma solo se la lobby è `in_progress`; altrimenti esegue.
+- **Uscita**: "Esci" chiede conferma solo se la partita è iniziata (`status = 'open'` e ora tra `start_time` ed `ends_at`, fase derivata da `lib/lobby/phase.ts`; #91); altrimenti esegue.
 - **Capacità**: non implementare la corsa solo nel client. Se il trigger `enforce_lobby_capacity` non esiste nel DB, **fermati** e apri un ticket DB (la map core-loop lo copre in t10): non aggiungere una seconda verifica solo lato client.
 
 **Regole.**

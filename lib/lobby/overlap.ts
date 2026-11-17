@@ -3,8 +3,9 @@
  *
  * Nessun vincolo nel DB (la decisione del ticket scarta l'exclusion
  * constraint: bloccherebbe il "Crea comunque" richiesto). Il client legge le
- * lobby `open`/`in_progress` sullo stesso Campo e sovrapposte nel tempo, e
- * avvisa. Modulo puro: nessuna I/O, così la semantica è testabile.
+ * lobby aperte (`status = 'open'`, #91: niente più `in_progress`) sullo
+ * stesso Campo e sovrapposte nel tempo, e avvisa. Modulo puro: nessuna I/O,
+ * così la semantica è testabile.
  *
  * Intervalli semiaperti `[inizio, fine)`, come `tstzrange`: una lobby che
  * finisce alle 20:00 e una che inizia alle 20:00 non si sovrappongono.

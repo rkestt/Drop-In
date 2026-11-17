@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { CourtPhotoThumb } from "@/components/court/court-photo-thumb";
@@ -7,6 +8,7 @@ import { NextHighlight } from "@/components/motion/next-highlight";
 import { Users, Clock } from "lucide-react";
 import { formatDistanceM } from "@/lib/lobbies/nearby";
 import { formatAppDateTime } from "@/lib/datetime";
+import { lobbyPhase, type LobbyPhase } from "@/lib/lobby/phase";
 import { sportDisplayLabel } from "@/lib/courts/search";
 import type { LobbySummary } from "./types";
 
@@ -14,21 +16,36 @@ import type { LobbySummary } from "./types";
  * Card lobby presentazionale (prototipo d12, lista): tutta la card è un link
  * al dettaglio `/lobbies/[id]` — join ed esci vivono lì, mai qui.
  * Badge di stato + "Sei dentro" (NextHighlight) o "Unisciti" come nel prototipo.
+ *
+ * "In corso" è derivato (#91): `status` ha solo `open`/`closed`, la fase
+ * arriva da `lobbyPhase` con l'orologio. L'orologio entra solo dopo il mount:
+ * server e client possono cadere ai due lati di `start_time` e cambiare il
+ * badge (mismatch di idratazione), come in `lobby-detail`.
  */
 export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const isFull = lobby.participants_count >= lobby.max_players;
+  const phase: LobbyPhase = mounted
+    ? lobbyPhase(lobby)
+    : lobby.status === "open"
+      ? "open"
+      : "closed";
   const statusLabel =
-    lobby.status === "open"
+    phase === "open"
       ? isFull
         ? "Al completo"
         : "Aperta"
-      : lobby.status === "in_progress"
+      : phase === "in_progress"
         ? "In corso"
         : "Chiusa";
   const statusVariant =
-    lobby.status === "open" && !isFull
+    phase === "open" && !isFull
       ? "accent"
-      : lobby.status === "in_progress"
+      : phase === "in_progress"
         ? "warning"
         : "default";
   const stateLabel = lobby.is_joined
@@ -91,7 +108,7 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
             </span>
           </NextHighlight>
         ) : (
-          lobby.status === "open" &&
+          phase === "open" &&
           !isFull && (
             <span className="ms-auto inline-flex items-center gap-1 text-sm font-semibold text-[var(--accent)]">
               Unisciti

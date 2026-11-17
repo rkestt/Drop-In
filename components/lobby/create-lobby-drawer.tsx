@@ -233,9 +233,10 @@ export function CreateLobbyDrawer({
   };
 
   /**
-   * Lobby `open`/`in_progress` sullo stesso Campo che si sovrappongono alla
-   * candidata, con sport compatibile (#96). Consultivo, non un vincolo: se la
-   * lettura fallisce si prosegue e l'INSERT resta l'ultima difesa.
+   * Lobby aperte sullo stesso Campo che si sovrappongono alla candidata, con
+   * sport compatibile (#96, #91: `open` è l'unico stato vivo, "in corso" si
+   * deriva dal tempo). Consultivo, non un vincolo: se la lettura fallisce si
+   * prosegue e l'INSERT resta l'ultima difesa.
    */
   const findExistingLobby = async (
     startTime: string,
@@ -249,7 +250,7 @@ export function CreateLobbyDrawer({
           "id, start_time, ends_at, sport, max_players, lobby_participants(user_id)",
         )
         .eq("court_id", courtId)
-        .in("status", ["open", "in_progress"])
+        .eq("status", "open")
         .lt("start_time", lobbyEndsAtIso(startTime, lobbyDuration))
         .gt("ends_at", startTime);
       if (sport !== null && (SPORT_VALUES as readonly string[]).includes(sport)) {

@@ -14,6 +14,7 @@ import {
   formatAppTime,
 } from "@/lib/datetime";
 import { mapJoinError, mapLeaveError } from "@/lib/lobbies/join-errors";
+import { lobbyPhase, type LobbyPhase } from "@/lib/lobby/phase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { JoinLobbyDrawer } from "./join-lobby-drawer";
@@ -103,6 +104,14 @@ export function LobbyDetail({
   const banned =
     mounted && bannedUntil != null && new Date(bannedUntil) > new Date();
   const lowKarma = (userKarma ?? 90) < 50;
+  // "In corso" è derivato (#91): `status` ha solo open/closed. L'orologio
+  // entra dopo il mount, come per il ban: server e client ai due lati di
+  // `start_time` darebbero fasi diverse (mismatch di idratazione).
+  const phase: LobbyPhase = mounted
+    ? lobbyPhase(lobby)
+    : lobby.status === "open"
+      ? "open"
+      : "closed";
 
   // Realtime: join/leave dall'altro browser si riflettono entro secondi.
   useEffect(() => {
@@ -205,8 +214,8 @@ export function LobbyDetail({
   };
 
   const leave = async () => {
-    // Conferma solo se la lobby è in corso, altrimenti esecuzione diretta.
-    if (lobby.status === "in_progress" && !leaveArmed) {
+    // Conferma solo se la partita è iniziata, altrimenti esecuzione diretta.
+    if (phase === "in_progress" && !leaveArmed) {
       setLeaveArmed(true);
       return;
     }
@@ -258,19 +267,19 @@ export function LobbyDetail({
   };
 
   const statusLabel =
-    lobby.status === "open"
+    phase === "open"
       ? isFull
         ? "Al completo"
         : joined
           ? "Sei dentro"
           : "Aperta"
-      : lobby.status === "in_progress"
+      : phase === "in_progress"
         ? "In corso"
         : "Chiusa";
   const statusVariant =
-    lobby.status === "open" && !isFull
+    phase === "open" && !isFull
       ? "accent"
-      : lobby.status === "in_progress"
+      : phase === "in_progress"
         ? "warning"
         : "default";
 
@@ -284,18 +293,18 @@ export function LobbyDetail({
   const showJoinCta =
     courtApproved &&
     !joined &&
-    lobby.status === "open" &&
+    phase === "open" &&
     !isFull &&
     !banned &&
     !lowKarma;
   // #76: mai "Crea lobby" su campo non approvato (vale anche a pieno).
   const showCreateCta =
-    courtApproved && !joined && lobby.status === "open" && isFull;
-  const showLeaveCta = joined && lobby.status !== "closed";
+    courtApproved && !joined && phase === "open" && isFull;
+  const showLeaveCta = joined && phase !== "closed";
 
   return (
     <div className="space-y-4">
-      {joined && lobby.status === "open" && (
+      {joined && phase === "open" && (
         <div
           className="rounded-card border border-[var(--success)]/30 bg-[var(--success)]/10 p-3 text-sm text-[var(--text-primary)]"
           role="status"
@@ -408,7 +417,7 @@ export function LobbyDetail({
         </p>
       </div>
 
-      {courtApproved && lobby.status === "open" && isFull && !joined && (
+      {courtApproved && phase === "open" && isFull && !joined && (
         <div
           className="rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-3 text-sm text-[var(--text-primary)]"
           role="status"
@@ -417,22 +426,22 @@ export function LobbyDetail({
         </div>
       )}
 
-      {(lobby.status === "in_progress" || lobby.status === "closed") && (
+      {(phase === "in_progress" || phase === "closed") && (
         <div className="rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-3">
           <p className="text-sm font-semibold text-[var(--text-primary)]">
-            {lobby.status === "in_progress"
+            {phase === "in_progress"
               ? `In corso dalle ${formatAppTime(lobby.start_time)}`
               : "Chiusa."}
           </p>
           <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
-            {lobby.status === "in_progress"
+            {phase === "in_progress"
               ? `Le iscrizioni sono chiuse. La lobby si chiude alle ${formatAppCloseTime(lobby.ends_at)}.`
               : `La lobby si è chiusa alle ${formatAppCloseTime(lobby.ends_at)}. I check-in sono chiusi.`}
           </p>
         </div>
       )}
 
-      {lobby.status === "open" && !isFull && (banned || lowKarma) && !joined && (
+      {phase === "open" && !isFull && (banned || lowKarma) && !joined && (
         <div
           className="rounded-card border border-[var(--danger)]/30 bg-[var(--danger)]/10 p-3 text-sm"
           role="status"

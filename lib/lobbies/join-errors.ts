@@ -26,7 +26,11 @@ export interface JoinErrorInfo {
 }
 
 export interface JoinErrorInput {
-  /** `lobby.status` noto alla UI (`open` | `in_progress` | `closed`). */
+  /**
+   * `lobby.status`: solo `open` | `closed` (#91). "In corso" non è uno
+   * stato del DB, è derivato dal tempo (`lib/lobby/phase.ts`): un join su
+   * una partita già iniziata non arriva qui, la CTA non esiste.
+   */
   status?: string | null;
   /** Codice PostgREST/PG (`23505`, `42501`, `P0001`, …). */
   code?: string | null;
@@ -43,8 +47,6 @@ const TRANSIENT_RE =
   /failed to fetch|network|timeout|temporar|offline|connection|reset|aborted|(?<!\d)5\d\d(?!\d)|econn|enotfound|socket/i;
 
 const CLOSED_MESSAGE = "Lobby chiusa: le iscrizioni sono terminate.";
-const IN_PROGRESS_MESSAGE =
-  "Lobby in corso: le iscrizioni sono chiuse, si può solo uscire.";
 const FULL_MESSAGE =
   "Posti esauriti: questa lobby è al completo. Crea la tua lobby.";
 const DUPLICATE_MESSAGE = "Sei già dentro questa lobby.";
@@ -62,11 +64,10 @@ function rawOf(input: JoinErrorInput): string {
  */
 export function mapJoinError(input: JoinErrorInput): JoinErrorInfo {
   const raw = rawOf(input);
-  // `in_progress` non è "chiusa": la lobby sta giocando. Testo distinto, ma
-  // resta non ritentabile (le iscrizioni sono chiuse).
-  if (input.status === "in_progress") {
-    return { kind: "closed", message: IN_PROGRESS_MESSAGE, canRetry: false };
-  }
+  // #91: `status` conosce solo `open` e `closed`; "in corso" si deriva dal
+  // tempo e la UI non offre il join, quindi qui non c'è un caso dedicato.
+  // Qualunque altro valore (riga vecchia scritta a mano) equivale a chiusa:
+  // le iscrizioni non sono più aperte.
   if (input.status != null && input.status !== "open") {
     return { kind: "closed", message: CLOSED_MESSAGE, canRetry: false };
   }
@@ -96,7 +97,7 @@ const LEAVE_GENERIC = "Non riusciamo a farti uscire. Riprova più tardi.";
 /** Stessa idea per l'uscita: mai raw DB in UI, mai retry su lobby chiusa. */
 export function mapLeaveError(input: JoinErrorInput): LeaveErrorInfo {
   const raw = rawOf(input);
-  // Solo `closed` blocca l'uscita: da `in_progress` si esce normalmente,
+  // Solo `closed` blocca l'uscita: una partita iniziata è ancora `open`,
   // quindi un errore in corso non va etichettato "lobby chiusa".
   if (
     input.status === "closed" ||

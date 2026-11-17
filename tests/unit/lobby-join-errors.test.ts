@@ -11,14 +11,6 @@ describe("mapJoinError", () => {
     expect(out.canRetry).toBe(false);
   });
 
-  it("status in_progress → lobby in corso, senza retry", () => {
-    const out = mapJoinError({ status: "in_progress" });
-    expect(out.kind).toBe("closed");
-    expect(out.message).toMatch(/in corso/i);
-    expect(out.message).not.toMatch(/Lobby chiusa/);
-    expect(out.canRetry).toBe(false);
-  });
-
   it("trigger P0001 lobby chiusa/scaduta → chiuso anche con status open (stale)", () => {
     const out = mapJoinError({
       status: "open",
@@ -130,8 +122,8 @@ describe("mapLeaveError", () => {
     expect(out.canRetry).toBe(false);
   });
 
-  it("in_progress non è 'chiusa': un errore in corso resta generico", () => {
-    const out = mapLeaveError({ status: "in_progress", message: "boom" });
+  it("partita iniziata ma status open → non è 'chiusa', errore generico", () => {
+    const out = mapLeaveError({ status: "open", message: "boom" });
     expect(out.kind).toBe("permanent");
     expect(out.message).not.toMatch(/Lobby chiusa/);
   });
