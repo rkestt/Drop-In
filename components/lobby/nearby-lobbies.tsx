@@ -10,6 +10,7 @@ import {
   isWithinRadiusM,
   NEARBY_RADIUS_M,
   OPEN_LOBBIES_LIMIT,
+  VICINE_HORIZON_HOURS,
 } from "@/lib/lobbies/nearby";
 import { sportEmptyPhrase, sportMatches } from "@/lib/sport/sports";
 import { useSport } from "@/lib/sport/sport-context";
@@ -74,6 +75,11 @@ export function NearbyLobbies({
               "id, court_id, start_time, sport, duration_minutes, ends_at, max_players, status, courts(id, name, sport, lat, lng, photo_path), lobby_participants(user_id)"
             )
             .eq("status", "open")
+            // #91: orizzonte 36h, prima del LIMIT (come `open_lobbies`).
+            .lt(
+              "start_time",
+              new Date(Date.now() + VICINE_HORIZON_HOURS * 3_600_000).toISOString(),
+            )
             .order("start_time", { ascending: true })
             .limit(OPEN_LOBBIES_LIMIT);
           if (lobbiesError) throw lobbiesError;

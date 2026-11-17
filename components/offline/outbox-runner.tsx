@@ -59,6 +59,11 @@ export function OutboxRunner() {
             lng: Number(p.lng),
             accuracy: Number(p.accuracy),
             status: "active",
+            // #91: orario originale dell'accodamento; i vecchi item senza
+            // campo usano l'ora del flush, come prima.
+            checked_in_at: String(
+              p.checked_in_at ?? new Date().toISOString(),
+            ),
           });
           if (!error) return { outcome: "ok", errorMessage: null };
           const msg = error.code ? `${error.code} ${error.message}` : error.message;

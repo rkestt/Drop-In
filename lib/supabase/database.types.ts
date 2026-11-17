@@ -150,14 +150,14 @@ isOneToOne: false
                   ]
                 },"lobby_participants": {
                   Row: {
-                    "id": string,"joined_at": string | null,"lobby_id": string,"user_id": string
+                    "id": string,"joined_at": string | null,"lobby_id": string,"reconfirmed_at": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "id"?: string,"joined_at"?: string | null,"lobby_id": string,"user_id": string
+                    "id"?: string,"joined_at"?: string | null,"lobby_id": string,"reconfirmed_at"?: string | null,"user_id": string
                   }
                   Update: {
-                    "id"?: string,"joined_at"?: string | null,"lobby_id"?: string,"user_id"?: string
+                    "id"?: string,"joined_at"?: string | null,"lobby_id"?: string,"reconfirmed_at"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -607,6 +607,9 @@ isOneToOne: false
                            },
 "postgis_wagyu_version":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"reconfirm_lobby":
+{ Args: { "p_lobby_id": string }; Returns: undefined
                            },
 "reject_court":
 { Args: { "p_court_id": string,"p_note"?: string }; Returns: undefined

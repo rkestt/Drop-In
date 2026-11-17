@@ -146,6 +146,9 @@ export function CheckInSheet({
       lng,
       accuracy,
       status: "active",
+      // #91: l'aggancio check-in<->partita usa checked_in_at; al replay
+      // l'outbox deve passare l'orario originale, non quello del flush.
+      checked_in_at: new Date().toISOString(),
     });
     onClose();
     toast("Check-in in coda: lo inviamo appena torni online.");

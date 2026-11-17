@@ -14,6 +14,14 @@ export const NEARBY_RADIUS_M = 15000;
 /** Max candidate aperte: le lobby sono effimere (auto-chiusura via cron). */
 export const OPEN_LOBBIES_LIMIT = 100;
 
+/**
+ * Orizzonte "Vicine" 36h (#91, soglie confermate 2026-11-18): stasera e
+ * domani. Copre il "domani pomeriggio" senza riempire il tetto di 100 righe
+ * con partite lontane. Stesso predicato nel WHERE di `open_lobbies` (037):
+ * il filtro sta prima del LIMIT in entrambi.
+ */
+export const VICINE_HORIZON_HOURS = 36;
+
 /** Haversine in metri (nessuna dipendenza). */
 export function haversineM(
   aLat: number,

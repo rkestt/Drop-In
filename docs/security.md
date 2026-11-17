@@ -149,7 +149,7 @@ Se in futuro arrivano abusi coordinati, l'ordine è: regole Supabase
 | Cosa | Comando | Copertura |
 |---|---|---|
 | Rate limit + anti-spam | `npm run test:rls` (blocco 45) | 5 segnalazioni passano, la sesta no; B indipendente da A; eventi non leggibili dal client; nome con link rifiutato, nome normale accettato |
-| Grant | `npm run test:rls` (blocco 46) | matrice dei privilegi presenti + scritture vietate (`courts` UPDATE, `lobbies` DELETE, `push_notifications` anon, `TRUNCATE`) |
+| Grant | `npm run test:rls` (blocco 47) | matrice dei privilegi presenti + scritture vietate (`courts` UPDATE, `lobbies` DELETE, `push_notifications` anon, `TRUNCATE`) |
 | Header | `npx vitest run tests/unit/security-headers.test.ts` | valori e idempotenza |
 | Flussi reali | `E2E_WITH_DB=1 npx playwright test --project=e2e` | 62 test: nessuna regressione da grant/limiti |
 

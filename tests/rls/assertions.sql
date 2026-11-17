@@ -2233,7 +2233,124 @@ VALUES ('Campo Via dei Test 12', 41.93, 12.53,
         ST_SetSRID(ST_MakePoint(12.53, 41.93),4326)::geography,
         'community', '11111111-1111-1111-1111-111111111111', 'pending', 'active');
 
--- ================= 46. #84/035: grant al minimo, nessun privilegio inutile =================
+-- ================= 46. #91: riconferma in finestra, fuori finestra no, riga altrui negata =================
+-- Migrazione A (037): `reconfirm_lobby()` scrive `reconfirmed_at`, la
+-- finestra 24h->30min sta nel DB (funzione + guard). Fixture dedicata:
+-- corte approvata + due lobby di C (una in finestra, una fuori). A e'
+-- bannato dal blocco 39, quindi si usa C; i claim si azzerano (stile
+-- blocchi anon) perche' il trigger ban legge auth.uid(), non il creator_id.
+SET LOCAL request.jwt.claims = '';
+DO $$
+DECLARE
+  v_court UUID;
+  v_in_window UUID;
+  v_out_window UUID;
+BEGIN
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES ('Reconfirm Court', 41.906, 12.506, ST_SetSRID(ST_MakePoint(12.506,41.906),4326)::geography, 'community',
+          '33333333-3333-3333-3333-333333333333','approved','active')
+  RETURNING id INTO v_court;
+  -- In finestra: inizio tra 2h (finestra: da 22h fa a tra 1.5h).
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status)
+  VALUES (v_court, '33333333-3333-3333-3333-333333333333', now() + interval '2 hours', 10, 'open')
+  RETURNING id INTO v_in_window;
+  -- Fuori finestra: inizio tra 10 minuti (finestra chiusa da 20 minuti).
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status)
+  VALUES (v_court, '33333333-3333-3333-3333-333333333333', now() + interval '10 minutes', 10, 'open')
+  RETURNING id INTO v_out_window;
+  INSERT INTO public.lobby_participants (lobby_id, user_id)
+  VALUES (v_in_window, '33333333-3333-3333-3333-333333333333'),
+         (v_out_window, '33333333-3333-3333-3333-333333333333');
+END $$;
+
+-- 46a. positivo: C riconferma in finestra -> reconfirmed_at valorizzato.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+DO $$
+DECLARE
+  v_lobby UUID;
+BEGIN
+  SELECT id INTO v_lobby FROM public.lobbies
+  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Reconfirm Court')
+    AND start_time > now() + interval '1 hour';
+  PERFORM public.reconfirm_lobby(v_lobby);
+  IF NOT EXISTS (SELECT 1 FROM public.lobby_participants
+                 WHERE lobby_id = v_lobby
+                   AND user_id = '33333333-3333-3333-3333-333333333333'
+                   AND reconfirmed_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'riconferma in finestra: reconfirmed_at resta NULL';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 46b. fuori finestra: funzione e UPDATE diretto -> P0001, valore invariato.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+DO $$
+DECLARE
+  v_lobby UUID;
+  v_via_funzione BOOLEAN := FALSE;
+BEGIN
+  SELECT id INTO v_lobby FROM public.lobbies
+  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Reconfirm Court')
+    AND start_time < now() + interval '1 hour';
+  BEGIN
+    PERFORM public.reconfirm_lobby(v_lobby);
+    v_via_funzione := TRUE;
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE <> 'P0001' THEN
+      RAISE EXCEPTION 'riconferma fuori finestra: SQLSTATE % anomalo', SQLSTATE;
+    END IF;
+  END;
+  IF v_via_funzione THEN
+    RAISE EXCEPTION 'riconferma fuori finestra riuscita via funzione';
+  END IF;
+  BEGIN
+    UPDATE public.lobby_participants SET reconfirmed_at = now()
+    WHERE lobby_id = v_lobby AND user_id = '33333333-3333-3333-3333-333333333333';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE <> 'P0001' THEN
+      RAISE EXCEPTION 'UPDATE diretto fuori finestra: SQLSTATE % anomalo', SQLSTATE;
+    END IF;
+    RETURN;
+  END;
+  RAISE EXCEPTION 'UPDATE diretto fuori finestra riuscito';
+END $$;
+RESET ROLE;
+
+-- 46c. B non iscritto: funzione -> 42501; UPDATE diretto -> 0 righe.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+DO $$
+DECLARE
+  v_lobby UUID;
+  v_toccate INTEGER;
+  v_via_funzione BOOLEAN := FALSE;
+BEGIN
+  SELECT id INTO v_lobby FROM public.lobbies
+  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Reconfirm Court')
+    AND start_time > now() + interval '1 hour';
+  BEGIN
+    PERFORM public.reconfirm_lobby(v_lobby);
+    v_via_funzione := TRUE;
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE <> '42501' THEN
+      RAISE EXCEPTION 'riconferma altrui: SQLSTATE % anomalo', SQLSTATE;
+    END IF;
+  END;
+  IF v_via_funzione THEN
+    RAISE EXCEPTION 'riconferma sulla riga altrui riuscita';
+  END IF;
+  UPDATE public.lobby_participants SET reconfirmed_at = now()
+  WHERE lobby_id = v_lobby AND user_id = '33333333-3333-3333-3333-333333333333';
+  GET DIAGNOSTICS v_toccate = ROW_COUNT;
+  IF v_toccate <> 0 THEN
+    RAISE EXCEPTION 'UPDATE diretto sulla riga altrui: % righe toccate', v_toccate;
+  END IF;
+END $$;
+RESET ROLE;
+
+-- ================= 47. #84/035: grant al minimo, nessun privilegio inutile =================
 DO $$
 DECLARE v_pair RECORD;
 BEGIN
@@ -2250,6 +2367,7 @@ BEGIN
       ('lobbies', 'INSERT'),
       ('lobbies', 'UPDATE'),
       ('lobby_participants', 'SELECT'),
+      ('lobby_participants', 'UPDATE'),
       ('lobby_participants', 'DELETE'),
       ('check_ins', 'SELECT'),
       ('check_ins', 'INSERT'),
