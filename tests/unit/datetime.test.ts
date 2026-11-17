@@ -77,8 +77,10 @@ describe("fuso fisso Europe/Rome", () => {
     expect(out).toMatch(/16 nov.*19:40/);
   });
 
-  it("formatAppCloseTime = inizio + 30 min", () => {
-    expect(formatAppCloseTime("2026-01-15T12:00:00.000Z")).toBe("13:30");
+  it("formatAppCloseTime formatta l'ends_at senza sommare", () => {
+    // #96: riceve l'orario di fine gia' calcolato (colonna generata
+    // `ends_at`), non l'inizio. 12:00Z = 13:00 a Roma, invariato.
+    expect(formatAppCloseTime("2026-01-15T12:00:00.000Z")).toBe("13:00");
   });
 
   it("formatExpiry resta importabile con la vecchia firma", () => {

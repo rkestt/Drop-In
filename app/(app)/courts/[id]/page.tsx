@@ -111,6 +111,7 @@ export default async function CourtPage({
   let lobbies: {
     id: string;
     start_time: string;
+    ends_at: string | null;
     max_players: number;
     lobby_participants?: { count: number }[];
   }[] | null = null;
@@ -138,7 +139,7 @@ export default async function CourtPage({
     if (court) {
       const { data: lobbiesData, error: lobbiesError } = await supabase
         .from("lobbies")
-        .select("*, lobby_participants(count)")
+        .select("id, court_id, start_time, sport, duration_minutes, ends_at, max_players, status, lobby_participants(count)")
         .eq("court_id", id)
         .eq("status", "open")
         .order("start_time", { ascending: true });

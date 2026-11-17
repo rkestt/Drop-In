@@ -99,6 +99,9 @@ interface Lobby {
   id: string;
   court_id: string;
   start_time: string;
+  sport: string | null;
+  duration_minutes: number;
+  ends_at: string;
   max_players: number;
   status: string;
   participants_count: number;
@@ -362,6 +365,9 @@ export default function HomePage() {
           id: string;
           court_id: string;
           start_time: string;
+          sport: string | null;
+          duration_minutes: number;
+          ends_at: string;
           max_players: number;
           status: string;
           court_name: string | null;
@@ -372,6 +378,9 @@ export default function HomePage() {
         id: l.id,
         court_id: l.court_id,
         start_time: l.start_time,
+        sport: l.sport,
+        duration_minutes: l.duration_minutes,
+        ends_at: l.ends_at,
         max_players: l.max_players,
         status: l.status,
         participants_count: l.participants_count ?? 0,

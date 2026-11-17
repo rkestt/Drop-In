@@ -116,12 +116,17 @@ export function formatAppDateTime(
   }).format(new Date(iso));
 }
 
-/** Scadenza iscrizioni = inizio + 30 min, già formattata `HH:MM`. */
+/**
+ * Orario di chiusura iscrizioni formattato `HH:MM` (#96): riceve l'`ends_at`
+ * gia' calcolato dal DB (colonna generata) e formatta senza sommare. La
+ * vecchia firma (inizio + 30' fissi) divergeva dal cron ed era il bug del
+ * ticket: ora esiste una sola fonte, `lobbies.ends_at`.
+ */
 export function formatAppCloseTime(
-  iso: string | number | Date,
+  endsAt: string | number | Date,
   timeZone: string = APP_TIME_ZONE,
 ): string {
-  return formatAppTime(new Date(new Date(iso).getTime() + 30 * 60_000), timeZone);
+  return formatAppTime(endsAt, timeZone);
 }
 
 /**

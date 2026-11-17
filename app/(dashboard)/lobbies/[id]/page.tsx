@@ -118,13 +118,14 @@ export default async function LobbyDetailPage({
     id: string;
     court_id: string;
     start_time: string;
+    ends_at: string | null;
     max_players: number;
     status: string | null;
   } | null = null;
   try {
     const { data, error: lobbyError } = await supabase
       .from("lobbies")
-      .select("id, court_id, start_time, max_players, status")
+      .select("id, court_id, start_time, ends_at, max_players, status")
       .eq("id", id)
       .single();
     // PGRST116 = riga assente → 404 vero; altro errore → messaggio + riprova.
@@ -182,7 +183,13 @@ export default async function LobbyDetailPage({
   return (
     <main id="contenuto" tabIndex={-1} className="mx-auto w-full max-w-[720px] flex-1 p-6">
       <LobbyDetail
-        lobby={{ ...lobby, status: lobby.status ?? "open" }}
+        lobby={{
+          ...lobby,
+          status: lobby.status ?? "open",
+          // `ends_at` e' generata da input NOT NULL: mai null nel DB, i tipi
+          // generati sono conservativi (string | null).
+          ends_at: lobby.ends_at ?? lobby.start_time,
+        }}
         court={
           court ?? {
             id: lobby.court_id,

@@ -8,6 +8,12 @@ export interface LobbySummary {
   id: string;
   court_id: string;
   start_time: string;
+  /** Sport della Lobby (`null` = ignoto, #96). */
+  sport: string | null;
+  /** Durata in minuti (DEFAULT 30 nel DB, #96). */
+  duration_minutes: number;
+  /** Fine iscrizioni (colonna generata `ends_at`, #96). */
+  ends_at: string;
   max_players: number;
   status: string;
   court_name: string;

@@ -53,6 +53,9 @@ export const NICKNAME_MAX = 30;
 export const REPORT_DESCRIPTION_MAX = 280;
 export const LOBBY_MIN_PLAYERS = 2;
 export const LOBBY_MAX_PLAYERS = 30;
+/** Bound durata lobby in minuti (#96): stessi del CHECK su `lobbies`. */
+export const LOBBY_DURATION_MIN_MINUTES = 15;
+export const LOBBY_DURATION_MAX_MINUTES = 240;
 
 /** Regola DB (submit_court): serve un nome oppure una foto. */
 export const submitCourtSchema = z
@@ -129,6 +132,28 @@ export const createLobbySchema = z.object({
     .int("Il numero di giocatori deve essere un numero intero.")
     .min(LOBBY_MIN_PLAYERS, `Minimo ${LOBBY_MIN_PLAYERS} giocatori.`)
     .max(LOBBY_MAX_PLAYERS, `Massimo ${LOBBY_MAX_PLAYERS} giocatori.`),
+  /**
+   * Durata in minuti (#96, opzionale: il DB ha DEFAULT 30). Stessi bound
+   * del CHECK, così il rifiuto arriva inline prima dell'INSERT.
+   */
+  durationMinutes: z.coerce
+    .number()
+    .refine((v) => !Number.isNaN(v), "Inserisci una durata valida.")
+    .int("La durata deve essere un numero intero di minuti.")
+    .min(
+      LOBBY_DURATION_MIN_MINUTES,
+      `Minimo ${LOBBY_DURATION_MIN_MINUTES} minuti.`
+    )
+    .max(
+      LOBBY_DURATION_MAX_MINUTES,
+      `Massimo ${LOBBY_DURATION_MAX_MINUTES} minuti.`
+    )
+    .optional(),
+  /**
+   * Sport della Lobby (#96, opzionale: NULL = ignoto). Stessa lista
+   * dell'UI; il drawer lo precompila dal Campo se univoco.
+   */
+  sport: z.enum(SPORT_VALUES).optional(),
 });
 
 export type CreateLobbyValues = z.infer<typeof createLobbySchema>;

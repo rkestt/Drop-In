@@ -25,6 +25,8 @@ export interface LobbyDetailData {
   id: string;
   court_id: string;
   start_time: string;
+  /** Fine iscrizioni (colonna generata `ends_at`, #96). */
+  ends_at: string;
   max_players: number;
   status: string;
 }
@@ -358,8 +360,8 @@ export function LobbyDetail({
           </p>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             {lobby.status === "closed"
-              ? `Chiusa alle ${formatAppCloseTime(lobby.start_time)}`
-              : `Si chiude alle ${formatAppCloseTime(lobby.start_time)}`}
+              ? `Chiusa alle ${formatAppCloseTime(lobby.ends_at)}`
+              : `Si chiude alle ${formatAppCloseTime(lobby.ends_at)}`}
           </p>
         </div>
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -420,8 +422,8 @@ export function LobbyDetail({
           </p>
           <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
             {lobby.status === "in_progress"
-              ? `Le iscrizioni sono chiuse. La lobby si chiude alle ${formatAppCloseTime(lobby.start_time)}.`
-              : `La lobby si è chiusa alle ${formatAppCloseTime(lobby.start_time)}. I check-in sono chiusi.`}
+              ? `Le iscrizioni sono chiuse. La lobby si chiude alle ${formatAppCloseTime(lobby.ends_at)}.`
+              : `La lobby si è chiusa alle ${formatAppCloseTime(lobby.ends_at)}. I check-in sono chiusi.`}
           </p>
         </div>
       )}
@@ -464,8 +466,8 @@ export function LobbyDetail({
           </p>
           <p className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
             {lobby.status === "closed"
-              ? `Chiuse alle ${formatAppCloseTime(lobby.start_time)}`
-              : `Chiudono alle ${formatAppCloseTime(lobby.start_time)}`}
+              ? `Chiuse alle ${formatAppCloseTime(lobby.ends_at)}`
+              : `Chiudono alle ${formatAppCloseTime(lobby.ends_at)}`}
           </p>
         </div>
       </div>

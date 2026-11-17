@@ -14,6 +14,41 @@ export const SPORTS: { value: Sport; label: string }[] = [
 export const SPORT_STORAGE_KEY = "sport";
 
 /**
+ * Durata di default di una lobby per sport, in minuti (#96). Vive in
+ * costante applicativa — non in un CHECK/enum/DB — perche' i valori si
+ * ritoccano con i dati della beta senza migrazioni. Sport non elencato
+ * (o ignoto) = 30', stessa semantica del DEFAULT del DB.
+ */
+export const DEFAULT_LOBBY_DURATION_MINUTES = 30;
+
+const SPORT_DEFAULT_DURATION_MINUTES: Record<string, number> = {
+  volleyball: 90,
+  padel: 90,
+  futsal: 60,
+};
+
+/** Durata di default (minuti) per lo sport della Lobby (`null` = 30'). */
+export function defaultDurationForSport(sport: string | null): number {
+  if (sport === null) return DEFAULT_LOBBY_DURATION_MINUTES;
+  return SPORT_DEFAULT_DURATION_MINUTES[sport] ?? DEFAULT_LOBBY_DURATION_MINUTES;
+}
+
+/**
+ * Sport del Campo se univoco (#96): un solo valore concreto, non `multi`,
+ * non multi-valore (`;`), non NULL. Altrimenti `null` = lo sport della
+ * Lobby va scelto nel drawer.
+ */
+export function uniqueCourtSport(courtSport: string | null): string | null {
+  if (courtSport === null || courtSport === "multi") return null;
+  const parts = courtSport
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length !== 1) return null;
+  return parts[0];
+}
+
+/**
  * True quando la corte passa il filtro sport attivo.
  *
  * Semantica #71/#72: `sport IS NULL` significa "sport non specificato" ed e'
