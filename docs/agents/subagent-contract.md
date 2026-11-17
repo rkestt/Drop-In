@@ -42,3 +42,15 @@ A sub-session's report is a claim, not a completion. For each returning ticket t
 Where the report and the diff disagree, the diff wins. Where the ticket and the code disagree, the code wins and the ticket gets corrected before the ticket restarts.
 
 Stopping the loop: a ticket rejected twice goes to `@oracle` for the decision, or to the user when the choice is about product, not code.
+
+## When a sub-session is itself the main session
+
+A ticket that stays inside one area gets flat lanes, dispatched by whoever holds the main session. A ticket that crosses areas — schema plus client plus UI, as #96 did — gets a sub-session that orchestrates its own lanes, so reconciliation does not eat the context of the session that called the roadmaps.
+
+Either way the dispatch is the same three lines: the issue number, the lane, and `docs/agents/subagent-contract.md`. Whether the child orchestrates is the main session's call, made per ticket, and it is the only thing that changes.
+
+The child that orchestrates also owns three rules:
+
+- **Check that it can dispatch before accepting the ticket.** If the agent has no subagent tool in its configuration, it is a single lane, not an orchestrator, and a large ticket handed to it will run out of context mid-way.
+- **Fold review findings into the tester's checklist before the live round.** A tester verifies the list it was given; a green report and an open defect can arrive in the same hour (#96: the designer's six cases all passed while the reviewer found the drawer never reset on reopen).
+- **Write what must survive into the issue or the diff.** The child sees none of its parent's background tasks and nothing of its parent's conversation.
