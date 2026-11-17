@@ -46,3 +46,4 @@
 ## 2026-11-17
 
 - **retro**: {"slug":"test-all-verde-perche-meta-degli-e2e-si-skippa","title":"test:all verde perché metà degli e2e si skippa senza E2E_WITH_DB"}
+- **retro**: {"slug":"ends-at-generated-column-timestamptz-immutable","title":"ends_at come colonna generata: timestamptz + interval non è IMMUTABLE (42P17)"}

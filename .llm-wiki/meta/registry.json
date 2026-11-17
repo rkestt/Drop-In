@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-11-17T20:08:03.692Z",
+  "last_updated": "2026-11-17T21:19:48.029Z",
   "pages": {
     "sources/drop-in-check-in-accuratezza-adattiva-e-permessi-ios": {
       "type": "source",
@@ -28,6 +28,15 @@
       "slug": "e2e-hydration-server-utc-browser-roma",
       "created": "2026-11-13",
       "updated": "2026-11-13"
+    },
+    "sources/ends-at-generated-column-timestamptz-immutable": {
+      "type": "source",
+      "title": "ends_at come colonna generata: timestamptz + interval non è IMMUTABLE (42P17)",
+      "category": "source",
+      "status": "insight",
+      "slug": "ends-at-generated-column-timestamptz-immutable",
+      "created": "2026-11-17",
+      "updated": "2026-11-17"
     },
     "sources/karma-loss-notification-persa-in-una-riscrittura-di-trigger": {
       "type": "source",
