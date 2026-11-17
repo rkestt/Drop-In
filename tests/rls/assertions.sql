@@ -1134,44 +1134,54 @@ DO $$ DECLARE v_n BIGINT; BEGIN
 END $$;
 RESET ROLE;
 
--- ================= 38. #26/027: la chiusura di una lobby penalizza e notifica =================
--- La 007 aveva perso l'INSERT in push_notifications: qui si fissa il
--- comportamento ripristinato dalla 027 (delta karma -3 + riga karma_loss),
--- altrimenti la sezione karma della storia del profilo resta vuota per
--- costruzione e nessun test se ne accorge.
--- Fixture dedicata (corte nuova + utente C): i blocchi sopra lasciano su A
--- check-in attivi che escluderebbero la penalita' (il predicato e' "nessun
--- check-in attivo sulla corte della lobby").
+-- ================= 38. #91/038: il -3 scatta solo per i riconfermati senza check-in =================
+-- Migrazione B (038): `reconfirmed_at IS NOT NULL AND NOT EXISTS (check-in
+-- attivo con lobby_id = NEW.id)`. La fixture riconferma C all'INSERT
+-- (l'UPDATE diretto passa dal guard della 037 e qui la lobby e' gia'
+-- iniziata, fuori finestra); B resta iscritto senza riconferma. Due casi:
+-- C senza check-in -> -3 e una sola riga karma_loss; B -> karma invariato,
+-- zero righe.
 DO $$
 DECLARE
   v_court UUID;
   v_lobby UUID;
-  v_before INTEGER;
-  v_after INTEGER;
+  v_before_c INTEGER;
+  v_after_c INTEGER;
+  v_before_b INTEGER;
+  v_after_b INTEGER;
   v_note_count BIGINT;
 BEGIN
-  INSERT INTO public.courts (name, lat, lng, location, source, moderation_status, status, sport)
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status, sport)
   VALUES ('Karma Court', 41.905, 12.505,
           ST_SetSRID(ST_MakePoint(12.505, 41.905), 4326)::geography,
-          'community', 'approved', 'active', NULL)
+          'community', '33333333-3333-3333-3333-333333333333', 'approved', 'active', NULL)
   RETURNING id INTO v_court;
 
   INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status)
   VALUES (v_court, '33333333-3333-3333-3333-333333333333', now() - interval '3 hours', 10, 'open')
   RETURNING id INTO v_lobby;
 
-  INSERT INTO public.lobby_participants (lobby_id, user_id)
-  VALUES (v_lobby, '33333333-3333-3333-3333-333333333333');
+  INSERT INTO public.lobby_participants (lobby_id, user_id, reconfirmed_at)
+  VALUES (v_lobby, '33333333-3333-3333-3333-333333333333', now() - interval '3 hours'),
+         (v_lobby, '22222222-2222-2222-2222-222222222222', NULL);
 
-  SELECT karma_score INTO v_before FROM public.profiles
+  SELECT karma_score INTO v_before_c FROM public.profiles
   WHERE user_id = '33333333-3333-3333-3333-333333333333';
+  SELECT karma_score INTO v_before_b FROM public.profiles
+  WHERE user_id = '22222222-2222-2222-2222-222222222222';
 
   UPDATE public.lobbies SET status = 'closed' WHERE id = v_lobby;
 
-  SELECT karma_score INTO v_after FROM public.profiles
+  SELECT karma_score INTO v_after_c FROM public.profiles
   WHERE user_id = '33333333-3333-3333-3333-333333333333';
-  IF v_after <> v_before - 3 THEN
-    RAISE EXCEPTION 'karma dopo la chiusura: % -> % (atteso -3)', v_before, v_after;
+  IF v_after_c <> v_before_c - 3 THEN
+    RAISE EXCEPTION 'karma riconfermato dopo la chiusura: % -> % (atteso -3)', v_before_c, v_after_c;
+  END IF;
+
+  SELECT karma_score INTO v_after_b FROM public.profiles
+  WHERE user_id = '22222222-2222-2222-2222-222222222222';
+  IF v_after_b <> v_before_b THEN
+    RAISE EXCEPTION 'karma non riconfermato dopo la chiusura: % -> % (atteso invariato)', v_before_b, v_after_b;
   END IF;
 
   SELECT count(*) INTO v_note_count
@@ -1181,6 +1191,13 @@ BEGIN
     AND (data->>'lobby_id')::uuid = v_lobby;
   IF v_note_count <> 1 THEN
     RAISE EXCEPTION 'notifiche karma_loss per la lobby: % (atteso 1)', v_note_count;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.push_notifications
+             WHERE user_id = '22222222-2222-2222-2222-222222222222'
+               AND data->>'type' = 'karma_loss'
+               AND (data->>'lobby_id')::uuid = v_lobby) THEN
+    RAISE EXCEPTION 'notifica karma_loss al non riconfermato';
   END IF;
 END $$;
 
