@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drop-In — riga partita a foglio pieno: tre varianti (confronto)</title>
+<link rel="stylesheet" href="../proto.css">
+<!--
+  Drop-In · confronto di componente · riga dell'elenco a foglio pieno
+  Pipeline: la striscia dice "a che ora, quanto lontano, c'è posto?" (card
+  128×52 con barra di 4px) → il foglio pieno dà il nome e l'elenco → il tap apre
+  la partita. Qui si porta la lingua della striscia (barra + stato colorato)
+  dentro la riga dell'elenco, che oggi è foto 56 + nome 16/600 + "N/M · HH:MM"
+  + chevron, senza colore.
+
+  Cosa è: tre versioni dello STESSO elemento (la riga dell'elenco del foglio
+  "Partite vicine"), nella stessa geometria del prototipo nav-map-lobby.html:
+  foglio 660px sopra la bottom nav da 56px, 360px di larghezza, handle 44px,
+  testa "Partite vicine · 5", fondo --bg-elevated.
+  Cosa non è: non è una schermata nuova né una route Next, non importa nulla da
+  app/ o components/, non usa MapLibre, non fa fetch, non ha animazioni né
+  script. L'handle è disegnato, non interattivo: qui si sceglie la riga.
+
+  Dati: le cinque partite di nav-map-lobby.html, stessi orari, distanze e posti.
+  I nomi sono inventati (nel database 9.572 campi su 10.130 si chiamano
+  "Spazio aperto"). La foto del campo è un segnaposto: nel database non c'è una
+  foto per molti campi. Le misure rilevate sono nella risposta alla review.
+-->
+<style>
+  :root { color-scheme: dark; }
+
+  body { gap: 20px; }
+
+  /* ---------------------------------------------------------------- */
+  /* Testata, legenda e righe di misura della pagina                   */
+  /* ---------------------------------------------------------------- */
+
+  .lede {
+    width: 100%;
+    max-width: 720px;
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .legend {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .legend__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .legend__dot {
+    flex: 0 0 auto;
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-chip);
+  }
+
+  .legend__dot--open { background: var(--accent); }
+  .legend__dot--warn { background: var(--warning); }
+  .legend__dot--full { background: var(--text-muted); }
+
+  .legend__note {
+    flex: 1 1 100%;
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  .variant {
+    width: 100%;
+    max-width: 362px; /* 360 di contenuto + 1px di bordo per lato nel riquadro */
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Stacco netto tra una variante e la successiva: sono tre schermate, non una. */
+  .variant + .variant { margin-top: 16px; }
+
+  .variant__head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .variant__title {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .variant__desc {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  /* Una riga: altezza, righe intere, cosa si perde. */
+  .spec {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .spec strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Il telefono: stessa cornice per tutte e tre                       */
+  /* ---------------------------------------------------------------- */
+
+  .demo {
+    position: relative;
+    width: 362px; /* il foglio dentro è 360 */
+    height: 718px; /* 660 di foglio + 56 di nav + 2 di bordo */
+    min-height: 0;
+    --nav-h: 56px;
+  }
+
+  .demo .bottom-nav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    height: var(--nav-h);
+    margin-top: 0;
+  }
+
+  .demo .bottom-nav__item svg { display: block; }
+
+  /* Foglio a tutta altezza: 660px sopra la nav, come lo snap pieno del prototipo. */
+  .demo-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: var(--nav-h);
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--border-strong);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    background: var(--bg-elevated);
+    box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.42);
+  }
+
+  .demo-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 44px;
+    height: 44px;
+  }
+
+  .demo-grip {
+    width: 40px;
+    height: 5px;
+    border-radius: var(--radius-chip);
+    background: var(--text-muted);
+    opacity: 0.5;
+  }
+
+  .demo-sheet-head {
+    flex: 0 0 auto;
+    padding: 0 20px 10px;
+  }
+
+  .demo-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .demo-sheet-title {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .demo-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: var(--radius-chip);
+    background: var(--accent-subtle);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .demo-meta {
+    margin: 2px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .demo-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0 20px 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .rows {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Barra di riempimento: lo stesso pezzo in R1 e R3                   */
+  /* ---------------------------------------------------------------- */
+
+  .fill {
+    display: block;
+    height: 4px;
+    border-radius: var(--radius-chip);
+    background: var(--border-strong);
+    overflow: hidden;
+  }
+
+  .fill > span {
+    display: block;
+    height: 100%;
+    width: var(--fill, 0%);
+    border-radius: var(--radius-chip);
+    background: var(--accent);
+  }
+
+  /* La scala di stato è quella della striscia:
+     3 o più posti liberi = accent, 1-2 = warning, 0 = text-muted.
+     La barra dice quanto è piena anche in scala di grigi; il colore viene dopo. */
+  .is-warn .fill > span { background: var(--warning); }
+  .is-full .fill > span { background: var(--text-muted); }
+
+  .is-open .places { color: var(--accent); }
+  .is-warn .places { color: var(--warning-dark); }
+  .is-full .places { color: var(--text-muted); }
+
+  .places {
+    font-family: var(--font-syne);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* R1 · barra sotto la riga                                          */
+  /* ---------------------------------------------------------------- */
+
+  .r1 {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    min-height: 82px; /* la riga di oggi è alta 82: la barra non la fa crescere */
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .r1:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-elevated);
+  }
+
+  .r1:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+  .r1__main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  /* Segnaposto: nel database molti campi non hanno foto. 48 e non 56 per
+     pagare la barra sotto senza far crescere la riga. */
+  .r1__photo {
+    flex: 0 0 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control-sm);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+  }
+
+  .r1__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .r1__top {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .r1__time {
+    flex: 0 0 auto;
+    font-family: var(--font-syne);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .r1__name {
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .r1__meta {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .r1__meta .places { font-size: 13px; }
+
+  .r1__go {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    color: var(--text-muted);
+  }
+
+  .r1__fill { width: 100%; }
+
+  /* ---------------------------------------------------------------- */
+  /* R2 · barra sul bordo                                              */
+  /* ---------------------------------------------------------------- */
+
+  .r2 {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 66px;
+    padding: 9px 12px 9px 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  /* Pillola di stato sul bordo: 4px, rientra di 10px sopra e sotto così non
+     sembra un bordo del riquadro. */
+  .r2::before {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 10px;
+    bottom: 10px;
+    width: 4px;
+    border-radius: var(--radius-chip);
+    background: var(--accent);
+  }
+
+  .r2.is-warn::before { background: var(--warning); }
+  .r2.is-full::before { background: var(--text-muted); }
+
+  .r2:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-elevated);
+  }
+
+  .r2:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+  .r2__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .r2__name {
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .r2__meta {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .r2__places {
+    flex: 0 0 auto;
+    font-size: 16px;
+  }
+
+  .r2__go {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    color: var(--text-muted);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* R3 · orario protagonista                                          */
+  /* ---------------------------------------------------------------- */
+
+  .r3 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 68px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .r3:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-elevated);
+  }
+
+  .r3:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+  .r3__time {
+    flex: 0 0 auto;
+    font-family: var(--font-syne);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .r3__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .r3__name {
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .r3__dist {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .r3__right {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  .r3__places { font-size: 15px; }
+
+  .r3__fill { width: 40px; }
+
+  /* ---------------------------------------------------------------- */
+  /* Nota finale                                                       */
+  /* ---------------------------------------------------------------- */
+
+  .note code {
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  @media (max-width: 392px) {
+    /* 360px: il telefono prende tutta la larghezza, i testi restano dentro i 16px */
+    body { padding-left: 0; padding-right: 0; }
+
+    .proto-head,
+    .lede,
+    .legend,
+    .note { margin-left: 16px; margin-right: 16px; width: auto; }
+
+    .variant { max-width: none; }
+    .variant__head,
+    .spec { padding-left: 16px; padding-right: 16px; }
+
+    .demo {
+      width: 100%;
+      height: 716px; /* senza bordo: 660 di foglio + 56 di nav */
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<header class="proto-head">
+  <h1 class="proto-head__title">Riga partita a foglio pieno: tre varianti</h1>
+  <p class="proto-head__meta">confronto di componente · elenco del foglio «Partite vicine» · 360px</p>
+</header>
+
+<p class="lede">
+  La striscia ha già la sua lingua: orario, distanza e una barra di 4px che dice quanti posti
+  sono presi. L’elenco a foglio pieno oggi non ce l’ha: foto 56×56, nome 16/600, riga
+  «N/M · HH:MM», chevron, nessun colore. Qui la stessa riga è riscritta in tre modi, con le
+  stesse cinque partite e lo stesso foglio (660px sopra la nav da 56px). Cambia solo come lo
+  stato entra nella riga.
+</p>
+
+<div class="legend">
+  <span class="legend__item"><span class="legend__dot legend__dot--open" aria-hidden="true"></span>c’è posto (3 o più liberi)</span>
+  <span class="legend__item"><span class="legend__dot legend__dot--warn" aria-hidden="true"></span>quasi piena (1 o 2 liberi)</span>
+  <span class="legend__item"><span class="legend__dot legend__dot--full" aria-hidden="true"></span>piena (0 liberi)</span>
+  <p class="legend__note">Le cifre sono posti occupati sul totale: 3/10 = tre posti presi su dieci. Dove c’è la barra, la lunghezza dice la stessa cosa del colore: lo stato si legge anche in scala di grigi.</p>
+</div>
+
+<!-- =============================== R1 =============================== -->
+<section class="variant" aria-labelledby="r1-head">
+  <div class="variant__head">
+    <h2 class="variant__title" id="r1-head">R1 · barra sotto la riga</h2>
+    <p class="variant__desc">
+      La riga di oggi, con l’orario in Syne accanto al nome e la stessa barra della striscia
+      a tutta larghezza sotto il contenuto. Foto, nome, distanza e chevron restano dove sono.
+    </p>
+  </div>
+
+  <div class="phone demo">
+    <section class="demo-sheet" aria-label="Partite vicine, variante R1">
+      <div class="demo-handle" aria-hidden="true"><span class="demo-grip"></span></div>
+      <div class="demo-sheet-head">
+        <div class="demo-title-row">
+          <h3 class="demo-sheet-title" id="r1-sheet">Partite vicine</h3>
+          <span class="demo-count" aria-hidden="true">5</span>
+        </div>
+        <p class="demo-meta">Oggi, martedì 17 novembre · entro 5 km</p>
+      </div>
+
+      <div class="demo-list" role="region" aria-label="Elenco delle partite vicine, R1">
+        <ul class="rows">
+
+          <li>
+            <button class="r1 is-open" type="button" aria-label="19:40, Playground Roma70, 400 m, 3/10 posti occupati">
+              <span class="r1__main">
+                <span class="r1__photo" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+                </span>
+                <span class="r1__body">
+                  <span class="r1__top">
+                    <span class="r1__time">19:40</span>
+                    <span class="r1__name">Playground Roma70</span>
+                  </span>
+                  <span class="r1__meta">400 m · <span class="places">3/10</span></span>
+                </span>
+                <span class="r1__go" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+                </span>
+              </span>
+              <span class="fill r1__fill" style="--fill: 30%" aria-hidden="true"><span></span></span>
+            </button>
+          </li>
+
+          <li>
+            <button class="r1 is-warn" type="button" aria-label="20:00, Campetto Villa Chigi, 1,2 km, 8/10 posti occupati, quasi piena">
+              <span class="r1__main">
+                <span class="r1__photo" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+                </span>
+                <span class="r1__body">
+                  <span class="r1__top">
+                    <span class="r1__time">20:00</span>
+                    <span class="r1__name">Campetto Villa Chigi</span>
+                  </span>
+                  <span class="r1__meta">1,2 km · <span class="places">8/10</span></span>
+                </span>
+                <span class="r1__go" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+                </span>
+              </span>
+              <span class="fill r1__fill" style="--fill: 80%" aria-hidden="true"><span></span></span>
+            </button>
+          </li>
+
+          <li>
+            <button class="r1 is-open" type="button" aria-label="20:30, Campo di via Vetulonia, 2,1 km, 5/8 posti occupati">
+              <span class="r1__main">
+                <span class="r1__photo" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+                </span>
+                <span class="r1__body">
+                  <span class="r1__top">
+                    <span class="r1__time">20:30</span>
+                    <span class="r1__name">Campo di via Vetulonia</span>
+                  </span>
+                  <span class="r1__meta">2,1 km · <span class="places">5/8</span></span>
+                </span>
+                <span class="r1__go" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+                </span>
+              </span>
+              <span class="fill r1__fill" style="--fill: 63%" aria-hidden="true"><span></span></span>
+            </button>
+          </li>
+
+          <li>
+            <button class="r1 is-full" type="button" aria-label="21:00, Campo di via Oderisi da Gubbio, 2,6 km, 10/10 posti occupati, al completo">
+              <span class="r1__main">
+                <span class="r1__photo" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+                </span>
+                <span class="r1__body">
+                  <span class="r1__top">
+                    <span class="r1__time">21:00</span>
+                    <span class="r1__name">Campo di via Oderisi da Gubbio</span>
+                  </span>
+                  <span class="r1__meta">2,6 km · <span class="places">10/10</span></span>
+                </span>
+                <span class="r1__go" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+                </span>
+              </span>
+              <span class="fill r1__fill" style="--fill: 100%" aria-hidden="true"><span></span></span>
+            </button>
+          </li>
+
+          <li>
+            <button class="r1 is-full" type="button" aria-label="21:30, Campo di via delle Vigne Nuove, 3,1 km, 6/6 posti occupati, al completo">
+              <span class="r1__main">
+                <span class="r1__photo" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+                </span>
+                <span class="r1__body">
+                  <span class="r1__top">
+                    <span class="r1__time">21:30</span>
+                    <span class="r1__name">Campo di via delle Vigne Nuove</span>
+                  </span>
+                  <span class="r1__meta">3,1 km · <span class="places">6/6</span></span>
+                </span>
+                <span class="r1__go" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+                </span>
+              </span>
+              <span class="fill r1__fill" style="--fill: 100%" aria-hidden="true"><span></span></span>
+            </button>
+          </li>
+
+        </ul>
+      </div>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale, R1">
+      <a class="bottom-nav__item" href="#" aria-current="page" aria-label="Mappa campi">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span>Mappa</span>
+      </a>
+      <a class="bottom-nav__item" href="#" aria-label="Profilo utente">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+        <span>Profilo</span>
+      </a>
+    </nav>
+  </div>
+
+  <p class="spec">
+    <strong>82 px di riga</strong>, come oggi · <strong>5 righe intere su 5</strong>, restano
+    79 px (una sesta non ci sta) · si perde: la foto scende da 56 a 48 px e il nome da 172 a
+    137 px, quindi «Campo di via Vetulonia» si tronca.
+  </p>
+</section>
+
+<!-- =============================== R2 =============================== -->
+<section class="variant" aria-labelledby="r2-head">
+  <div class="variant__head">
+    <h2 class="variant__title" id="r2-head">R2 · barra sul bordo</h2>
+    <p class="variant__desc">
+      Barra verticale di 4px sul lato sinistro come accento di stato, posti in cifre colorate a
+      destra. Niente foto: lo spazio va al nome e alle cifre. La barra non ha lunghezza: qui il
+      segnale da leggere sono i numeri.
+    </p>
+  </div>
+
+  <div class="phone demo">
+    <section class="demo-sheet" aria-label="Partite vicine, variante R2">
+      <div class="demo-handle" aria-hidden="true"><span class="demo-grip"></span></div>
+      <div class="demo-sheet-head">
+        <div class="demo-title-row">
+          <h3 class="demo-sheet-title" id="r2-sheet">Partite vicine</h3>
+          <span class="demo-count" aria-hidden="true">5</span>
+        </div>
+        <p class="demo-meta">Oggi, martedì 17 novembre · entro 5 km</p>
+      </div>
+
+      <div class="demo-list" role="region" aria-label="Elenco delle partite vicine, R2">
+        <ul class="rows">
+
+          <li>
+            <button class="r2 is-open" type="button" aria-label="Playground Roma70, 19:40, 400 m, 3/10 posti occupati">
+              <span class="r2__body">
+                <span class="r2__name">Playground Roma70</span>
+                <span class="r2__meta">19:40 · 400 m</span>
+              </span>
+              <span class="r2__places places">3/10</span>
+              <span class="r2__go" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+              </span>
+            </button>
+          </li>
+
+          <li>
+            <button class="r2 is-warn" type="button" aria-label="Campetto Villa Chigi, 20:00, 1,2 km, 8/10 posti occupati, quasi piena">
+              <span class="r2__body">
+                <span class="r2__name">Campetto Villa Chigi</span>
+                <span class="r2__meta">20:00 · 1,2 km</span>
+              </span>
+              <span class="r2__places places">8/10</span>
+              <span class="r2__go" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+              </span>
+            </button>
+          </li>
+
+          <li>
+            <button class="r2 is-open" type="button" aria-label="Campo di via Vetulonia, 20:30, 2,1 km, 5/8 posti occupati">
+              <span class="r2__body">
+                <span class="r2__name">Campo di via Vetulonia</span>
+                <span class="r2__meta">20:30 · 2,1 km</span>
+              </span>
+              <span class="r2__places places">5/8</span>
+              <span class="r2__go" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+              </span>
+            </button>
+          </li>
+
+          <li>
+            <button class="r2 is-full" type="button" aria-label="Campo di via Oderisi da Gubbio, 21:00, 2,6 km, al completo, 10/10 posti occupati">
+              <span class="r2__body">
+                <span class="r2__name">Campo di via Oderisi da Gubbio</span>
+                <span class="r2__meta">21:00 · 2,6 km · al completo</span>
+              </span>
+              <span class="r2__places places">10/10</span>
+              <span class="r2__go" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+              </span>
+            </button>
+          </li>
+
+          <li>
+            <button class="r2 is-full" type="button" aria-label="Campo di via delle Vigne Nuove, 21:30, 3,1 km, al completo, 6/6 posti occupati">
+              <span class="r2__body">
+                <span class="r2__name">Campo di via delle Vigne Nuove</span>
+                <span class="r2__meta">21:30 · 3,1 km · al completo</span>
+              </span>
+              <span class="r2__places places">6/6</span>
+              <span class="r2__go" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+              </span>
+            </button>
+          </li>
+
+        </ul>
+      </div>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale, R2">
+      <a class="bottom-nav__item" href="#" aria-current="page" aria-label="Mappa campi">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span>Mappa</span>
+      </a>
+      <a class="bottom-nav__item" href="#" aria-label="Profilo utente">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+        <span>Profilo</span>
+      </a>
+    </nav>
+  </div>
+
+  <p class="spec">
+    <strong>66 px di riga</strong> · <strong>5 righe intere su 5</strong>, restano 159 px (una
+    sesta ci starebbe) · si perde: la foto e l’orario in Syne; la barra è un accento senza
+    lunghezza, quindi in scala di grigi la cifra resta l’unico segnale.
+  </p>
+</section>
+
+<!-- =============================== R3 =============================== -->
+<section class="variant" aria-labelledby="r3-head">
+  <div class="variant__head">
+    <h2 class="variant__title" id="r3-head">R3 · orario protagonista</h2>
+    <p class="variant__desc">
+      La versione larga della card della striscia: orario grande a sinistra, nome e distanza al
+      centro, posti in cifre e barra a destra. Niente foto. L’ordine di lettura diventa lo
+      stesso della striscia: prima quando, poi dove.
+    </p>
+  </div>
+
+  <div class="phone demo">
+    <section class="demo-sheet" aria-label="Partite vicine, variante R3">
+      <div class="demo-handle" aria-hidden="true"><span class="demo-grip"></span></div>
+      <div class="demo-sheet-head">
+        <div class="demo-title-row">
+          <h3 class="demo-sheet-title" id="r3-sheet">Partite vicine</h3>
+          <span class="demo-count" aria-hidden="true">5</span>
+        </div>
+        <p class="demo-meta">Oggi, martedì 17 novembre · entro 5 km</p>
+      </div>
+
+      <div class="demo-list" role="region" aria-label="Elenco delle partite vicine, R3">
+        <ul class="rows">
+
+          <li>
+            <button class="r3 is-open" type="button" aria-label="19:40, Playground Roma70, 400 m, 3/10 posti occupati">
+              <span class="r3__time">19:40</span>
+              <span class="r3__body">
+                <span class="r3__name">Playground Roma70</span>
+                <span class="r3__dist">400 m</span>
+              </span>
+              <span class="r3__right">
+                <span class="r3__places places">3/10</span>
+                <span class="fill r3__fill" style="--fill: 30%" aria-hidden="true"><span></span></span>
+              </span>
+            </button>
+          </li>
+
+          <li>
+            <button class="r3 is-warn" type="button" aria-label="20:00, Campetto Villa Chigi, 1,2 km, 8/10 posti occupati, quasi piena">
+              <span class="r3__time">20:00</span>
+              <span class="r3__body">
+                <span class="r3__name">Campetto Villa Chigi</span>
+                <span class="r3__dist">1,2 km</span>
+              </span>
+              <span class="r3__right">
+                <span class="r3__places places">8/10</span>
+                <span class="fill r3__fill" style="--fill: 80%" aria-hidden="true"><span></span></span>
+              </span>
+            </button>
+          </li>
+
+          <li>
+            <button class="r3 is-open" type="button" aria-label="20:30, Campo di via Vetulonia, 2,1 km, 5/8 posti occupati">
+              <span class="r3__time">20:30</span>
+              <span class="r3__body">
+                <span class="r3__name">Campo di via Vetulonia</span>
+                <span class="r3__dist">2,1 km</span>
+              </span>
+              <span class="r3__right">
+                <span class="r3__places places">5/8</span>
+                <span class="fill r3__fill" style="--fill: 63%" aria-hidden="true"><span></span></span>
+              </span>
+            </button>
+          </li>
+
+          <li>
+            <button class="r3 is-full" type="button" aria-label="21:00, Campo di via Oderisi da Gubbio, 2,6 km, 10/10 posti occupati, al completo">
+              <span class="r3__time">21:00</span>
+              <span class="r3__body">
+                <span class="r3__name">Campo di via Oderisi da Gubbio</span>
+                <span class="r3__dist">2,6 km</span>
+              </span>
+              <span class="r3__right">
+                <span class="r3__places places">10/10</span>
+                <span class="fill r3__fill" style="--fill: 100%" aria-hidden="true"><span></span></span>
+              </span>
+            </button>
+          </li>
+
+          <li>
+            <button class="r3 is-full" type="button" aria-label="21:30, Campo di via delle Vigne Nuove, 3,1 km, 6/6 posti occupati, al completo">
+              <span class="r3__time">21:30</span>
+              <span class="r3__body">
+                <span class="r3__name">Campo di via delle Vigne Nuove</span>
+                <span class="r3__dist">3,1 km</span>
+              </span>
+              <span class="r3__right">
+                <span class="r3__places places">6/6</span>
+                <span class="fill r3__fill" style="--fill: 100%" aria-hidden="true"><span></span></span>
+              </span>
+            </button>
+          </li>
+
+        </ul>
+      </div>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale, R3">
+      <a class="bottom-nav__item" href="#" aria-current="page" aria-label="Mappa campi">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span>Mappa</span>
+      </a>
+      <a class="bottom-nav__item" href="#" aria-label="Profilo utente">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+        <span>Profilo</span>
+      </a>
+    </nav>
+  </div>
+
+  <p class="spec">
+    <strong>68 px di riga</strong> · <strong>5 righe intere su 5</strong>, restano 149 px (una
+    sesta ci starebbe) · si perde: la foto e il chevron, e il nome scende a 151 px contro 172:
+    anche «Campo di via Vetulonia» si tronca.
+  </p>
+</section>
+
+<p class="note">
+  <strong>Foto del campo: segnaposto.</strong> Nel database molti campi non hanno una foto, quindi
+  l’icona non è contenuto ma un’ancora visiva. R1 la tiene a 48×48, più piccola di oggi, per pagare
+  la barra sotto senza far crescere la riga; R2 e R3 la tolgono del tutto, e lo spazio va al nome e
+  alle cifre.
+  <br>
+  <strong>Dati.</strong> Gli stessi cinque campi di <code>nav-map-lobby.html</code>: orari,
+  distanze e posti identici. I nomi sono inventati (nel database 9.572 campi su 10.130 si chiamano
+  «Spazio aperto»). La barra è alta 4 px come nella striscia; la scala di stato è la stessa
+  (<code>--accent</code> con 3 o più posti liberi, <code>--warning</code> con 1 o 2,
+  <code>--text-muted</code> a zero). Nessuna animazione, nessuno script, nessuna libreria:
+  il confronto è statico e le misure sono nella risposta alla review.
+</p>
+
+</main>
+</body>
+</html>

@@ -35,6 +35,12 @@ npx playwright screenshot --viewport-size="360,780" \
 | `notifications.html` | Centro notifiche e permesso push | d14 | approvato 2026-11-10 |
 | `report.html` | Segnala un campo | d15 | approvato 2026-11-10 |
 | `offline.html` | Offline, errore, stati vuoti | d16 | approvato 2026-11-10 |
+| `nav-map-lobby.html` | Home come mappa full-bleed + foglio "Partite vicine" a 2 snap: striscia orizzontale e piena (variante della home, non una schermata nuova) | #89 | approvato 2026-11-17 (B · 2 snap · card V4 · barra nelle righe) |
+
+`nav-map-lobby.html` è una **variante** della home, non una schermata nuova: confronta la
+banda statica di oggi (vista "Oggi") con il foglio trascinabile (opzione B di #89, due snap:
+striscia orizzontale delle partite e foglio pieno con l'elenco). Carica
+`proto.css` ma non `proto.js`: il suo stato è snap + vista, non scenari alternativi.
 
 `proto.css` e `proto.js` sono la base condivisa: **non si duplicano** dentro i
 singoli file. I due `.woff2` self-hosted di `app/fonts/` sono incorporati una volta
@@ -91,4 +97,27 @@ grep -nE '#[0-9a-fA-F]{3,8}' docs/design/prototypes/*.html
 grep -rn 'docs/design/prototypes' app components lib
 ```
 
-I primi due comandi devono restituire output vuoto (il terzo: nessun match).
+I primi due comandi devono restituire output vuoto (il terzo: nessun match). L'ultimo comando
+`grep` trova un commento in `components/onboarding/first-run.tsx`, non un import.
+
+## Verifica su WebKit (Safari)
+
+I prototipi si guardano a 360px e a 390×844, ma i rischi veri dei fogli sono di iOS: `dvh` che
+cambia con la URL bar, `env(safe-area-inset)`, pointer capture, `inert`, scroll-snap. Chromium
+non li riproduce. Prima della review HITL:
+
+```bash
+npm run verify:webkit                                   # prototipo di default
+npm run verify:webkit -- --url=http://127.0.0.1:4173/onboarding.html
+WEBKIT_ENGINE=docker npm run verify:webkit              # forza l'immagine Playwright
+BROWSER=chromium npm run verify:webkit                  # confronto
+```
+
+Lo script (`scripts/verify/webkit-proto.mjs`, lanciato da `webkit-proto.sh`) controlla overflow,
+font locali, console e — se il prototipo espone `window.__proto` come `nav-map-lobby.html` — snap,
+altezze, tap sull'handle, drag, testa che sparisce a foglio pieno, `100dvh` in schermo intero,
+`prefers-reduced-motion`. Il wrapper prova il WebKit locale e, se non parte, usa da solo
+l'immagine Playwright. È anche un passo del job `quality` in CI.
+
+**Cosa l'emulazione non riproduce** (URL bar e `dvh`, safe-area sempre 0, tastiera, gesti, PWA),
+l'installazione su Arch e il device reale sono in [docs/ios.md](../../../ios.md).

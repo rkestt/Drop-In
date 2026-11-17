@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drop-In — striscia partite: tre card minime (confronto)</title>
+<link rel="stylesheet" href="../proto.css">
+<!--
+  Drop-In · confronto di componente · striscia del foglio "Partite vicine" (#89)
+  Pipeline: "cosa c'è stasera qui intorno" → la striscia risponde a tre domande
+  (a che ora, quanto lontano, c'è posto?) → il foglio pieno dà nome ed elenco →
+  il tap apre la partita.
+
+  Cosa è: tre versioni dello STESSO elemento (la card dentro la striscia), nella
+  stessa geometria del prototipo nav-map-lobby.html: handle 44px, riga titolo
+  "Partite vicine · 5", striscia, bottom nav 56px, 360px di larghezza.
+  Cosa non è: non è una schermata nuova né una route Next, non importa nulla da
+  app/ o components/, non usa MapLibre (la mappa è un disegno), non fa fetch,
+  non ha animazioni. L'handle è disegnato, non interattivo: qui si sceglie la
+  card, non il gesto del foglio.
+
+  Dati: i cinque campi di nav-map-lobby.html, stessi orari e distanze. I nomi
+  sono inventati (nel database 9.572 campi su 10.130 si chiamano "Spazio aperto").
+  Il foglio prende l'altezza del contenuto, come lo snap basso del prototipo:
+  se la card è alta 44, il foglio è più basso di 40px e la mappa guadagna quegli
+  40px. Le misure rilevate sono nella risposta alla review, non qui.
+-->
+<style>
+  :root { color-scheme: dark; }
+
+  body { gap: 20px; }
+
+  /* ---------------------------------------------------------------- */
+  /* Testata e legenda della pagina di confronto                       */
+  /* ---------------------------------------------------------------- */
+
+  .lede {
+    width: 100%;
+    max-width: 720px;
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .legend {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .legend__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .legend__dot {
+    flex: 0 0 auto;
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-chip);
+  }
+
+  .legend__dot--open { background: var(--accent); }
+  .legend__dot--warn { background: var(--warning); }
+  .legend__dot--full { background: var(--text-muted); }
+
+  /* ---------------------------------------------------------------- */
+  /* Variante                                                          */
+  /* ---------------------------------------------------------------- */
+
+  .variant {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Stacco netto tra una variante e la successiva: sono tre schermate, non una. */
+  .variant + .variant { margin-top: 16px; }
+
+  .variant__head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .variant__title {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .variant__desc {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Il telefono: stessa cornice per tutte e tre                       */
+  /* ---------------------------------------------------------------- */
+
+  .demo {
+    position: relative;
+    width: 360px;
+    height: 720px;
+    min-height: 0;
+    --nav-h: 56px;
+  }
+
+  /* Mappa: disegno statico con lo sfondo di proto.css, sotto il foglio. */
+  .demo .map {
+    position: absolute;
+    inset: 0 0 var(--nav-h);
+    min-height: 0;
+    flex: none;
+  }
+
+  .demo .bottom-nav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    height: var(--nav-h);
+    margin-top: 0;
+  }
+
+  .demo .bottom-nav__item svg { display: block; }
+
+  /* ---------------------------------------------------------------- */
+  /* Foglio: geometria del prototipo, altezza dal contenuto            */
+  /* ---------------------------------------------------------------- */
+
+  .demo-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: var(--nav-h);
+    z-index: 50;
+    border-top: 1px solid var(--border-strong);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    background: var(--bg-elevated);
+    box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.42);
+  }
+
+  .demo-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+  }
+
+  .demo-grip {
+    width: 40px;
+    height: 5px;
+    border-radius: var(--radius-chip);
+    background: var(--text-muted);
+    opacity: 0.5;
+  }
+
+  .demo-sheet-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 20px 8px;
+  }
+
+  .demo-sheet-title {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .demo-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: var(--radius-chip);
+    background: var(--accent-subtle);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Striscia                                                          */
+  /* ---------------------------------------------------------------- */
+
+  .rail-wrap { position: relative; }
+
+  /* Indizio "c'è altro a destra": sfuma il bordo della striscia nel foglio.
+     Sta sopra le card ma non intercetta il gesto. */
+  .rail-wrap::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 12px;
+    width: 28px;
+    background: linear-gradient(to right, transparent, var(--bg-elevated));
+    pointer-events: none;
+  }
+
+  .rail {
+    display: flex;
+    gap: 12px;
+    margin: 0;
+    padding: 6px 20px 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-padding-left: 20px;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
+  }
+
+  .rail::-webkit-scrollbar { display: none; }
+
+  /* ---------------------------------------------------------------- */
+  /* Card: base comune                                                 */
+  /* ---------------------------------------------------------------- */
+
+  .c {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px 0 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    scroll-snap-align: start;
+  }
+
+  .c:hover { border-color: var(--border-strong); }
+
+  .c:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .c__time {
+    font-family: var(--font-syne);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .c__dist {
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* Stato → colore. Una sola scala per tutte e tre le varianti:
+     almeno 3 posti liberi = accent, 1-2 = warning, 0 = text-muted.
+     Il testo usa warning-dark (tokens.md: il warning come testo è warning-dark). */
+  .c__time.is-open,
+  .c__seats.is-open { color: var(--accent); }
+
+  .c__time.is-warn,
+  .c__seats.is-warn { color: var(--warning-dark); }
+
+  .c__time.is-full,
+  .c__seats.is-full { color: var(--text-muted); }
+
+  /* ---------------------------------------------------------------- */
+  /* V1 · orario + distanza                                            */
+  /* ---------------------------------------------------------------- */
+
+  .c--v1 {
+    width: 120px;
+    height: 44px;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
+  .c--v1 .c__time {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* V2 · pallini di pienezza                                          */
+  /* ---------------------------------------------------------------- */
+
+  .c--v2 {
+    width: 128px;
+    min-height: 52px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  .c--v2 .c__line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .c--v2 .c__time {
+    font-size: 18px;
+    line-height: 1.1;
+    color: var(--text-primary);
+  }
+
+  .dots {
+    display: flex;
+    gap: 3px;
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-chip);
+    background: var(--border-strong);
+  }
+
+  .dot--on { background: var(--accent); }
+  .dots--warn .dot--on { background: var(--warning); }
+  .dots--full .dot--on { background: var(--text-muted); }
+
+  /* ---------------------------------------------------------------- */
+  /* V3 · pillole larghe                                               */
+  /* ---------------------------------------------------------------- */
+
+  .c--v3 {
+    position: relative;
+    width: 168px;
+    height: 64px;
+    gap: 10px;
+    padding: 0 12px 0 16px;
+  }
+
+  .c--v3 .c__time {
+    font-size: 26px;
+    line-height: 1.1;
+    color: var(--text-primary);
+  }
+
+  .c__col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .c__seats {
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* Barra di stato sul bordo sinistro: 3px, non allunga la pillola. */
+  .c__bar {
+    position: absolute;
+    left: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 3px;
+    border-radius: var(--radius-chip);
+  }
+
+  .c__bar.is-open { background: var(--accent); }
+  .c__bar.is-warn { background: var(--warning); }
+  .c__bar.is-full { background: var(--text-muted); }
+
+  /* ---------------------------------------------------------------- */
+  /* 360px: il telefono prende tutta la larghezza, i testi restano     */
+  /* dentro i 16px della pagina                                        */
+  /* ---------------------------------------------------------------- */
+
+  @media (max-width: 392px) {
+    body { padding-left: 0; padding-right: 0; }
+
+    .proto-head,
+    .lede,
+    .legend,
+    .note { margin-left: 16px; margin-right: 16px; width: auto; }
+
+    .variant { max-width: none; }
+    .variant__head { padding: 0 16px; }
+
+    .demo {
+      width: 100%;
+      border-left: 0;
+      border-right: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<header class="proto-head">
+  <h1 class="proto-head__title">Striscia partite: tre card minime</h1>
+  <p class="proto-head__meta">confronto di componente · striscia del foglio home · 360px</p>
+</header>
+
+<p class="lede">
+  Tre versioni dello stesso elemento: la card dentro la striscia del foglio basso della home.
+  Le stesse cinque partite, lo stesso foglio, la stessa nav, la stessa posizione di partenza
+  della striscia. Cambia solo cosa c’è dentro la card. La striscia scorre in orizzontale con
+  scroll-snap e il bordo destro sfuma nel foglio per dire che c’è altro.
+</p>
+
+<div class="legend">
+  <span class="legend__item"><span class="legend__dot legend__dot--open" aria-hidden="true"></span>c’è posto (3 o più liberi)</span>
+  <span class="legend__item"><span class="legend__dot legend__dot--warn" aria-hidden="true"></span>quasi piena (1 o 2 liberi)</span>
+  <span class="legend__item"><span class="legend__dot legend__dot--full" aria-hidden="true"></span>piena (0 liberi)</span>
+</div>
+
+<!-- =============================== V1 =============================== -->
+<section class="variant" aria-labelledby="v1-head">
+  <div class="variant__head">
+    <h2 class="variant__title" id="v1-head">V1 · orario + distanza</h2>
+    <p class="variant__desc">
+      120×44. Una riga sola: orario e distanza. La pienezza la dice solo il colore
+      dell’orario. Non ci sono né il nome del campo né quanti posti restano.
+    </p>
+  </div>
+
+  <div class="phone demo">
+    <div class="map" aria-hidden="true"><span class="map__water"></span></div>
+
+    <div class="demo-sheet">
+      <div class="demo-handle" aria-hidden="true"><span class="demo-grip"></span></div>
+      <div class="demo-sheet-head">
+        <h3 class="demo-sheet-title" id="v1-sheet">Partite vicine</h3>
+        <span class="demo-count" aria-hidden="true">5</span>
+      </div>
+
+      <div class="rail-wrap">
+        <div class="rail" role="group" aria-label="Partite vicine, 5. Scorri in orizzontale per le altre">
+          <button class="c c--v1" type="button" aria-label="19:40, 400 m, 3/10 posti occupati, Playground Roma70">
+            <span class="c__time is-open">19:40</span>
+            <span class="c__dist">400 m</span>
+          </button>
+          <button class="c c--v1" type="button" aria-label="20:00, 1,2 km, 8/10 posti occupati, quasi piena, Campetto Villa Chigi">
+            <span class="c__time is-warn">20:00</span>
+            <span class="c__dist">1,2 km</span>
+          </button>
+          <button class="c c--v1" type="button" aria-label="20:30, 2,1 km, Campo di via Vetulonia, 5/8 posti occupati">
+            <span class="c__time is-open">20:30</span>
+            <span class="c__dist">2,1 km</span>
+          </button>
+          <button class="c c--v1" type="button" aria-label="21:00, 2,6 km, Campo di via Oderisi da Gubbio, 10/10 posti occupati, piena">
+            <span class="c__time is-full">21:00</span>
+            <span class="c__dist">2,6 km</span>
+          </button>
+          <button class="c c--v1" type="button" aria-label="21:30, 3,1 km, Campo di via delle Vigne Nuove, 6/6 posti occupati, piena">
+            <span class="c__time is-full">21:30</span>
+            <span class="c__dist">3,1 km</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div class="bottom-nav" aria-label="Navigazione principale">
+      <a class="bottom-nav__item" href="#" aria-current="page" aria-label="Mappa campi">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span>Mappa</span>
+      </a>
+      <a class="bottom-nav__item" href="#" aria-label="Profilo utente">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+        <span>Profilo</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== V2 =============================== -->
+<section class="variant" aria-labelledby="v2-head">
+  <div class="variant__head">
+    <h2 class="variant__title" id="v2-head">V2 · pallini di pienezza</h2>
+    <p class="variant__desc">
+      128×52. Orario e distanza in alto, sotto un pallino per posto: si accendono man mano che
+      la partita si riempie. Il numero di pallini segue il campo (6, 8 o 10), quindi la fila
+      cambia larghezza.
+    </p>
+  </div>
+
+  <div class="phone demo">
+    <div class="map" aria-hidden="true"><span class="map__water"></span></div>
+
+    <div class="demo-sheet">
+      <div class="demo-handle" aria-hidden="true"><span class="demo-grip"></span></div>
+      <div class="demo-sheet-head">
+        <h3 class="demo-sheet-title" id="v2-sheet">Partite vicine</h3>
+        <span class="demo-count" aria-hidden="true">5</span>
+      </div>
+
+      <div class="rail-wrap">
+        <div class="rail" role="group" aria-label="Partite vicine, 5. Scorri in orizzontale per le altre">
+          <button class="c c--v2" type="button" aria-label="19:40, 400 m, 3/10 posti occupati, Playground Roma70">
+            <span class="c__line">
+              <span class="c__time">19:40</span>
+              <span class="c__dist">400 m</span>
+            </span>
+            <span class="dots" aria-hidden="true">
+              <span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </span>
+          </button>
+          <button class="c c--v2" type="button" aria-label="20:00, 1,2 km, 8/10 posti occupati, quasi piena, Campetto Villa Chigi">
+            <span class="c__line">
+              <span class="c__time">20:00</span>
+              <span class="c__dist">1,2 km</span>
+            </span>
+            <span class="dots dots--warn" aria-hidden="true">
+              <span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot"></span><span class="dot"></span>
+            </span>
+          </button>
+          <button class="c c--v2" type="button" aria-label="20:30, 2,1 km, Campo di via Vetulonia, 5/8 posti occupati">
+            <span class="c__line">
+              <span class="c__time">20:30</span>
+              <span class="c__dist">2,1 km</span>
+            </span>
+            <span class="dots" aria-hidden="true">
+              <span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </span>
+          </button>
+          <button class="c c--v2" type="button" aria-label="21:00, 2,6 km, Campo di via Oderisi da Gubbio, 10/10 posti occupati, piena">
+            <span class="c__line">
+              <span class="c__time">21:00</span>
+              <span class="c__dist">2,6 km</span>
+            </span>
+            <span class="dots dots--full" aria-hidden="true">
+              <span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span>
+            </span>
+          </button>
+          <button class="c c--v2" type="button" aria-label="21:30, 3,1 km, Campo di via delle Vigne Nuove, 6/6 posti occupati, piena">
+            <span class="c__line">
+              <span class="c__time">21:30</span>
+              <span class="c__dist">3,1 km</span>
+            </span>
+            <span class="dots dots--full" aria-hidden="true">
+              <span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span><span class="dot dot--on"></span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div class="bottom-nav" aria-label="Navigazione principale">
+      <a class="bottom-nav__item" href="#" aria-current="page" aria-label="Mappa campi">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span>Mappa</span>
+      </a>
+      <a class="bottom-nav__item" href="#" aria-label="Profilo utente">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+        <span>Profilo</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== V3 =============================== -->
+<section class="variant" aria-labelledby="v3-head">
+  <div class="variant__head">
+    <h2 class="variant__title" id="v3-head">V3 · pillole larghe</h2>
+    <p class="variant__desc">
+      168×64. Orario grande a sinistra, distanza e posti a destra, barra di colore sul bordo.
+      Se ne vede una e quasi due: quella davanti si legge tutta. Lo spazio per il nome a 13px
+      ci sarebbe (una riga in più, 16px di altezza).
+    </p>
+  </div>
+
+  <div class="phone demo">
+    <div class="map" aria-hidden="true"><span class="map__water"></span></div>
+
+    <div class="demo-sheet">
+      <div class="demo-handle" aria-hidden="true"><span class="demo-grip"></span></div>
+      <div class="demo-sheet-head">
+        <h3 class="demo-sheet-title" id="v3-sheet">Partite vicine</h3>
+        <span class="demo-count" aria-hidden="true">5</span>
+      </div>
+
+      <div class="rail-wrap">
+        <div class="rail" role="group" aria-label="Partite vicine, 5. Scorri in orizzontale per le altre">
+          <button class="c c--v3" type="button" aria-label="19:40, 400 m, 3/10 posti occupati, Playground Roma70">
+            <span class="c__bar is-open" aria-hidden="true"></span>
+            <span class="c__time">19:40</span>
+            <span class="c__col">
+              <span class="c__dist">400 m</span>
+              <span class="c__seats is-open">3/10</span>
+            </span>
+          </button>
+          <button class="c c--v3" type="button" aria-label="20:00, 1,2 km, 8/10 posti occupati, quasi piena, Campetto Villa Chigi">
+            <span class="c__bar is-warn" aria-hidden="true"></span>
+            <span class="c__time">20:00</span>
+            <span class="c__col">
+              <span class="c__dist">1,2 km</span>
+              <span class="c__seats is-warn">8/10</span>
+            </span>
+          </button>
+          <button class="c c--v3" type="button" aria-label="20:30, 2,1 km, Campo di via Vetulonia, 5/8 posti occupati">
+            <span class="c__bar is-open" aria-hidden="true"></span>
+            <span class="c__time">20:30</span>
+            <span class="c__col">
+              <span class="c__dist">2,1 km</span>
+              <span class="c__seats is-open">5/8</span>
+            </span>
+          </button>
+          <button class="c c--v3" type="button" aria-label="21:00, 2,6 km, Campo di via Oderisi da Gubbio, 10/10 posti occupati, piena">
+            <span class="c__bar is-full" aria-hidden="true"></span>
+            <span class="c__time">21:00</span>
+            <span class="c__col">
+              <span class="c__dist">2,6 km</span>
+              <span class="c__seats is-full">10/10</span>
+            </span>
+          </button>
+          <button class="c c--v3" type="button" aria-label="21:30, 3,1 km, Campo di via delle Vigne Nuove, 6/6 posti occupati, piena">
+            <span class="c__bar is-full" aria-hidden="true"></span>
+            <span class="c__time">21:30</span>
+            <span class="c__col">
+              <span class="c__dist">3,1 km</span>
+              <span class="c__seats is-full">6/6</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div class="bottom-nav" aria-label="Navigazione principale">
+      <a class="bottom-nav__item" href="#" aria-current="page" aria-label="Mappa campi">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span>Mappa</span>
+      </a>
+      <a class="bottom-nav__item" href="#" aria-label="Profilo utente">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+        <span>Profilo</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<p class="note">
+  <strong>Nomi inventati.</strong> «Playground Roma70», «Campetto Villa Chigi», «Campo di via
+  Vetulonia», «Campo di via Oderisi da Gubbio» e «Campo di via delle Vigne Nuove» servono a
+  vedere la striscia con contenuto plausibile: nel database 9.572 campi su 10.130 si chiamano
+  «Spazio aperto». La mappa è un disegno statico con i colori di <code>proto.css</code>, non è
+  MapLibre. L’handle del foglio è disegnato e non interattivo: qui si confronta la card, non il
+  gesto. Nessuna animazione, nessuno script: la striscia scorre e si aggancia con lo scroll
+  nativo. Le misure sono nella risposta alla review.
+</p>
+
+</main>
+</body>
+</html>

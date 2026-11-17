@@ -1,0 +1,1706 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drop-In — Home: mappa + foglio partite (prototipo)</title>
+<link rel="stylesheet" href="proto.css">
+<!--
+  Drop-In · prototipo di navigazione mappa ↔ partite · issue #89, opzione B
+  Pipeline: "cosa c'è stasera intorno a me" → guardo la mappa → alzo il foglio → entro in una partita
+    (oppure, se non c'è niente: dichiaro la serata)
+  Step: 2 di 3 — la mappa è il contesto, il foglio mostra le partite
+  Prossimo passo visibile: l'handle (o il drag) alza il foglio; a foglio pieno la prima card è la scelta
+
+  Cosa NON è: non è una route Next, non importa nulla da app/ o components/, non usa MapLibre
+  (la mappa è un disegno statico con i colori di proto.css), non fa chiamate di rete.
+  proto.js non è caricato: gli stati qui sono snap + vista, non schermate alternative.
+
+  Nomi dei campi INVENTATI (vedi nota in fondo alla pagina): nel database 9.572 campi su
+  10.130 si chiamano "Spazio aperto".
+-->
+<style>
+  :root { color-scheme: dark; }
+
+  /* proto.js non è caricato, ma [hidden] resta la via per nascondere i pannelli:
+     le classi display:flex di proto.css batterebbero lo stile UA. */
+  [hidden] { display: none !important; }
+
+  body { overflow-x: hidden; }
+
+  /* Il riferimento è 360px: a viewport stretti il telefono prende tutta la
+     larghezza, così il layout è davvero 360 e il pannello di review resta ai lati. */
+  @media (max-width: 392px) {
+    body { padding-left: 0; padding-right: 0; }
+    .proto-head, .proto-toolbar, .note { margin-left: 12px; margin-right: 12px; width: auto; }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Cornice                                                           */
+  /* ---------------------------------------------------------------- */
+
+  /* Altezza definita: gli snap del foglio si calcolano su questa, non su 100vh. */
+  .phone {
+    height: 720px;
+    min-height: 720px;
+    --nav-h: calc(56px + env(safe-area-inset-bottom, 0px));
+    --sheet-h: 380px;
+  }
+
+  /* Modalità device: il telefono È il viewport (per la verifica a 390x844). */
+  body.is-full { padding: 0; gap: 0; overflow: hidden; }
+  body.is-full .proto-head,
+  body.is-full .proto-toolbar,
+  body.is-full .note { display: none; }
+  body.is-full .phone {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .view {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Mappa statica (disegno, non MapLibre)                             */
+  /* ---------------------------------------------------------------- */
+
+  /* La mappa è chiara anche con l'interfaccia scura (themes.md):
+     il fondo viene da proto.css .map, qui solo forme e strade.
+     I colori del disegno sono gli stessi della base condivisa (grigi e bianchi
+     in rgba, come la griglia e l'acqua di proto.css): nessun colore di brand
+     nuovo, nessun esadecimale. Il chrome dell'app usa solo i token. */
+  .map {
+    position: absolute;
+    inset: 0;
+    min-height: 0;
+    flex: none;
+    overflow: hidden;
+  }
+
+  .map__water--corner {
+    left: auto;
+    right: -10%;
+    top: -6%;
+    bottom: auto;
+    width: 46%;
+    height: 26%;
+    border-radius: 0 0 0 64%;
+  }
+
+  .map__park {
+    position: absolute;
+    left: -8%;
+    top: 54%;
+    width: 54%;
+    height: 36%;
+    border-radius: 46% 24% 38% 12%;
+    background: var(--accent);
+    opacity: 0.14;
+  }
+
+  .map__road {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.62);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+  }
+
+  .map__road--main {
+    left: -8%;
+    right: -8%;
+    top: 44%;
+    height: 22px;
+    transform: rotate(-7deg);
+  }
+
+  .map__road--cross {
+    top: -8%;
+    bottom: -8%;
+    left: 26%;
+    width: 14px;
+    transform: rotate(5deg);
+  }
+
+  .map__road--cross-2 {
+    top: -8%;
+    bottom: -8%;
+    left: 68%;
+    width: 10px;
+    transform: rotate(-3deg);
+  }
+
+  .map__block {
+    position: absolute;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  .map__block--a { left: 6%; top: 12%; width: 15%; height: 12%; }
+  .map__block--b { left: 33%; top: 16%; width: 12%; height: 16%; }
+  .map__block--c { left: 52%; top: 60%; width: 12%; height: 14%; }
+  .map__block--d { left: 8%; top: 24%; width: 9%; height: 8%; }
+  .map__block--e { left: 80%; top: 70%; width: 14%; height: 12%; }
+
+  .map__user {
+    position: absolute;
+    left: 44%;
+    top: 56%;
+    width: 14px;
+    height: 14px;
+    border-radius: var(--radius-chip);
+    background: var(--success);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9);
+  }
+
+  .map__user::after {
+    content: "";
+    position: absolute;
+    inset: -9px;
+    border-radius: var(--radius-chip);
+    background: var(--success);
+    opacity: 0.18;
+  }
+
+  /* Pin: 36px visivi, area di tocco 44px (::after). Superficie scura, fill accent
+     come i marker reali (fill accent, stroke --bg-elevated). */
+  .pin {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 9px;
+    border: 3px solid var(--bg-elevated);
+    border-radius: var(--radius-chip);
+    background: var(--accent);
+    color: var(--accent-foreground);
+    font: 700 13px/1 var(--font-source-sans);
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    transition: transform var(--motion-fast) var(--ease-standard);
+  }
+
+  .pin::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: inherit;
+  }
+
+  .pin:hover { background: var(--accent-hover); }
+  .pin[aria-pressed="true"] { transform: translate(-50%, -50%) scale(1.1); }
+  .pin:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  .pin--1 { left: 31%; top: 40%; }
+  .pin--2 { left: 63%; top: 31%; }
+  .pin--3 { left: 18%; top: 60%; }
+  .pin--4 { left: 75%; top: 53%; }
+  .pin--5 { left: 48%; top: 58%; }
+
+  /* Sovrapposti alla mappa: z-20 nello schema dei token. */
+  .map__top {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    z-index: 20;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .selector,
+  .icon-btn {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control);
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+  }
+
+  .selector { padding: 0 12px; }
+  .icon-btn { width: 44px; padding: 0; }
+  .selector:focus-visible,
+  .icon-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+  /* Anteprima del campo toccato: la mappa resta viva sopra il foglio. */
+  .place {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--nav-h) + var(--sheet-h) + 12px);
+    z-index: 30;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 12px 12px 16px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-card);
+    background: var(--bg-elevated);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  }
+
+  .place__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .place__name {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .place__meta { margin: 0; color: var(--text-secondary); font-size: 13px; }
+  .place__close {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    margin-top: -6px;
+    margin-right: -6px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .place__close:hover { background: var(--bg-surface); color: var(--text-primary); }
+  .place__close:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+  /* FAB: solo al peek, sopra il bordo del foglio. A metà e piena il foglio
+     ha già le sue azioni e il FAB finirebbe sotto di lui. */
+  .fab--map {
+    position: absolute;
+    right: 16px;
+    bottom: calc(var(--nav-h) + var(--sheet-h) + 12px);
+    z-index: 30;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border: 0;
+    border-radius: var(--radius-chip);
+    background: var(--accent);
+    color: var(--accent-foreground);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+    transition: opacity var(--motion-base) var(--ease-standard);
+  }
+  .fab--map:hover { background: var(--accent-hover); }
+  .fab--map:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+
+  .phone[data-snap="full"] .view--map .fab--map {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  /* Senza partite i pin con il numero spariscono: restano i campi, che è
+     esattamente ciò che lo stato vuoto racconta ("campi liberi qui intorno"). */
+  .phone[data-empty="1"] .pin { display: none; }
+  .phone[data-empty="1"] .pin--court { display: inline-flex; }
+
+  .pin--court {
+    display: none;
+    min-width: 28px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-color: rgba(255, 255, 255, 0.85);
+    background: var(--bg-elevated);
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .pin--court::after {
+    content: "";
+    position: static;
+    inset: auto;
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-chip);
+    background: var(--text-secondary);
+  }
+
+  .pin--c1 { left: 33%; top: 25%; }
+  .pin--c2 { left: 64%; top: 19%; }
+
+  /* Nella banda "oggi" il FAB sta in basso a destra dentro la mappa. */
+  .fab--band {
+    position: absolute;
+    bottom: 16px;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Foglio                                                            */
+  /* ---------------------------------------------------------------- */
+
+  /* Non modale: il foglio non copre la mappa in alto, quindi niente backdrop,
+     niente focus trap, niente scroll lock (patterns/sheets.md vale per il
+     drawer modale). z-50 come da tokens.md. */
+  .sheet {
+    position: absolute;
+    /* proto.css ha già un .sheet modale con inset:0 e justify-content:flex-end:
+       qui il foglio è ancorato in basso e parte dall'alto. */
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: var(--nav-h);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    height: var(--sheet-h);
+    border-top: 1px solid var(--border-strong);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    background: var(--bg-elevated);
+    box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.42);
+    transition: height var(--motion-slow) var(--ease-standard);
+  }
+
+  .sheet.is-dragging { transition: none; }
+
+  .sheet__handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 44px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    background: transparent;
+    cursor: grab;
+    /* il drag verticale qui è nostro: niente scroll del browser */
+    touch-action: none;
+  }
+
+  .sheet__handle:active { cursor: grabbing; }
+
+  .sheet__handle:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -3px;
+  }
+
+  .sheet__grip {
+    width: 40px;
+    height: 5px;
+    border-radius: var(--radius-chip);
+    background: var(--text-muted);
+    opacity: 0.5;
+  }
+
+  .sheet__head {
+    flex: 0 0 auto;
+    padding: 0 20px 10px;
+  }
+
+  .sheet__title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sheet__title {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .sheet__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: var(--radius-chip);
+    background: var(--accent-subtle);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sheet__chev {
+    margin-left: auto;
+    color: var(--text-muted);
+    transition: transform var(--motion-base) var(--ease-standard);
+  }
+
+  .phone[data-snap="full"] .sheet__chev { transform: rotate(180deg); }
+
+  .sheet__meta {
+    margin: 2px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .sheet__scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0 20px 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    /* verticale nostro, orizzontale lasciato alla striscia: pan-y qui
+       bloccherebbe il pan-x dei figli (l'intersezione vince sempre) */
+    touch-action: manipulation;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* --- Striscia orizzontale: la vista "colpo d'occhio" del foglio basso ---
+     Qui il gesto orizzontale vive dentro il foglio: non tocca il pan della
+     mappa, che sta sopra il bordo del foglio. */
+  .rail {
+    display: flex;
+    gap: 12px;
+    margin: 0 -20px;
+    padding: 0 20px 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* senza questo lo snap iniziale mangia il padding e la prima card
+       nasce tagliata a sinistra */
+    scroll-padding-left: 20px;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    touch-action: pan-x;
+    transition: opacity var(--motion-base) var(--ease-standard);
+  }
+
+  .rail::-webkit-scrollbar { display: none; }
+
+  /* Card minimale: orario e distanza, sotto una barra di 4px. La lunghezza
+     della barra dice i posti occupati anche in scala di grigi; il colore è il
+     secondo livello. Nome e cifre restano nel nome accessibile e a foglio pieno. */
+  .rail-card {
+    flex: 0 0 128px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 7px;
+    height: 52px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    scroll-snap-align: start;
+  }
+
+  .rail-card:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-elevated);
+  }
+
+  .rail-card:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+  .rail-card__line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .rail-card__time {
+    font-family: var(--font-syne);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rail-card__dist {
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .rail-card__fill {
+    display: block;
+    height: 4px;
+    border-radius: var(--radius-chip);
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .rail-card__fill > span {
+    display: block;
+    height: 100%;
+    width: var(--fill, 0%);
+    border-radius: var(--radius-chip);
+    background: var(--accent);
+  }
+
+  .rail-card__fill--warn > span { background: var(--warning); }
+  .rail-card__fill--full > span { background: var(--text-muted); }
+
+  .rail-empty {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0 -20px;
+    padding: 0 20px 12px;
+  }
+
+  .rail-empty__label { margin: 0; color: var(--text-muted); font-size: 12px; }
+  .rail-empty .btn { min-height: 52px; }
+
+  /* A striscia il foglio è alto quanto la testa: l'elenco sotto è tagliato
+     dal bordo e non prende fuoco. Nessuna opacità: è sempre lo stesso contenuto. */
+  .phone[data-snap="rail"] .sheet__scroll { overflow: hidden; }
+
+  /* A striscia la data è rumore: resta a foglio pieno. */
+  .phone[data-snap="rail"] .sheet__meta { display: none; }
+
+  /* ---------------------------------------------------------------- */
+  /* Card                                                              */
+  /* ---------------------------------------------------------------- */
+
+  .lobby-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .lobby-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--motion-fast) var(--ease-standard),
+      border-color var(--motion-fast) var(--ease-standard);
+  }
+
+  .lobby-card:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-elevated);
+  }
+
+  .lobby-card:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+  .lobby-card__photo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 56px;
+    width: 56px;
+    height: 56px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control-sm);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+  }
+
+  .lobby-card__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+  .lobby-card__name {
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .lobby-card__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* La lingua della striscia arriva nell'elenco: la lunghezza della barra dice
+     i posti occupati (leggibile in grigio), il colore è il secondo livello.
+     Qui il nome resta protagonista: nella lista si sceglie il dove, nella
+     striscia il quando. */
+  .view--map .lobby-card { position: relative; overflow: hidden; }
+
+  .lobby-card__fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: var(--border);
+  }
+
+  .lobby-card__fill > span {
+    display: block;
+    height: 100%;
+    width: var(--fill, 0%);
+    background: var(--accent);
+  }
+
+  .lobby-card__fill--warn > span { background: var(--warning); }
+  .lobby-card__fill--full > span { background: var(--text-muted); }
+
+  .lobby-card__seats.is-open { color: var(--accent); }
+  .lobby-card__seats.is-warn { color: var(--warning-dark); }
+  .lobby-card__seats.is-full { color: var(--text-muted); }
+
+  .lobby-card__see {
+    margin-left: auto;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--radius-control-sm);
+    background: var(--accent);
+    color: var(--accent-foreground);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .lobby-card__go {
+    margin-left: auto;
+    margin-right: -8px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    color: var(--text-muted);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Fondo dell'elenco e stato vuoto                                   */
+  /* ---------------------------------------------------------------- */
+
+  .sheet__foot {
+    margin: 16px 0 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .sheet__declare { margin-top: 12px; }
+
+  .invite {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 4px 0 8px;
+  }
+
+  .invite__kicker {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .invite__title {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .invite__body { margin: 0; color: var(--text-secondary); font-size: 15px; }
+  .invite__hint { margin: 0; color: var(--text-muted); font-size: 13px; }
+
+  .invite__list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .invite__row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control-sm);
+    background: var(--bg-surface);
+    font-size: 14px;
+  }
+
+  .invite__row-name { font-weight: 600; }
+  .invite__row-meta { margin-left: auto; color: var(--text-muted); font-size: 13px; }
+
+  /* ---------------------------------------------------------------- */
+  /* Bottom nav (invariata: Mappa / Profilo)                           */
+  /* ---------------------------------------------------------------- */
+
+  .view--map > .bottom-nav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    height: var(--nav-h);
+    margin-top: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .bottom-nav__item svg { display: block; }
+
+  /* ---------------------------------------------------------------- */
+  /* Vista "oggi": la banda statica sotto la mappa                      */
+  /* ---------------------------------------------------------------- */
+
+  .band-scroll {
+    position: absolute;
+    inset: 0 0 var(--nav-h);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .map--band {
+    position: relative;
+    height: 50%;
+    min-height: 300px;
+  }
+
+  .band {
+    position: relative;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-base);
+  }
+
+  .band__head { display: flex; align-items: baseline; gap: 8px; }
+
+  .band__title {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .band__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    margin: 12px 0;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    font-size: 16px;
+  }
+
+  .view--band > .bottom-nav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    height: var(--nav-h);
+    margin-top: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Utility                                                           */
+  /* ---------------------------------------------------------------- */
+
+  .toolbar-note {
+    align-self: center;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  .proto-switch[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+  .note code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+  }
+
+  .note strong { color: var(--text-secondary); }
+</style>
+</head>
+<body>
+
+<header class="proto-head">
+  <h1 class="proto-head__title">Home: mappa + foglio partite</h1>
+  <p class="proto-head__meta">issue #89 · opzione B · pipeline: «cosa c’è stasera qui» · step 2 di 3</p>
+</header>
+
+<nav class="proto-toolbar" aria-label="Stati del prototipo">
+  <span class="proto-toolbar__label">Foglio</span>
+  <button class="proto-switch" type="button" data-snap-btn="rail">Striscia</button>
+  <button class="proto-switch" type="button" data-snap-btn="full">Piena</button>
+  <span class="toolbar-note">|</span>
+  <button class="proto-switch" type="button" data-empty-btn aria-pressed="false">Nessuna partita</button>
+  <button class="proto-switch" type="button" data-view-btn aria-pressed="false">Oggi (banda)</button>
+  <button class="proto-switch" type="button" data-fullscreen aria-pressed="false">Schermo intero</button>
+</nav>
+
+<main class="phone" id="phone" data-snap="rail" data-view="dopo" data-empty="0">
+
+  <!-- ============================ DOPO ============================ -->
+  <div class="view view--map" data-panel="dopo">
+
+    <div class="map" role="group" aria-label="Mappa dei campi intorno a te">
+      <span class="map__water map__water--corner" aria-hidden="true"></span>
+      <span class="map__park" aria-hidden="true"></span>
+      <span class="map__road map__road--main" aria-hidden="true"></span>
+      <span class="map__road map__road--cross" aria-hidden="true"></span>
+      <span class="map__road map__road--cross-2" aria-hidden="true"></span>
+      <span class="map__block map__block--a" aria-hidden="true"></span>
+      <span class="map__block map__block--b" aria-hidden="true"></span>
+      <span class="map__block map__block--c" aria-hidden="true"></span>
+      <span class="map__block map__block--d" aria-hidden="true"></span>
+      <span class="map__block map__block--e" aria-hidden="true"></span>
+      <span class="map__user" aria-hidden="true"></span>
+
+      <button class="pin pin--1" type="button" data-pin data-name="Playground Roma70" data-meta="1 partita, alle 19:40" aria-label="Playground Roma70, 1 partita alle 19:40">1</button>
+      <button class="pin pin--2" type="button" data-pin data-name="Campetto Villa Chigi" data-meta="1 partita, alle 20:00" aria-label="Campetto Villa Chigi, 1 partita alle 20:00">1</button>
+      <button class="pin pin--3" type="button" data-pin data-name="Campo di via Vetulonia" data-meta="1 partita, alle 20:30" aria-label="Campo di via Vetulonia, 1 partita alle 20:30">1</button>
+      <button class="pin pin--4" type="button" data-pin data-name="Campo di via Oderisi da Gubbio" data-meta="1 partita, alle 21:00, al completo" aria-label="Campo di via Oderisi da Gubbio, 1 partita alle 21:00, al completo">1</button>
+      <button class="pin pin--5" type="button" data-pin data-name="Campo di via delle Vigne Nuove" data-meta="1 partita, alle 21:30" aria-label="Campo di via delle Vigne Nuove, 1 partita alle 21:30">1</button>
+
+      <span class="pin pin--court pin--c1" aria-hidden="true"></span>
+      <span class="pin pin--court pin--c2" aria-hidden="true"></span>
+    </div>
+
+    <div class="map__top">
+      <button class="selector" type="button" aria-label="Sport: tutti gli sport">
+        Tutti gli sport
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <button class="icon-btn" type="button" aria-label="Notifiche">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/></svg>
+      </button>
+    </div>
+
+    <div class="place" id="place" hidden>
+      <div class="place__text">
+        <p class="place__name" id="place-name">Campo</p>
+        <p class="place__meta" id="place-meta">Nessuna partita</p>
+      </div>
+      <button class="place__close" type="button" id="place-close" aria-label="Chiudi l’anteprima del campo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+
+    <button class="fab--map" type="button" aria-label="Aggiungi un campo">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+
+    <section class="sheet" id="sheet" aria-labelledby="sheet-title">
+      <button class="sheet__handle" type="button" id="sheet-handle" aria-label="Partite vicine. Premi per aprire la lista a tutta altezza" aria-expanded="true" aria-controls="sheet-scroll" aria-describedby="sheet-hint">
+        <span class="sheet__grip" aria-hidden="true"></span>
+      </button>
+      <p class="sr-only" id="sheet-hint">Trascina il foglio verso l’alto o verso il basso, oppure premi Invio per cambiare altezza. Le frecce su e giù spostano di uno scatto.</p>
+
+      <div class="sheet__head">
+        <div class="sheet__title-row">
+          <h2 class="sheet__title" id="sheet-title">Partite vicine</h2>
+          <span class="sheet__count" id="sheet-count" aria-hidden="true">5</span>
+          <svg class="sheet__chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg>
+        </div>
+        <p class="sheet__meta">Oggi, lunedì 16 novembre · entro 5 km</p>
+      </div>
+
+      <div class="sheet__scroll" id="sheet-scroll" role="region" aria-label="Elenco delle partite vicine">
+
+        <div class="rail" id="rail" role="group" aria-label="Partite vicine, si scorre in orizzontale">
+          <button class="rail-card" type="button" aria-label="19:40, 400 m, 3 posti occupati su 10, Playground Roma70">
+            <span class="rail-card__line">
+              <span class="rail-card__time">19:40</span>
+              <span class="rail-card__dist">400 m</span>
+            </span>
+            <span class="rail-card__fill" style="--fill: 30%" aria-hidden="true"><span></span></span>
+          </button>
+          <button class="rail-card" type="button" aria-label="20:00, 1,2 km, 8 posti occupati su 10, quasi piena, Campetto Villa Chigi">
+            <span class="rail-card__line">
+              <span class="rail-card__time">20:00</span>
+              <span class="rail-card__dist">1,2 km</span>
+            </span>
+            <span class="rail-card__fill rail-card__fill--warn" style="--fill: 80%" aria-hidden="true"><span></span></span>
+          </button>
+          <button class="rail-card" type="button" aria-label="20:30, 2,1 km, 5 posti occupati su 8, Campo di via Vetulonia">
+            <span class="rail-card__line">
+              <span class="rail-card__time">20:30</span>
+              <span class="rail-card__dist">2,1 km</span>
+            </span>
+            <span class="rail-card__fill" style="--fill: 63%" aria-hidden="true"><span></span></span>
+          </button>
+          <button class="rail-card" type="button" aria-label="21:00, 2,6 km, al completo, 10 posti su 10, Campo di via Oderisi da Gubbio">
+            <span class="rail-card__line">
+              <span class="rail-card__time">21:00</span>
+              <span class="rail-card__dist">2,6 km</span>
+            </span>
+            <span class="rail-card__fill rail-card__fill--full" style="--fill: 100%" aria-hidden="true"><span></span></span>
+          </button>
+          <button class="rail-card" type="button" aria-label="21:30, 3,1 km, al completo, 6 posti su 6, Campo di via delle Vigne Nuove">
+            <span class="rail-card__line">
+              <span class="rail-card__time">21:30</span>
+              <span class="rail-card__dist">3,1 km</span>
+            </span>
+            <span class="rail-card__fill rail-card__fill--full" style="--fill: 100%" aria-hidden="true"><span></span></span>
+          </button>
+        </div>
+
+        <div class="rail-empty" id="rail-empty" hidden>
+          <p class="rail-empty__label">Nessuna partita, per ora</p>
+          <button class="btn btn--primary btn--block" type="button">Dichiara la serata</button>
+        </div>
+
+        <div class="list-wrap" id="list-wrap">
+        <ul class="lobby-list" id="lobby-list">
+          <li>
+            <button class="lobby-card" type="button" aria-label="Playground Roma70, 3/10 · 19:40, basket 3 contro 3, a 400 metri">
+              <span class="lobby-card__photo" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+              </span>
+              <span class="lobby-card__body">
+                <span class="lobby-card__name">Playground Roma70</span>
+                <span class="lobby-card__meta">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.2 2.7-5 6-5s6 1.8 6 5"/><path d="M16 8.6a3 3 0 0 1 0 5.8"/><path d="M18.4 19c0-2.6-1-4.2-2.6-5"/></svg>
+<span class="lobby-card__seats is-open">3/10</span> · 19:40
+                </span>
+              </span>
+              <span class="lobby-card__go" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+              </span><span class="lobby-card__fill" style="--fill: 30%" aria-hidden="true"><span></span></span></button>
+          </li>
+          <li>
+            <button class="lobby-card" type="button" aria-label="Campetto Villa Chigi, 8/10 · 20:00, basket, a 1,2 chilometri">
+              <span class="lobby-card__photo" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+              </span>
+              <span class="lobby-card__body">
+                <span class="lobby-card__name">Campetto Villa Chigi</span>
+                <span class="lobby-card__meta">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.2 2.7-5 6-5s6 1.8 6 5"/><path d="M16 8.6a3 3 0 0 1 0 5.8"/><path d="M18.4 19c0-2.6-1-4.2-2.6-5"/></svg>
+<span class="lobby-card__seats is-warn">8/10</span> · 20:00
+                </span>
+              </span>
+              <span class="lobby-card__go" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+              </span><span class="lobby-card__fill lobby-card__fill--warn" style="--fill: 80%" aria-hidden="true"><span></span></span></button>
+          </li>
+          <li>
+            <button class="lobby-card" type="button" aria-label="Campo di via Vetulonia, 5/8 · 20:30, pallavolo, a 2,1 chilometri">
+              <span class="lobby-card__photo" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+              </span>
+              <span class="lobby-card__body">
+                <span class="lobby-card__name">Campo di via Vetulonia</span>
+                <span class="lobby-card__meta">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.2 2.7-5 6-5s6 1.8 6 5"/><path d="M16 8.6a3 3 0 0 1 0 5.8"/><path d="M18.4 19c0-2.6-1-4.2-2.6-5"/></svg>
+<span class="lobby-card__seats is-open">5/8</span> · 20:30
+                </span>
+              </span>
+              <span class="lobby-card__go" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+              </span><span class="lobby-card__fill" style="--fill: 63%" aria-hidden="true"><span></span></span></button>
+          </li>
+          <li>
+            <button class="lobby-card" type="button" aria-label="Campo di via Oderisi da Gubbio, 10/10 · 21:00, calcetto, a 2,6 chilometri, al completo">
+              <span class="lobby-card__photo" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+              </span>
+              <span class="lobby-card__body">
+                <span class="lobby-card__name">Campo di via Oderisi da Gubbio</span>
+                <span class="lobby-card__meta">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.2 2.7-5 6-5s6 1.8 6 5"/><path d="M16 8.6a3 3 0 0 1 0 5.8"/><path d="M18.4 19c0-2.6-1-4.2-2.6-5"/></svg>
+<span class="lobby-card__seats is-full">10/10</span> · 21:00
+                </span>
+              </span>
+              <span class="lobby-card__go" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+              </span><span class="lobby-card__fill lobby-card__fill--full" style="--fill: 100%" aria-hidden="true"><span></span></span></button>
+          </li>
+          <li>
+            <button class="lobby-card" type="button" aria-label="Campo di via delle Vigne Nuove, 6/6 · 21:30, basket, a 3,1 chilometri">
+              <span class="lobby-card__photo" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+              </span>
+              <span class="lobby-card__body">
+                <span class="lobby-card__name">Campo di via delle Vigne Nuove</span>
+                <span class="lobby-card__meta">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.2 2.7-5 6-5s6 1.8 6 5"/><path d="M16 8.6a3 3 0 0 1 0 5.8"/><path d="M18.4 19c0-2.6-1-4.2-2.6-5"/></svg>
+<span class="lobby-card__seats is-full">6/6</span> · 21:30
+                </span>
+              </span>
+              <span class="lobby-card__go" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+              </span>
+            <span class="lobby-card__fill lobby-card__fill--full" style="--fill: 100%" aria-hidden="true"><span></span></span></button>
+          </li>
+        </ul>
+
+        <p class="sheet__foot">5 partite entro 5 km · aggiornato ora</p>
+        <button class="btn btn--secondary btn--sm btn--block sheet__declare" type="button">Dichiara una serata</button>
+
+        <!-- Stato "nessuna partita": non è un vicolo cieco, è l'invito a dichiarare -->
+        <div class="invite" id="invite" hidden>
+          <p class="invite__kicker">Nessuna partita, per ora</p>
+          <h3 class="invite__title">Apri tu la serata</h3>
+          <p class="invite__body">Scrivi campo e ora: chi è in zona lo vede e si aggiunge.</p>
+          <button class="btn btn--primary btn--block" type="button">Dichiara la serata</button>
+          <p class="invite__hint">Bastano il campo, l’ora e quanti siete.</p>
+          <div class="divider" role="presentation"></div>
+          <p class="invite__kicker">Campi liberi qui intorno</p>
+          <ul class="invite__list">
+            <li class="invite__row">
+              <span class="invite__row-name">Playground Roma70</span>
+              <span class="invite__row-meta">400 m · libero</span>
+            </li>
+            <li class="invite__row">
+              <span class="invite__row-name">Campetto Villa Chigi</span>
+              <span class="invite__row-meta">1,2 km · libero</span>
+            </li>
+          </ul>
+        </div>
+        </div><!-- /list-wrap -->
+
+      </div>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <a class="bottom-nav__item" href="#" aria-current="page" aria-label="Mappa campi">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span>Mappa</span>
+      </a>
+      <a class="bottom-nav__item" href="#" aria-label="Profilo utente">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+        <span>Profilo</span>
+      </a>
+    </nav>
+
+    <p class="sr-only" id="snap-live" aria-live="polite"></p>
+  </div>
+
+  <!-- ============================ OGGI ============================ -->
+  <div class="view view--band" data-panel="prima" hidden>
+    <div class="band-scroll">
+
+      <div class="map map--band" role="group" aria-label="Mappa dei campi intorno a te">
+        <span class="map__water map__water--corner" aria-hidden="true"></span>
+        <span class="map__park" aria-hidden="true"></span>
+        <span class="map__road map__road--main" aria-hidden="true"></span>
+        <span class="map__road map__road--cross" aria-hidden="true"></span>
+        <span class="map__road map__road--cross-2" aria-hidden="true"></span>
+        <span class="map__block map__block--a" aria-hidden="true"></span>
+        <span class="map__block map__block--b" aria-hidden="true"></span>
+        <span class="map__block map__block--d" aria-hidden="true"></span>
+        <span class="map__user" aria-hidden="true"></span>
+
+        <button class="pin pin--1" type="button" aria-label="Playground Roma70, 1 partita alle 19:40">1</button>
+        <button class="pin pin--2" type="button" aria-label="Campetto Villa Chigi, 1 partita alle 20:00">1</button>
+        <button class="pin pin--3" type="button" aria-label="Campo di via Vetulonia, 1 partita alle 20:30">1</button>
+        <button class="pin pin--4" type="button" aria-label="Campo di via Oderisi da Gubbio, 1 partita alle 21:00">1</button>
+
+        <div class="map__top">
+          <button class="selector" type="button" aria-label="Sport: tutti gli sport">
+            Tutti gli sport
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <button class="icon-btn" type="button" aria-label="Notifiche">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/></svg>
+          </button>
+        </div>
+
+        <button class="fab--map fab--band" type="button" aria-label="Aggiungi un campo">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+
+      <div class="band">
+        <div class="band__head">
+          <h2 class="band__title">Partite vicine</h2>
+        </div>
+
+        <div class="band__search" role="search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+          <span>Cerca un campo per nome...</span>
+        </div>
+
+        <ul class="lobby-list">
+          <li>
+            <button class="lobby-card" type="button" aria-label="Playground Roma70, 3/10 · 19:40, Vedi">
+              <span class="lobby-card__photo" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+              </span>
+              <span class="lobby-card__body">
+                <span class="lobby-card__name">Playground Roma70</span>
+                <span class="lobby-card__meta">3/10 · 19:40</span>
+              </span>
+              <span class="lobby-card__see" aria-hidden="true">Vedi</span>
+            </button>
+          </li>
+          <li>
+            <button class="lobby-card" type="button" aria-label="Campetto Villa Chigi, 8/10 · 20:00, Vedi">
+              <span class="lobby-card__photo" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+              </span>
+              <span class="lobby-card__body">
+                <span class="lobby-card__name">Campetto Villa Chigi</span>
+                <span class="lobby-card__meta">8/10 · 20:00</span>
+              </span>
+              <span class="lobby-card__see" aria-hidden="true">Vedi</span>
+            </button>
+          </li>
+          <li>
+            <button class="lobby-card" type="button" aria-label="Campo di via Vetulonia, 5/8 · 20:30, Vedi">
+              <span class="lobby-card__photo" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+              </span>
+              <span class="lobby-card__body">
+                <span class="lobby-card__name">Campo di via Vetulonia</span>
+                <span class="lobby-card__meta">5/8 · 20:30</span>
+              </span>
+              <span class="lobby-card__see" aria-hidden="true">Vedi</span>
+            </button>
+          </li>
+          <li>
+            <button class="lobby-card" type="button" aria-label="Campo di via Oderisi da Gubbio, 10/10 · 21:00, al completo, Vedi">
+              <span class="lobby-card__photo" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+              </span>
+              <span class="lobby-card__body">
+                <span class="lobby-card__name">Campo di via Oderisi da Gubbio</span>
+                <span class="lobby-card__meta">10/10 · 21:00</span>
+              </span>
+              <span class="lobby-card__see" aria-hidden="true">Vedi</span>
+            </button>
+          </li>
+          <li>
+            <button class="lobby-card" type="button" aria-label="Campo di via delle Vigne Nuove, 6/6 · 21:30, Vedi">
+              <span class="lobby-card__photo" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+              </span>
+              <span class="lobby-card__body">
+                <span class="lobby-card__name">Campo di via delle Vigne Nuove</span>
+                <span class="lobby-card__meta">6/6 · 21:30</span>
+              </span>
+              <span class="lobby-card__see" aria-hidden="true">Vedi</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navigazione principale">
+      <a class="bottom-nav__item" href="#" aria-current="page" aria-label="Mappa campi">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span>Mappa</span>
+      </a>
+      <a class="bottom-nav__item" href="#" aria-label="Profilo utente">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+        <span>Profilo</span>
+      </a>
+    </nav>
+  </div>
+</main>
+
+<p class="note">
+  <strong>Nomi inventati.</strong> «Playground Roma70», «Campetto Villa Chigi», «Campo di via
+  Vetulonia», «Campo di via Oderisi da Gubbio», «Campo di via delle Vigne Nuove» non esistono
+  come voci del database: servono a vedere la schermata con contenuto plausibile. Nel database
+  9.572 campi su 10.130 si chiamano «Spazio aperto» e 6.364 non hanno sport, quindi in produzione
+  il foglio mostrerebbe in gran parte quel nome. La mappa è un disegno statico (colori di
+  <code>proto.css</code>, nessuna tile): non è MapLibre e non va giudicata come mappa.
+  Gli orari seguono <code>formatAppDateTime</code> / <code>formatAppTime</code>; le distanze
+  <code>formatDistanceM</code>. Trascina il foglio o premi l’handle; da tastiera Invio cambia
+  altezza, le frecce salgono e scendono di uno scatto, Home/End vanno agli estremi.
+</p>
+
+<script>
+(function () {
+  "use strict";
+
+  var SNAPS = ["rail", "full"];
+  var LABEL = { rail: "ridotta a striscia", full: "a tutta altezza" };
+  var NEXT_ACTION = {
+    rail: "Premi per aprire l'elenco completo",
+    full: "Premi per ridurre alla striscia",
+  };
+
+  var phone = document.getElementById("phone");
+  var sheet = document.getElementById("sheet");
+  var handle = document.getElementById("sheet-handle");
+  var titleRow = sheet.querySelector(".sheet__title-row");
+  var scroller = document.getElementById("sheet-scroll");
+  var railEl = document.getElementById("rail");
+  var railEmpty = document.getElementById("rail-empty");
+  var listWrap = document.getElementById("list-wrap");
+  var live = document.getElementById("snap-live");
+  var countEl = document.getElementById("sheet-count");
+  var list = document.getElementById("lobby-list");
+  var invite = document.getElementById("invite");
+  var place = document.getElementById("place");
+  var placeName = document.getElementById("place-name");
+  var placeMeta = document.getElementById("place-meta");
+  var panelAfter = document.querySelector('[data-panel="dopo"]');
+  var panelBefore = document.querySelector('[data-panel="prima"]');
+  var nav = panelAfter.querySelector(".bottom-nav");
+
+  var heights = { rail: 180, full: 640 };
+  var current = "rail";
+  var drag = null;
+  var touchState = null;
+  var mouseState = null;
+  var suppressClick = false;
+
+  function navHeight() {
+    var h = nav ? nav.offsetHeight : 0;
+    return h || 56;
+  }
+
+  /* Lo snap basso non è un numero fisso: è l'altezza dell'handle, della riga
+     titolo e della striscia. Se cambia il contenuto, cambia lui. */
+  function measure() {
+    measureStrip();
+    var available = phone.clientHeight - navHeight();
+    // niente slack: il foglio finisce sul bordo della testa, così sotto non
+    // affiora la prima riga tagliata
+    var railH = Math.round(handle.offsetHeight + titleRow.offsetHeight + 10 + naturalStrip);
+    if (!railH || railH < 140) railH = 180;
+    var full = Math.max(railH + 140, available);
+    heights = { rail: railH, full: full };
+    applyHeight(current);
+    applyStrip(current === "full" ? 1 : 0);
+  }
+
+  function applyHeight(name) {
+    phone.style.setProperty("--sheet-h", heights[name] + "px");
+  }
+
+  function countText() {
+    var n = phone.dataset.empty === "1" ? 0 : list.querySelectorAll(".lobby-card").length;
+    return n === 1 ? "1 partita vicina." : n + " partite vicine.";
+  }
+
+  /* Un solo contenuto: la striscia è la testa dell'elenco e a foglio pieno
+     scorre via. Niente opacità, niente doppioni: quello che sta sotto la testa
+     è già l'elenco che si vedrà. */
+  function applyContent(name) {
+    var railOn = name !== "full";
+    listWrap.inert = railOn;
+    listWrap.setAttribute("aria-hidden", railOn ? "true" : "false");
+  }
+
+  /* La testa si accorcia mentre il foglio sale: le card escono dal basso
+     (prima il nome, per ultimo l'orario) e l'elenco sale con loro, perché è
+     nello stesso flusso. Nessuna opacità, nessun doppione, nessuno scroll
+     programmatico. */
+  var naturalStrip = 0;
+
+  function stripEl() {
+    return phone.dataset.empty === "1" ? railEmpty : railEl;
+  }
+
+  function measureStrip() {
+    var el = stripEl();
+    el.style.display = "";
+    el.style.height = "";
+    naturalStrip = el.offsetHeight;
+  }
+
+  /* A foglio pieno la testa non c'è proprio: niente 12px di padding residuo
+     e niente doppione nell'albero di accessibilità. */
+  function applyStrip(p) {
+    var el = stripEl();
+    // la testa si chiude nel primo terzo del gesto: dopo c'è solo l'elenco,
+    // così non si vedono mai due volte le stesse partite
+    var q = Math.min(1, p / 0.35);
+    if (q >= 1) {
+      el.style.display = "none";
+      return;
+    }
+    el.style.display = "";
+    el.style.height = Math.round(naturalStrip * (1 - q)) + "px";
+  }
+
+  function progress() {
+    var span = heights.full - heights.rail;
+    if (span <= 0) return 0;
+    var h = parseInt(phone.style.getPropertyValue("--sheet-h"), 10) || heights.rail;
+    return Math.min(1, Math.max(0, (h - heights.rail) / span));
+  }
+
+  function setSnap(name, announce) {
+    if (SNAPS.indexOf(name) < 0) return;
+    current = name;
+    phone.dataset.snap = name;
+    applyHeight(name);
+    applyContent(name);
+    applyStrip(name === "full" ? 1 : 0);
+    if (name === "full") scroller.scrollTop = 0;
+    handle.setAttribute("aria-expanded", name === "full" ? "true" : "false");
+    handle.setAttribute("aria-label", "Partite vicine. " + NEXT_ACTION[name]);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-snap-btn]"), function (button) {
+      button.setAttribute("aria-pressed", String(button.dataset.snapBtn === name));
+    });
+    if (place && !place.hidden && name === "full") hidePlace();
+    if (announce) {
+      live.textContent = "Lista " + LABEL[name] + ". " + countText();
+    }
+  }
+
+  function nearest(h) {
+    var best = SNAPS[0];
+    SNAPS.forEach(function (name) {
+      if (Math.abs(heights[name] - h) < Math.abs(heights[best] - h)) best = name;
+    });
+    return best;
+  }
+
+  function step(name, direction) {
+    var index = SNAPS.indexOf(name) + direction;
+    return SNAPS[Math.min(SNAPS.length - 1, Math.max(0, index))];
+  }
+
+  function cycle() {
+    setSnap(current === "rail" ? "full" : "rail", true);
+  }
+
+  /* ---------------- drag ---------------- */
+
+  function startDrag(y) {
+    drag = {
+      startY: y,
+      startH: heights[current],
+      moved: false,
+      lastY: y,
+      lastT: performance.now(),
+      velocity: 0,
+    };
+    sheet.classList.add("is-dragging");
+  }
+
+  function moveDrag(y) {
+    if (!drag) return;
+    var dy = y - drag.startY;
+    if (Math.abs(dy) > 4) drag.moved = true;
+    var h = Math.min(heights.full, Math.max(heights.rail, drag.startH - dy));
+    phone.style.setProperty("--sheet-h", h + "px");
+    applyStrip(progress());
+    var now = performance.now();
+    drag.velocity = (y - drag.lastY) / Math.max(1, now - drag.lastT);
+    drag.lastY = y;
+    drag.lastT = now;
+  }
+
+  function endDrag() {
+    if (!drag) return false;
+    var moved = drag.moved;
+    var velocity = drag.velocity;
+    var h = parseInt(phone.style.getPropertyValue("--sheet-h"), 10) || heights[current];
+    sheet.classList.remove("is-dragging");
+    drag = null;
+
+    var target;
+    if (Math.abs(velocity) > 0.45) {
+      // finger up = negative velocity = expand
+      target = velocity < 0 ? step(current, 1) : step(current, -1);
+    } else {
+      target = nearest(h);
+    }
+    setSnap(target, moved);
+    if (moved) {
+      suppressClick = true;
+      setTimeout(function () {
+        suppressClick = false;
+      }, 0);
+    }
+    return moved;
+  }
+
+  /* L'handle è un bottone: il drag è un extra, non l'unico modo. */
+  handle.addEventListener("pointerdown", function (event) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    // capture anche col mouse: se il dito/mouse supera il bordo dell'handle,
+    // il pointerup deve comunque arrivare qui, altrimenti il foglio resta a metà
+    try { handle.setPointerCapture(event.pointerId); } catch (error) { /* noop */ }
+    if (event.pointerType !== "mouse") event.preventDefault();
+    startDrag(event.clientY);
+  });
+
+  handle.addEventListener("pointermove", function (event) {
+    if (drag) moveDrag(event.clientY);
+  });
+
+  handle.addEventListener("pointerup", function () {
+    endDrag();
+  });
+
+  handle.addEventListener("pointercancel", function () {
+    endDrag();
+  });
+
+  handle.addEventListener("click", function () {
+    if (suppressClick) return;
+    cycle();
+  });
+
+  handle.addEventListener("keydown", function (event) {
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSnap(step(current, 1), true);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSnap(step(current, -1), true);
+    } else if (event.key === "Escape" || event.key === "Home") {
+      event.preventDefault();
+      setSnap("rail", true);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setSnap("full", true);
+    }
+  });
+
+  /* Handoff scroll ↔ drag: il foglio si muove solo quando il contenuto non ha
+     più niente da scorrere nella direzione del dito. A striscia non c'è
+     scorrimento verticale: il foglio segue sempre il dito verso l'alto. */
+  function atTop() { return scroller.scrollTop <= 0; }
+  function atBottom() {
+    return scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
+  }
+
+  function canCollapse(dy) {
+    if (dy <= 0) return false;
+    return current === "full" ? atTop() : false;
+  }
+
+  function canExpand(dy) {
+    if (dy >= 0) return false;
+    if (current === "rail") return true;
+    return atBottom();
+  }
+
+  scroller.addEventListener("touchstart", function (event) {
+    if (event.touches.length !== 1) { touchState = null; return; }
+    touchState = { y: event.touches[0].clientY, capturing: false };
+  }, { passive: true });
+
+  scroller.addEventListener("touchmove", function (event) {
+    if (!touchState || event.touches.length !== 1) return;
+    var y = event.touches[0].clientY;
+
+    if (!touchState.capturing) {
+      var dy = y - touchState.y;
+      if (Math.abs(dy) < 8) return;
+      if (!canCollapse(dy) && !canExpand(dy)) { touchState = null; return; }
+      touchState.capturing = true;
+      startDrag(y);
+    }
+
+    event.preventDefault();
+    moveDrag(y);
+  }, { passive: false });
+
+  function endTouch() {
+    if (touchState && touchState.capturing) endDrag();
+    touchState = null;
+  }
+
+  scroller.addEventListener("touchend", endTouch);
+  scroller.addEventListener("touchcancel", endTouch);
+
+  /* Mouse: stesso handoff, senza eventi touch. */
+  scroller.addEventListener("pointerdown", function (event) {
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
+    mouseState = { y: event.clientY };
+  });
+
+  window.addEventListener("pointermove", function (event) {
+    if (!mouseState) return;
+    if (!drag) {
+      var dy = event.clientY - mouseState.y;
+      if (Math.abs(dy) < 8) return;
+      if (!canCollapse(dy) && !canExpand(dy)) { mouseState = null; return; }
+      startDrag(event.clientY);
+    }
+    event.preventDefault();
+    moveDrag(event.clientY);
+  });
+
+  window.addEventListener("pointerup", function () {
+    if (drag) endDrag();
+    mouseState = null;
+  });
+
+  /* Un drag non deve diventare un tap sulla card o sul pin. */
+  document.addEventListener("click", function (event) {
+    if (!suppressClick) return;
+    suppressClick = false;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+
+  /* ---------------- mappa ---------------- */
+
+  function hidePlace() {
+    place.hidden = true;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-pin]"), function (pin) {
+      pin.setAttribute("aria-pressed", "false");
+    });
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-pin]"), function (pin) {
+    pin.setAttribute("aria-pressed", "false");
+    pin.addEventListener("click", function () {
+      if (suppressClick) return;
+      var same = place.hidden === false && placeName.textContent === pin.dataset.name;
+      hidePlace();
+      if (same) return;
+      placeName.textContent = pin.dataset.name;
+      placeMeta.textContent = pin.dataset.meta + " · tocca la mappa per chiudere";
+      place.hidden = false;
+      pin.setAttribute("aria-pressed", "true");
+    });
+  });
+
+  document.getElementById("place-close").addEventListener("click", hidePlace);
+
+  /* ---------------- toolbar ---------------- */
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-snap-btn]"), function (button) {
+    button.addEventListener("click", function () {
+      if (phone.dataset.view !== "dopo") return;
+      setSnap(button.dataset.snapBtn, true);
+    });
+  });
+
+  var emptyButton = document.querySelector("[data-empty-btn]");
+  emptyButton.addEventListener("click", function () {
+    var empty = phone.dataset.empty !== "1";
+    phone.dataset.empty = empty ? "1" : "0";
+    emptyButton.setAttribute("aria-pressed", String(empty));
+    applyEmpty(empty);
+    if (empty) {
+      setSnap("full", false);
+      live.textContent = "Nessuna partita entro 5 km. Puoi dichiarare la serata.";
+      scroller.scrollTop = 0;
+    } else {
+      live.textContent = countText();
+    }
+  });
+
+  function applyEmpty(empty) {
+    list.hidden = empty;
+    invite.hidden = !empty;
+    railEl.hidden = empty;
+    railEmpty.hidden = !empty;
+    countEl.textContent = empty ? "0" : String(list.querySelectorAll(".lobby-card").length);
+    var foot = document.querySelector(".sheet__foot");
+    var declare = document.querySelector(".sheet__declare");
+    if (foot) foot.hidden = empty;
+    if (declare) declare.hidden = empty;
+    measure();
+  }
+
+  var viewButton = document.querySelector("[data-view-btn]");
+  viewButton.addEventListener("click", function () {
+    var today = phone.dataset.view !== "prima";
+    phone.dataset.view = today ? "prima" : "dopo";
+    viewButton.setAttribute("aria-pressed", String(today));
+    viewButton.textContent = today ? "Torna al foglio" : "Oggi (banda)";
+    panelAfter.hidden = today;
+    panelBefore.hidden = !today;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-snap-btn]"), function (button) {
+      button.disabled = today;
+    });
+    emptyButton.disabled = today;
+    if (!today) {
+      requestAnimationFrame(measure);
+      requestAnimationFrame(function () { setSnap(current, false); });
+    }
+  });
+
+  var fullButton = document.querySelector("[data-fullscreen]");
+
+  fullButton.addEventListener("click", function () {
+    var full = !document.body.classList.contains("is-full");
+    document.body.classList.toggle("is-full", full);
+    fullButton.setAttribute("aria-pressed", String(full));
+    fullButton.textContent = full ? "Esci da schermo intero" : "Schermo intero";
+    requestAnimationFrame(measure);
+  });
+
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver(measure).observe(phone);
+  }
+  window.addEventListener("resize", measure);
+  window.addEventListener("orientationchange", measure);
+
+  /* ---------------- start ---------------- */
+
+  measure();
+  setSnap("rail", false);
+  window.addEventListener("load", measure);
+
+  /* Aggancio per l'automazione di verifica: stato leggibile senza ispezionare il DOM. */
+  window.__proto = {
+    state: function () {
+      return {
+        snap: current,
+        view: phone.dataset.view,
+        empty: phone.dataset.empty,
+        heights: heights,
+        sheetHeight: Math.round(sheet.getBoundingClientRect().height),
+        phone: { w: phone.offsetWidth, h: phone.offsetHeight },
+      };
+    },
+    set: function (snap) { setSnap(snap, false); },
+  };
+})();
+</script>
+</body>
+</html>
