@@ -25,6 +25,13 @@
 - [ ] FAB 56px.
 - [ ] Handle sheet 44px.
 
+### iPhone (WebKit)
+
+- [ ] `npm run verify:webkit` verde sulla schermata o sul prototipo toccato (motore Safari, profilo iPhone 13 + 360×800).
+- [ ] Se la schermata esiste nell'app: `npm run test:ios` verde (progetto `iphone-webkit`).
+- [ ] I limiti noti dell'emulazione (URL bar/`dvh`, tastiera, gesti, PWA) sono dichiarati, non dati per coperti: `docs/ios.md`.
+- [ ] Se il componente usa `env(safe-area-inset-*)`, il check safe-area di Chromium è passato (lo fa `verify:webkit`).
+
 ### Stati
 
 - [ ] Default, hover, active, focus, disabled definiti per ogni componente interattivo.

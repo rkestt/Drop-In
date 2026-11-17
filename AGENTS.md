@@ -19,6 +19,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Before modifying a shared table or shared state endpoint, check for architectural impacts via @oracle.
 - If a UI change impacts layout consistency, call @designer. Mobile-first priority.
 - UI changes: build/lint/typecheck/test green is not DONE. Always dispatch @tester on dev server (light/dark, reload, toggle, console/hydration errors, screenshots) before reporting done.
+- **iPhone, sempre, quando la modifica tocca UI mobile** (fogli, altezze, `dvh`, safe-area, gesti, fixed/footer, PWA): dopo @tester, un giro sul motore di Safari con profilo iPhone. Prototipi → `npm run verify:webkit` (27 check, ripiega da solo sull'immagine Playwright). App → `npm run test:ios` (progetto Playwright `iphone-webkit`, iphone 13). Chromium non sostituisce questo passo. Cosa l'emulazione **non** copre (URL bar/`dvh`, tastiera, gesti, PWA) e i limiti dichiarati: `docs/ios.md`.
 
 # Wiki LLM (progetto)
 - Server MCP unico `llm-wiki` (dal 6 nov 2026; niente più `llm-wiki_*` / `llm-wiki-global_*` separati). Tool: `wiki_recall`, `wiki_search` (`scope: project|personal|both`), `wiki_retro` (`vault: project|personal`), `wiki_status`, `wiki_bootstrap`.

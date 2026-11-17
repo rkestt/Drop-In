@@ -40,6 +40,17 @@ jobs:
       - run: npx playwright test tests/e2e/a11y.spec.ts
       - run: npx playwright test --project=visual-static tests/e2e/styleguide-visual.spec.ts
       - run: npx playwright test --project=visual-static tests/e2e/screens-visual.spec.ts
+      # Prototipi statici sul motore di Safari: dvh, inert, pointer capture,
+      # scroll-snap. Il rischio iOS non si vede su Chromium (vedi #89).
+      - run: npx playwright install --with-deps webkit
+      - name: Prototipi su WebKit (profilo iPhone)
+        run: |
+          python3 -m http.server 4173 --directory docs/design/prototypes &
+          sleep 1
+          node scripts/verify/webkit-proto.mjs
+      # La home sull'app vera, motore Safari: la stessa razza di check che
+      # `npm run test:ios` fa in locale.
+      - run: npx playwright test --project=iphone-webkit
 
   rls:
     # 43 blocchi di asserzioni SQL contro un Supabase locale vero: RLS,

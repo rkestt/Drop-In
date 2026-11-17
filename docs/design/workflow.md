@@ -77,6 +77,10 @@ brief → references → prototype → design review → implementazione → ver
 - axe-core senza violazioni nuove.
 - Link a [COMPONENTS.md](COMPONENTS.md), [gaps.md](gaps.md) e [specs/](specs/) aggiornati se il task tocca componenti, eccezioni o schermate.
 - Verifica live @tester completata.
+- Prototipi: `npm run verify:webkit` verde **prima** della review HITL — è il motore di Safari
+  con profilo iPhone, l'unico che vede `inert`, pointer capture e `dvh` (vedi
+  [prototypes/README.md](prototypes/README.md#verifica-su-webkit-safari) e, per i limiti
+  dell'emulazione, [../ios.md](../ios.md)).
 
 ## Cosa NON fare
 

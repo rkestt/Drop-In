@@ -1,4 +1,4 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -52,6 +52,14 @@ export default defineConfig({
         timezoneId: "Europe/Rome",
         locale: "it-IT",
       },
+    },
+    {
+      // Motore Safari con profilo iPhone: la verifica che Chromium non può fare
+      // (dvh, inert, touch). `npm run test:ios`. Non entra in `test:all`: in CI
+      // la esegue il job quality dopo `playwright install --with-deps webkit`.
+      name: "iphone-webkit",
+      testMatch: ["**/ios.spec.ts"],
+      use: { ...devices["iPhone 13"] },
     },
     {
       // Con Supabase locale: solo in locale con E2E_WITH_DB=1

@@ -21,6 +21,8 @@
     "stage:alias": "node scripts/stage-alias.mjs",
     "photos:gc": "node scripts/cleanup-orphan-photos.mjs",
     "test:a11y": "playwright test tests/e2e/a11y.spec.ts",
+    "verify:webkit": "bash scripts/verify/webkit-proto.sh",
+    "test:ios": "playwright test --project=iphone-webkit",
     "test:all": "npm run lint && npm run lint:design && tsc --noEmit && vitest run && npm run test:rls && playwright test --project=e2e",
     "types": "npx supabase gen types typescript --local | awk \"/^export /{p=1} p\" > .types.tmp && grep -q \"^export type Database\" .types.tmp && mv .types.tmp lib/supabase/database.types.ts",
     "prepare": "husky",
