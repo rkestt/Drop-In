@@ -51,7 +51,7 @@ Either way the dispatch is the same three lines: the issue number, the lane, and
 
 The child that orchestrates also owns three rules:
 
-- **Check that it can dispatch before accepting the ticket.** If the agent has no subagent tool in its configuration, it is a single lane, not an orchestrator, and a large ticket handed to it will run out of context mid-way.
+- **Check that it can dispatch before accepting the ticket.** As of 2026-11-18 the answer here is no: a child session gets the task tools (`task_status`, `task_result`, `task_revive`) but not `subagent`, and `openchamber.session.create` makes a session the user talks to, not a child. So orchestration stays with the main session, and a sub-session is an executor: give it one bounded piece and the decision it implements.
 - **Fold review findings into the tester's checklist before the live round.** A tester verifies the list it was given; a green report and an open defect can arrive in the same hour (#96: the designer's six cases all passed while the reviewer found the drawer never reset on reopen).
 - **Write what must survive into the issue or the diff.** The child sees none of its parent's background tasks and nothing of its parent's conversation.
 
