@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-11-16T18:00:58.698Z",
+  "last_updated": "2026-11-17T20:08:03.692Z",
   "pages": {
     "sources/drop-in-check-in-accuratezza-adattiva-e-permessi-ios": {
       "type": "source",
@@ -154,6 +154,15 @@
       "slug": "submit-senza-gps-posizione-manuale",
       "created": "2026-11-13",
       "updated": "2026-11-13"
+    },
+    "sources/test-all-verde-perche-meta-degli-e2e-si-skippa": {
+      "type": "source",
+      "title": "test:all verde perché metà degli e2e si skippa senza E2E_WITH_DB",
+      "category": "source",
+      "status": "insight",
+      "slug": "test-all-verde-perche-meta-degli-e2e-si-skippa",
+      "created": "2026-11-17",
+      "updated": "2026-11-17"
     },
     "sources/tracker-issue-evidenza-non-commit": {
       "type": "source",

@@ -42,3 +42,7 @@
 - **retro**: {"slug":"view-security-invoker-e-privilegi-default-supabase","title":"View `security_invoker` su Supabase: la RLS passa, i grant di scrittura no"}
 - **retro**: {"slug":"lobby-gia-e-l-occorrenza-il-costo-e-nel-karma","title":"Drop-In: l'occorrenza esisteva già, il costo della ricorrenza è nel karma"}
 - **retro**: {"slug":"drop-in-posizionamento-organizzatori-e-concorrenti","title":"Drop-In: posizionamento — infrastruttura per chi organizza, e chi c'è già a Roma"}
+
+## 2026-11-17
+
+- **retro**: {"slug":"test-all-verde-perche-meta-degli-e2e-si-skippa","title":"test:all verde perché metà degli e2e si skippa senza E2E_WITH_DB"}
