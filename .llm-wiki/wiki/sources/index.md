@@ -3,8 +3,10 @@
 ## Concepts
 
 - [Check-in Drop-In: accuratezza GPS adattiva e permessi posizione iOS separati dalla PWA](drop-in-check-in-accuratezza-adattiva-e-permessi-ios.md)
+- [Drop-In: posizionamento — infrastruttura per chi organizza, e chi c'è già a Roma](drop-in-posizionamento-organizzatori-e-concorrenti.md)
 - [E2E di idratazione: server in UTC e browser a Roma](e2e-hydration-server-utc-browser-roma.md)
 - [Una riscrittura di trigger ha cancellato un INSERT: le notifiche karma non esistevano più](karma-loss-notification-persa-in-una-riscrittura-di-trigger.md)
+- [Drop-In: l'occorrenza esisteva già, il costo della ricorrenza è nel karma](lobby-gia-e-l-occorrenza-il-costo-e-nel-karma.md)
 - [Mappa: da 200 marker DOM a source GeoJSON con cluster, anteprima e un solo tab stop](mappa-marker-geojson-clustering-preview.md)
 - [Moderazione: esito al proponente, resubmit e storia di audit che non si riscrive](moderazione-esito-notifiche-resubmit.md)
 - [Observation: Fix GRANT mancanti su courts — smoke test rivela 42501](obs-2026-08-23-fix-grant-mancanti-su-courts-smoke-test-rivela-42501.md)

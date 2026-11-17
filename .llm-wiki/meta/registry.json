@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-11-16T01:17:59.450Z",
+  "last_updated": "2026-11-16T18:00:58.698Z",
   "pages": {
     "sources/drop-in-check-in-accuratezza-adattiva-e-permessi-ios": {
       "type": "source",
@@ -10,6 +10,15 @@
       "slug": "drop-in-check-in-accuratezza-adattiva-e-permessi-ios",
       "created": "2026-11-15",
       "updated": "2026-11-15"
+    },
+    "sources/drop-in-posizionamento-organizzatori-e-concorrenti": {
+      "type": "source",
+      "title": "Drop-In: posizionamento — infrastruttura per chi organizza, e chi c'è già a Roma",
+      "category": "synthesis",
+      "status": "insight",
+      "slug": "drop-in-posizionamento-organizzatori-e-concorrenti",
+      "created": "2026-11-16",
+      "updated": "2026-11-16"
     },
     "sources/e2e-hydration-server-utc-browser-roma": {
       "type": "source",
@@ -28,6 +37,15 @@
       "slug": "karma-loss-notification-persa-in-una-riscrittura-di-trigger",
       "created": "2026-11-12",
       "updated": "2026-11-12"
+    },
+    "sources/lobby-gia-e-l-occorrenza-il-costo-e-nel-karma": {
+      "type": "source",
+      "title": "Drop-In: l'occorrenza esisteva già, il costo della ricorrenza è nel karma",
+      "category": "concept",
+      "status": "insight",
+      "slug": "lobby-gia-e-l-occorrenza-il-costo-e-nel-karma",
+      "created": "2026-11-16",
+      "updated": "2026-11-16"
     },
     "sources/mappa-marker-geojson-clustering-preview": {
       "type": "source",
