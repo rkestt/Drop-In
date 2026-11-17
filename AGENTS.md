@@ -118,4 +118,8 @@ Default mattpocock labels (needs-triage, needs-info, ready-for-agent, ready-for-
 
 Single-context. See `docs/agents/domain.md`.
 
+### Sub-sessions
+
+Dispatch by issue number, one ticket per sub-session; reconcile from `git status` and a re-run of the evidence, not from the report. See `docs/agents/subagent-contract.md`.
+
 
