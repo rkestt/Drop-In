@@ -13,7 +13,7 @@ import {
   formatAppDay,
   formatAppTime,
 } from "@/lib/datetime";
-import { mapJoinError, mapLeaveError } from "@/lib/lobbies/join-errors";
+import { mapJoinError, mapLeaveError, postgrestErrorFields } from "@/lib/lobbies/join-errors";
 import { lobbyPhase, type LobbyPhase } from "@/lib/lobby/phase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -196,15 +196,12 @@ export function LobbyDetail({
     } catch (err) {
       // Mai raw Postgres/PostgREST in UI (#77): la mappa traduce il
       // trigger "lobby chiusa", il pieno, il duplicato e la rete caduta.
-      const msg = err instanceof Error ? err.message : "";
-      const code =
-        err instanceof Error
-          ? (err as { code?: unknown }).code
-          : null;
+      // Issue 103: l'errore PostgREST è un oggetto semplice, non un `Error`.
+      const { code, message } = postgrestErrorFields(err);
       const mapped = mapJoinError({
         status: lobby.status,
-        code: typeof code === "string" ? code : null,
-        message: msg,
+        code,
+        message,
       });
       if (mapped.kind === "transient") {
         // Rete caduta: resta l'ottimistico, il runner invia al reconnect.
@@ -252,15 +249,12 @@ export function LobbyDetail({
       router.refresh();
     } catch (err) {
       // Mai raw DB in UI (#77): rete → coda, resto → messaggio italiano.
-      const msg = err instanceof Error ? err.message : "";
-      const code =
-        err instanceof Error
-          ? (err as { code?: unknown }).code
-          : null;
+      // Issue 103: l'errore PostgREST è un oggetto semplice, non un `Error`.
+      const { code, message } = postgrestErrorFields(err);
       const mapped = mapLeaveError({
         status: lobby.status,
-        code: typeof code === "string" ? code : null,
-        message: msg,
+        code,
+        message,
       });
       if (mapped.kind === "transient") {
         // Rete caduta: resta l'ottimistico, il runner invia al reconnect.

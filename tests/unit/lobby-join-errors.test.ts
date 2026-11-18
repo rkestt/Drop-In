@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { mapJoinError, mapLeaveError } from "@/lib/lobbies/join-errors";
+import {
+  mapCreateLobbyError,
+  mapJoinError,
+  mapLeaveError,
+} from "@/lib/lobbies/join-errors";
 
 // Mappa pura degli errori di join/leave (issue #77): la lobby chiusa vince
 // sul permanent generico, mai raw DB in UI, retry solo quando ha senso.
@@ -98,6 +102,65 @@ describe("mapJoinError", () => {
     const out = mapJoinError({});
     expect(out.kind).toBe("permanent");
     expect(out.canRetry).toBe(false);
+  });
+});
+
+describe("mapCreateLobbyError", () => {
+  it("bannato/karma dal trigger: raw italiano ammesso, così com'è", () => {
+    for (const message of [
+      "Sei bannato fino a 2026-11-20T10:00:00Z",
+      "Karma troppo basso (42). Non puoi partecipare.",
+    ]) {
+      const out = mapCreateLobbyError({
+        code: "P0001",
+        message,
+      });
+      expect(out.kind).toBe("banned");
+      expect(out.message).toBe(message);
+    }
+  });
+
+  it("duplicato 23505 → testo dedicato, mai raw inglese", () => {
+    const out = mapCreateLobbyError({
+      code: "23505",
+      message:
+        'duplicate key value violates unique constraint "lobbies_pkey"',
+    });
+    expect(out.kind).toBe("duplicate");
+    expect(out.message).toBe("Hai già una lobby su questo campo a quest'ora.");
+  });
+
+  it("rate limit → testo italiano dedicato", () => {
+    const out = mapCreateLobbyError({
+      code: "P0001",
+      message: "Hai creato troppe lobby nell'ultima ora. Riprova più tardi.",
+    });
+    expect(out.kind).toBe("rateLimited");
+    expect(out.message).toMatch(/troppe lobby/);
+  });
+
+  it("RLS 42501 → generico, niente codici in UI", () => {
+    const out = mapCreateLobbyError({
+      code: "42501",
+      message: "42501 new row violates row-level security policy",
+    });
+    expect(out.kind).toBe("permanent");
+    expect(out.message).not.toContain("42501");
+    expect(out.message).not.toMatch(/row-level security/i);
+  });
+
+  it("ignoto/inglese/vuoto → fallback generico italiano", () => {
+    for (const input of [
+      { code: "P0001", message: "some english trigger failure" },
+      { code: null, message: null },
+      {},
+    ]) {
+      const out = mapCreateLobbyError(input);
+      expect(out.kind).toBe("permanent");
+      expect(out.message).toBe(
+        "Non è stato possibile creare la lobby. Riprova più tardi.",
+      );
+    }
   });
 });
 

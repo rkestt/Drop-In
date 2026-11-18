@@ -30,6 +30,7 @@ import {
   uniqueCourtSport,
 } from "@/lib/sport/sports";
 import { findOverlappingLobby, lobbyEndsAtIso } from "@/lib/lobby/overlap";
+import { postgrestErrorFields, mapCreateLobbyError } from "@/lib/lobbies/join-errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Drawer } from "@/components/ui/drawer";
@@ -472,13 +473,7 @@ export function CreateLobbyDrawer({
         status: "open",
       });
 
-      if (error) {
-        // Handle PG exception strings from database triggers
-        const msg = error.message.toLowerCase();
-        if (msg.includes("bannato")) throw error;
-        if (msg.includes("karma")) throw error;
-        throw error;
-      }
+      if (error) throw error;
 
       // Successo: l'esito resta dentro il drawer, poi si chiude e la
       // pagina si aggiorna (router.refresh + realtime) — mai reload.
@@ -490,8 +485,18 @@ export function CreateLobbyDrawer({
         router.refresh();
       }, 1400);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Errore durante la creazione della lobby.";
-      setError(msg);
+      // #77: mai raw Postgres/PostgREST in UI. Gli `Error` sono nostri
+      // (login, ban/karma client, validazioni: sempre italiano) e si
+      // mostrano diretti; gli oggetti PostgREST (il client non lancia,
+      // `shouldThrowOnError: false`) passano dalla mappa: solo bannato e
+      // karma escono così come sono (trigger già italiano), il resto ha un
+      // testo dedicato o il fallback generico.
+      if (err instanceof Error) {
+        setError(err.message || "Errore durante la creazione della lobby.");
+      } else {
+        const { code, message } = postgrestErrorFields(err);
+        setError(mapCreateLobbyError({ code, message }).message);
+      }
     } finally {
       submittingRef.current = false;
       setLoading(false);
