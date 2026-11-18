@@ -32,6 +32,8 @@ Un campo può esistere in mappa e non essere utilizzabile: canestro rotto, cance
 
 *Fatto quando*: dalla scheda di un campo si vedono le note con la data, e un campo con una nota recente resta visibile sulla mappa.
 
+*Stato (2026-11-18)*: **fatta** in `052_court_notes.sql` (tabella `court_notes`: sei tipi, testo opzionale, autore CASCADE, lettura pubblica sulle corti approvate, scritture solo via RPC moderatore) + `053_court_notes_kind_slugs.sql` (slug inglesi, tetto 200, `other` richiede il testo), ticket #90 chiuso. Client: card nella scheda con età/data e `Precedenti` oltre 30 giorni, fold a 3, form Drawer per chi modera (radio native, bottone assente dal DOM per gli altri), una riga nell'anteprima in mappa solo se fresca (la segnalazione vince lo slot); spec `docs/design/specs/note-campo.md` + prototipo `docs/design/prototypes/note-campo.html`; `test:all` verde (792 unit, `test:rls` blocchi 60a–60k, 79/79 e2e), review senza bloccanti dopo due correzioni, giro live @tester verde su 10 punti. Limite dichiarato: le segnalazioni utente arrivano dopo la beta, riusando la coda di moderazione.
+
 ### 2. I campi senza sport
 6.364 campi su 10.130 hanno `sport = null` (63%). Il filtro sport risponde su un terzo del database. Esiste #63 (audit in 203 blocchi manuali, 1 fatto).
 
@@ -101,6 +103,8 @@ Le push esistono come codice e non sono attive (#87: chiavi, secrets, cron). Son
 ### 9. Backup verificato
 Backup di stage con **restore provato almeno una volta**. Senza, un comando sbagliato azzera campi e dati dei tester in modo irreversibile.
 
+*Stato (2026-11-18)*: **backup provato in locale** in `scripts/backup-db.sh` + `scripts/restore-db.sh` (`--dry-run`, produzione vietata per costruzione), ticket #85 aggiornato ma aperto. Drill eseguito: dump 1,2 MB → restore in scratch → conteggi identici (10.130 campi, 51 migrazioni, `nearby_courts` 200 righe); runbook §7 in `docs/staging.md` con comandi, RPO/RTO e checklist umana. Residuo esplicito all'umano: restore su staging cronometrato e RTO remoto. La pipeline CI/CD e la promotion delle migrazioni restano aperte: non sono questa voce.
+
 ### 10. Beta a inviti
 Registrazione pubblica disattivata, utenti creati con `inviteUserByEmail` (nessuna tabella nuova). 20-30 persone reclutate a mano, tre volte a settimana sul campo.
 
@@ -159,7 +163,7 @@ Le cose che non si possono aggiungere dopo vengono prima.
 | Voce | Ticket |
 | --- | --- |
 | 1 · campi del polo (Ostia, reseed) | nuovo, da aprire — slug già fatto 2026-11-18 (`be1437a`, `049`) |
-| 1b · Note di campo | #90 |
+| 1b · Note di campo | #90 (chiuso 2026-11-18) |
 | 2 · audit sport nel polo | #63 (scope ridotto, commentato) |
 | 2 · Nomi dei campi del polo | #106 (chiuso 2026-11-18) |
 | 3 · Appuntamento ricorrente | #92 (chiuso 2026-11-18) |
@@ -169,7 +173,7 @@ Le cose che non si possono aggiungere dopo vengono prima.
 | 7 · Push e audit notifiche | #87 (commentato) |
 | 8a · GDPR nel codice | #94 (metà codice di #83) |
 | 8b · Testi legali | #83 |
-| 9 · Backup verificato | #85 (scope ridotto, commentato) |
+| 9 · Backup verificato | #85 (backup provato in locale 2026-11-18, pipeline CI/CD e promotion migrazioni aperte) |
 | 10 · Beta a inviti | #95 (bloccata da #86) |
 | 11 · P.IVA e conversazioni | fuori dal tracker |
 | 12 · Finestra temporale e doppioni | #96 |

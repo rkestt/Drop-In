@@ -6,7 +6,7 @@
 
 ## Stato
 
-Pagine legali con `[DA COMPILARE]`. Eliminazione account self-service ed export dati fatti (#94, 2026-11-18). Nessun backup verificato. SMTP di default di Supabase: **2 email/ora**, e in molti progetti solo verso indirizzi del team. Produzione ferma a schema `022` mentre master è avanti di tredici migrazioni.
+Pagine legali con `[DA COMPILARE]`. Eliminazione account self-service ed export dati fatti (#94, 2026-11-18). Backup provato in locale 2026-11-18 (drill eseguito, runbook §7 in `docs/staging.md`); restore su staging cronometrato e RTO remoto restano all'umano. SMTP di default di Supabase: **2 email/ora**, e in molti progetti solo verso indirizzi del team. Produzione ferma a schema `022` mentre master è avanti di tredici migrazioni.
 
 ## Voci
 
@@ -14,7 +14,7 @@ Pagine legali con `[DA COMPILARE]`. Eliminazione account self-service ed export 
 | --- | --- | --- |
 | Eliminazione account ed export dati (codice) | #94 | fatto 2026-11-18 — self-service con 409 sulle lobby condivise, export JSON, `creator_id` nullable |
 | Privacy, ToS, cookie (testi) | #83 | aperto, dopo |
-| Backup + ripristino provato, promozione produzione | #85 | aperto, scope ridotto |
+| Backup + ripristino provato, promozione produzione | #85 | backup provato in locale 2026-11-18 (`scripts/backup-db.sh` + `scripts/restore-db.sh`, `--dry-run`, produzione vietata per costruzione; drill eseguito: dump 1,2 MB → restore in scratch → conteggi identici — 10.130 campi, 51 migrazioni, `nearby_courts` 200 righe; runbook §7 in `docs/staging.md` con RPO/RTO e checklist umana). Residuo esplicito all'umano: restore su staging cronometrato e RTO remoto. Pipeline CI/CD e promotion delle migrazioni restano aperte, non sono questa voce |
 | SMTP dedicato | #86 | aperto — blocca #95 |
 | Rate limit, moderazione foto, anti-spam | #84 | aperto |
 | Monitoraggio e uptime | #88 | aperto, non gate |
