@@ -48,6 +48,8 @@ Una lobby oggi è una partita singola (`court_id`, `start_time`, `max_players`, 
 *Lavoro*: `lobby_series` (campo, giorno della settimana, ora, sport, capienza, attiva) + `lobbies.series_id` + unique `(series_id, start_time)` + generatore delle occorrenze. Nella creazione partita, l'opzione "ripetibile".
 *Fatto quando*: dichiarare una serie una volta produce da sola le partite delle settimane successive, e le partite restano identiche a oggi.
 
+*Stato (2026-11-18)*: **fatta** in `044` (`lobby_series` + `series_id` + unique) + `045` (trigger di capienza, vale per tutte le lobby) + `046` (generatore con cron notturno a 14 giorni) + `047` (materializzazione immediata alla creazione via `materialize_series`), ticket #92 chiuso. Client in `lib/series/**` con schema in `lib/validation/schemas.ts`; UI: switch "ripetibile" nel drawer, terzo tab "Serie" in `/lobbies`, chip "Ricorrente · giovedì 20:00" su card e dettaglio, sezione "Senza organizzatore" per le orfane; RLS blocchi 53–58 in `tests/rls/assertions.sql`; spec `docs/design/specs/serie.md` + prototipo `docs/design/prototypes/serie.html`. Scostamenti deliberati: le occorrenze nascono con **zero partecipanti** (nessuna Conferma implicita, quindi nessun −3 fantasma); autorità ripartita — chi ha confermato chiude la singola occorrenza, il creatore tiene regola e cancellazione, kill-switch sulle orfane per chi ha partecipato negli ultimi 28 giorni (mai su occorrenze future); generazione **silenziosa**, nessuna notifica nuova.
+
 ### 4. Le occorrenze future e il karma
 La parte delicata. Oggi `decrement_karma_on_missed_check_in` (mig. 027) penalizza a ogni chiusura chi non ha check-in, e confronta per `court_id`, non per partita. `check_ins.lobby_id` è **sempre NULL** perché il client non lo passa. `auto_close_lobbies` chiude a +30 min senza distinguere le occorrenze future, che restano `open` e saturano `open_lobbies` (tetto 100, ordinate per orario).
 
@@ -61,7 +63,7 @@ La parte delicata. Oggi `decrement_karma_on_missed_check_in` (mig. 027) penalizz
 
 *Fatto quando*: con tre serie attive, nessuno perde karma per una partita di un mese dopo, e la lista "vicine" mostra solo ciò che è vicino nel tempo.
 
-*Stato (2026-11-18)*: **fatta** in `037`-`039` più il client (`lib/lobby/phase.ts`), ticket #91 chiuso. Due scostamenti dalla meccanica raccomandata, entrambi deliberati dopo la review: il -3 guarda la **presenza** (check-in sulla corte dentro `[inizio - 2h, fine]`), non lo stato `active`, perché il checkout a 2 ore avrebbe penalizzato chi era stato lì; e la quarta migrazione non è servita — predicato nuovo e rimozione di `in_progress` sono nella stessa, con un ordine che resta "mai prima di `lobby_id` valorizzato". Generazione delle serie (14 giorni) e capienza restano di #92.
+*Stato (2026-11-18)*: **fatta** in `037`-`039` più il client (`lib/lobby/phase.ts`), ticket #91 chiuso. Due scostamenti dalla meccanica raccomandata, entrambi deliberati dopo la review: il -3 guarda la **presenza** (check-in sulla corte dentro `[inizio - 2h, fine]`), non lo stato `active`, perché il checkout a 2 ore avrebbe penalizzato chi era stato lì; e la quarta migrazione non è servita — predicato nuovo e rimozione di `in_progress` sono nella stessa, con un ordine che resta "mai prima di `lobby_id` valorizzato". Generazione delle serie (14 giorni) e capienza sono poi atterrate in #92 (voce 3).
 
 *Meccanica raccomandata (@oracle, commento su #91)*: cron notturno con orizzonte mobile di 14 giorni (mai generazione lazy: la RLS INSERT impone auth e due lettori duplicherebbero); filtro `start_time < now() + interval '36h'` dentro `open_lobbies` e nella query "vicine", più indice parziale su `(status, start_time)`; `reconfirmed_at timestamptz NULL` su `lobby_participants` con finestra `start_time - 24h … start_time - 30min`; `lobby_id` del check-in assegnato da un `BEFORE INSERT` che cerca la lobby riconfermata sulla stessa corte (mai dal client); capienza con trigger e `FOR UPDATE` (un CHECK non può contare righe); `starting_soon` filtrata sui riconfermati.
 
@@ -156,8 +158,8 @@ Le cose che non si possono aggiungere dopo vengono prima.
 | 1 · campi del polo, slug sport | nuovo, da aprire |
 | 1b · Note di campo | #90 |
 | 2 · audit sport nel polo | #63 (scope ridotto, commentato) |
-| 3 · Appuntamento ricorrente | #92 |
-| 4 · Occorrenze e karma | #91 (blocca #92) |
+| 3 · Appuntamento ricorrente | #92 (chiuso 2026-11-18) |
+| 4 · Occorrenze e karma | #91 (chiuso 2026-11-18, sbloccava #92) |
 | 5 · Ricorrenza abituale | da aprire quando ci sono i dati |
 | 6 · Fiducia: valutazioni e chat | #93 |
 | 7 · Push e audit notifiche | #87 (commentato) |
