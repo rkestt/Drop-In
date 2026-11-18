@@ -68,6 +68,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"court_notes": {
+                  Row: {
+                    "author_id": string,"body": string | null,"court_id": string,"created_at": string,"id": string,"kind": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "author_id": string,"body"?: string | null,"court_id": string,"created_at"?: string,"id"?: string,"kind": string
+                  }
+                  Update: {
+                    "author_id"?: string,"body"?: string | null,"court_id"?: string,"created_at"?: string,"id"?: string,"kind"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "court_notes_court_id_fkey"
+      columns: ["court_id"]
+isOneToOne: false
+      referencedRelation: "courts"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"court_reports": {
                   Row: {
                     "category": string,"court_id": string,"created_at": string | null,"description": string | null,"expires_at": string,"id": string,"user_id": string
@@ -422,6 +442,9 @@ isOneToOne: false
 "_st_within":
 { Args: { "geom1": unknown,"geom2": unknown }; Returns: boolean
                            },
+"add_court_note":
+{ Args: { "p_body"?: string,"p_court_id": string,"p_kind": string }; Returns: string
+                           },
 "addauth":
 { Args: { "": string }; Returns: boolean
                            },
@@ -457,6 +480,9 @@ isOneToOne: false
               "distance_m": number,"id": string,"lat": number,"lng": number,"moderation_status": string,"name": string,"source": string
             }[]
                            },
+"delete_court_note":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
 "disablelongtransactions":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
@@ -473,6 +499,9 @@ isOneToOne: false
 { Args: { "schema_name": string,"table_name": string }; Returns: string
                            } |
 { Args: { "table_name": string }; Returns: string
+                           },
+"edit_court_note":
+{ Args: { "p_body"?: string,"p_id": string,"p_kind": string }; Returns: undefined
                            },
 "enablelongtransactions":
 { Args: Record<PropertyKey, never>; Returns: string
@@ -1174,6 +1203,9 @@ isOneToOne: false
                            },
 "updategeometrysrid":
 { Args: { "catalogn_name": string,"column_name": string,"new_srid_in": number,"schema_name": string,"table_name": string }; Returns: string
+                           },
+"validate_court_note":
+{ Args: { "p_body": string,"p_kind": string }; Returns: Record<string, unknown>
                            },
 "withdraw_name_proposal":
 { Args: { "p_proposal_id": string }; Returns: undefined
