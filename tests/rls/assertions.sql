@@ -2774,4 +2774,131 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ================= 51. #94: scrub `data->'user_id'` solo come rimozione chiave =================
+-- La 042 apre al service_role un'eccezione stretta: togliere la sola chiave
+-- `user_id` da `data`. Qui si inchioda il confine: rimozione ok, ogni
+-- altra riscrittura vietata, utente mai.
+-- Il blocco 50 cancella l'utente A: qui si usano B (proprio) e C (altrui).
+INSERT INTO public.push_notifications (user_id, title, body, data)
+VALUES ('33333333-3333-3333-3333-333333333333', 'Scrub Me', 'corpo',
+        '{"type":"participant_joined","lobby_id":"00000000-0000-0000-0000-000000000000","user_id":"22222222-2222-2222-2222-222222222222"}'::jsonb);
+
+-- 51a. service_role toglie la chiave -> ok, il resto intatto.
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims = '{"role":"service_role"}';
+UPDATE public.push_notifications
+SET data = data - 'user_id'
+WHERE user_id = '33333333-3333-3333-3333-333333333333' AND title = 'Scrub Me';
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.push_notifications
+                 WHERE title = 'Scrub Me'
+                   AND data = '{"type":"participant_joined","lobby_id":"00000000-0000-0000-0000-000000000000"}'::jsonb) THEN
+    RAISE EXCEPTION 'scrub service_role non riuscito o data alterata (#94)';
+  END IF;
+END $$;
+
+-- 51b. service_role riscrive il titolo -> P0001 (nessuna regressione 40d).
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims = '{"role":"service_role"}';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.push_notifications SET title = 'riscritto'
+    WHERE title = 'Scrub Me';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'title da service_role: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'service_role ha riscritto title (#94)';
+END $$;
+RESET ROLE;
+
+-- 51c. service_role cambia `data` oltre la rimozione -> P0001.
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims = '{"role":"service_role"}';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.push_notifications SET data = '{"type":"x"}'::jsonb
+    WHERE title = 'Scrub Me';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'data rewrite da service_role: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'service_role ha riscritto data (#94)';
+END $$;
+RESET ROLE;
+
+INSERT INTO public.push_notifications (user_id, title, body, data)
+VALUES ('22222222-2222-2222-2222-222222222222', 'Propria Con Chiave', 'corpo',
+        '{"type":"participant_joined","user_id":"33333333-3333-3333-3333-333333333333"}'::jsonb);
+
+-- 51d. l'utente non toglie `user_id` dalla riga altrui: 0 righe (policy
+-- own-row), e sulla propria con chiave il trigger nega con P0001.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+DO $$ DECLARE v_n INTEGER; BEGIN
+  UPDATE public.push_notifications SET data = data - 'user_id'
+  WHERE title = 'Scrub Me';
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'utente ha scrubato la riga altrui: % righe (#94)', v_n;
+  END IF;
+  BEGIN
+    UPDATE public.push_notifications SET data = data - 'user_id'
+    WHERE title = 'Propria Con Chiave';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'scrub utente su propria riga: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'utente ha modificato data della propria riga (#94)';
+END $$;
+RESET ROLE;
+
+-- ================= 52. #94: il delete gira anche con lo search_path di gotrue =================
+-- `auth.admin.deleteUser` gira come `supabase_auth_admin`, il cui
+-- search_path e' solo `auth` (il postgres locale non e' superuser, quindi
+-- non puo' farne SET ROLE: si replica il path, che e' cio' che rompeva).
+-- La cascata tocca `courts` (`submitted_by` SET NULL) e senza la 043 il
+-- trigger location moriva con `type "geography" does not exist`. Il blocco
+-- 50 copre il DELETE diretto; qui si copre il path reale di gotrue.
+-- Utente fresco H (8888): zero lobby create, niente rate limit; il profilo
+-- nasce dal trigger handle_new_user. Claim azzerati: auth.uid() deve essere
+-- NULL, altrimenti il rate limit legge lo uid residuo di un blocco prima.
+SET LOCAL request.jwt.claims = '';
+DO $$
+DECLARE
+  v_court UUID;
+BEGIN
+  INSERT INTO auth.users (id, email) VALUES
+    ('88888888-8888-8888-8888-888888888888','h@test.local');
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES ('Auth Admin Court', 41.914, 12.514, ST_SetSRID(ST_MakePoint(12.514,41.914),4326)::geography, 'community',
+          '88888888-8888-8888-8888-888888888888','approved','active')
+  RETURNING id INTO v_court;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status)
+  VALUES (v_court, '88888888-8888-8888-8888-888888888888', now() + interval '2 hours', 10, 'open');
+END $$;
+SET LOCAL search_path = auth;
+DELETE FROM auth.users WHERE id = '88888888-8888-8888-8888-888888888888';
+RESET ROLE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM auth.users WHERE id = '88888888-8888-8888-8888-888888888888') THEN
+    RAISE EXCEPTION 'delete come supabase_auth_admin non riuscito (#94)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+                 WHERE c.name = 'Auth Admin Court' AND l.creator_id IS NULL) THEN
+    RAISE EXCEPTION 'lobby senza creator dopo delete auth_admin (#94)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.courts
+                 WHERE name = 'Auth Admin Court' AND submitted_by IS NULL) THEN
+    RAISE EXCEPTION 'submitted_by non azzerato dopo delete auth_admin (#94)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.courts
+                 WHERE name = 'Auth Admin Court' AND location IS NOT NULL) THEN
+    RAISE EXCEPTION 'location persa nel SET NULL auth_admin (#94)';
+  END IF;
+END $$;
+
 ROLLBACK;
