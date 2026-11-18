@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CourtPhotoThumb } from "@/components/court/court-photo-thumb";
 import { sportDisplayLabel, surfaceTypeLabel } from "@/lib/courts/search";
+import type { PreviewCourtNote } from "@/lib/court/notes";
 
 /**
  * Anteprima di un campo dalla mappa (#43).
@@ -37,6 +38,12 @@ interface CourtPreviewSheetProps {
   lobbyCount: number;
   reported: boolean;
   favorite: boolean;
+  /**
+   * Nota più recente già recuperata da chi apre il foglio, con chiave del
+   * campo. Il foglio apre solo a nota pronta (o dopo il tetto senza nota):
+   * la riga c'è al primo frame, mai un pop-in dopo l'apertura.
+   */
+  note: (PreviewCourtNote & { courtId: string }) | null;
   onClose: () => void;
   /** Focus di ritorno alla chiusura: la regione mappa. */
   finalFocus?: React.RefObject<HTMLElement | null>;
@@ -48,6 +55,7 @@ export function CourtPreviewSheet({
   lobbyCount,
   reported,
   favorite,
+  note,
   onClose,
   finalFocus,
 }: CourtPreviewSheetProps) {
@@ -66,6 +74,9 @@ export function CourtPreviewSheet({
     lobbyCount <= 0
       ? "Nessuna lobby attiva"
       : `${lobbyCount} ${lobbyCount === 1 ? "lobby attiva" : "lobby attive"}`;
+
+  // Stessa chiave di chi apre: la nota vale solo per il campo mostrato.
+  const showNote = note !== null && note.courtId === shown.id && !reported;
 
   return (
     <Drawer
@@ -110,6 +121,19 @@ export function CourtPreviewSheet({
           <p className="text-sm text-[var(--danger-dark)]">
             C&apos;è una segnalazione attiva su questo campo: controlla prima di
             andare.
+          </p>
+        )}
+
+        {/* #90: una riga sola, solo se la nota più recente è fresca. Stesso
+            slot della segnalazione: se c'è una segnalazione attiva vince lei
+            e la nota non si mostra. Non è un link: il foglio ha già "Apri
+            dettaglio". Sotto il conteggio lobby, sopra identità e CTA. */}
+        {showNote && note && (
+          <p className="text-sm">
+            <span className="font-medium text-[var(--text-primary)]">
+              {note.kind}
+            </span>{" "}
+            <span className="text-[var(--text-muted)]">· {note.age}</span>
           </p>
         )}
 

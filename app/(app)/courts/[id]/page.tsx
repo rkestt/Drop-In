@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { CheckInButton } from "@/components/check-in/check-in-button";
 import { NameProvenance } from "@/components/court/name-provenance";
+import { CourtNotes } from "@/components/court/court-notes";
 import { FavoriteButton } from "@/components/court/favorite-button";
 import { CoachMark } from "@/components/onboarding/coach-mark";
 import { CreateLobbyButton } from "@/components/lobby/create-lobby-button";
@@ -18,6 +19,10 @@ import {
 } from "@/lib/reports/active";
 import { formatAppDateTime, formatAppTime } from "@/lib/datetime";
 import { queueDateLabel } from "@/lib/moderation/queue";
+import {
+  mapCourtNote,
+  type CourtNoteItem,
+} from "@/lib/court/notes";
 import { resolveNickname } from "@/lib/profile/utils";
 import { lobbyPhase, lobbyPhaseLabel } from "@/lib/lobby/phase";
 import { LoginPrompt } from "@/components/auth/login-prompt";
@@ -365,6 +370,61 @@ export default async function CourtPage({
     }
   }
 
+  // #90: note di campo + moderatore in parallelo. Due IIFE con try/catch
+  // propri, come nomi e recensioni: un errore in una non deve mai far cadere
+  // l'altra né rompere la pagina. Solo sulle corti approved (la RLS mostra
+  // solo quelle); note con limite 20, le più nuove.
+  let courtNotes: CourtNoteItem[] = [];
+  let notesError = false;
+  let isModerator = false;
+  if (!isPending) {
+    const loadNotes = (async (): Promise<{
+      notes: CourtNoteItem[];
+      error: boolean;
+    }> => {
+      try {
+        const { data, error } = await supabase
+          .from("court_notes")
+          .select("id,kind,body,created_at")
+          .eq("court_id", id)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (error) throw error;
+        const now = new Date();
+        return {
+          notes: (data ?? [])
+            .map((row) => mapCourtNote(row, now))
+            .filter((note): note is CourtNoteItem => note !== null),
+          error: false,
+        };
+      } catch {
+        return { notes: [], error: true };
+      }
+    })();
+    // Il bottone "+ Aggiungi nota" esiste solo per chi modera: senza
+    // risposta, niente bottone.
+    const loadModerator = (async (): Promise<boolean> => {
+      if (!user) return false;
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("is_moderator")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        return data?.is_moderator === true;
+      } catch {
+        return false;
+      }
+    })();
+    const [notesResult, moderatorResult] = await Promise.all([
+      loadNotes,
+      loadModerator,
+    ]);
+    courtNotes = notesResult.notes;
+    notesError = notesResult.error;
+    isModerator = moderatorResult;
+  }
+
   const photoUrl = courtPhotoPublicUrl(court.photo_path);
   const activeReportRows: ReportRow[] = activeReports(
     (reports ?? []).map((r) => ({
@@ -413,10 +473,12 @@ export default async function CourtPage({
           proporre un nome richiede una corte approvata (RPC). Con nome vero
           il blocco non rende nulla (zero pixel). `key` sul campo: navigando
           da A a B lo stato locale (pending appena proposta, deep link
-          consumato) non deve sopravvivere al cambio campo. */}
+          consumato) non deve sopravvivere al cambio campo. Il prefisso serve
+          perché le chiavi sono sorelle nello stesso parent (come `notes-`
+          della card note): senza, React segnala chiavi duplicate. */}
       {!isPending && (
         <NameProvenance
-          key={court.id}
+          key={`name-${court.id}`}
           courtId={court.id}
           courtName={court.name}
           isAutoName={isAutoName}
@@ -555,6 +617,23 @@ export default async function CourtPage({
           showLabel
         />
       </div>
+
+      {/* #90: note di campo — dopo il blocco azioni e Condividi, prima di
+          BanBannerWrapper e Recensioni. Solo sulle approved. `key` sul campo:
+          navigando da A a B lo stato locale (fold, nota appena aggiunta) non
+          deve sopravvivere al cambio campo. Il prefisso serve perché le chiavi
+          sono sorelle nello stesso parent (come `name-` di NameProvenance):
+          senza, React segnala chiavi duplicate. */}
+      {!isPending && (
+        <CourtNotes
+          key={`notes-${court.id}`}
+          courtId={court.id}
+          courtName={court.name}
+          notes={courtNotes}
+          notesError={notesError}
+          isModerator={isModerator}
+        />
+      )}
 
       {/* Ban/Karma Warning */}
       <BanBannerWrapper userId={user?.id ?? null} />

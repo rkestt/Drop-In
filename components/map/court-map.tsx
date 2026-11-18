@@ -27,6 +27,8 @@ import {
 } from "@/lib/map/court-features";
 import { Button } from "@/components/ui/button";
 import { List } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { fetchPreviewNote, type PreviewCourtNote } from "@/lib/court/notes";
 import { CourtPreviewSheet } from "./court-preview-sheet";
 import { MapCourtList } from "./map-court-list";
 
@@ -54,6 +56,12 @@ interface CourtMapProps {
 
 const ROME_CENTER: [number, number] = [12.5113, 41.8919];
 const MAP_HINT_ID = "map-keyboard-hint";
+
+/**
+ * Tetto del prefetch nota prima di aprire il foglio: o la riga c'è al primo
+ * frame, o il foglio apre senza (mai un pop-in da ~31px dopo l'apertura).
+ */
+const PREVIEW_NOTE_TIMEOUT_MS = 400;
 
 const EMPTY_COURTS: CourtMapCourt[] = [];
 const EMPTY_IDS: string[] = [];
@@ -101,15 +109,26 @@ export function CourtMap({
   const [retryKey, setRetryKey] = useState(0);
   const [previewCourtId, setPreviewCourtId] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
+  // Nota dell'anteprima, con chiave: la risposta di un campo non deve mai
+  // finire sul foglio di un altro (due tap in rapida sequenza). Resta anche
+  // a foglio chiuso per l'animazione di uscita, che mostra l'ultimo campo.
+  const [previewNote, setPreviewNote] = useState<
+    (PreviewCourtNote & { courtId: string }) | null
+  >(null);
+  const noteRequestRef = useRef(0);
+  // `reportedIds` cambia a ogni refetch ma `selectCourt` deve restare stabile
+  // (lo tiene `attachCourtInteractions` dalla creazione della mappa): il ref
+  // legge sempre l'ultimo valore senza ricreare la mappa.
+  const favoriteIds = useMemo(() => new Set(favoriteCourtIds), [favoriteCourtIds]);
+  const reportedIds = useMemo(() => new Set(reportedCourtIds), [reportedCourtIds]);
+  const reportedRef = useRef(reportedIds);
+  reportedRef.current = reportedIds;
 
   const tileWatchRef = useRef<TileErrorWatch | null>(null);
   const paletteRef = useRef<CourtPalette | null>(null);
   const interactionsRef = useRef<{ resetHover: () => void } | null>(null);
   const listButtonRef = useRef<HTMLButtonElement>(null);
   const restoreListFocus = useRef(false);
-
-  const favoriteIds = useMemo(() => new Set(favoriteCourtIds), [favoriteCourtIds]);
-  const reportedIds = useMemo(() => new Set(reportedCourtIds), [reportedCourtIds]);
 
   const features = useMemo(
     () =>
@@ -132,8 +151,38 @@ export function CourtMap({
   );
 
   const selectCourt = useCallback((courtId: string | null) => {
-    setPreviewCourtId(courtId);
-    onCourtSelectRef.current?.(courtId);
+    // Ogni apertura/chiusura invalida le risposte in volo: la nota del campo
+    // vecchio non deve mai finire sul foglio del nuovo.
+    noteRequestRef.current += 1;
+    const requestId = noteRequestRef.current;
+    if (courtId === null) {
+      setPreviewCourtId(null);
+      onCourtSelectRef.current?.(null);
+      return;
+    }
+    // Con una segnalazione attiva vince lei (stesso slot): niente fetch, il
+    // foglio apre subito con la riga giusta al primo frame.
+    if (reportedRef.current.has(courtId)) {
+      setPreviewNote(null);
+      setPreviewCourtId(courtId);
+      onCourtSelectRef.current?.(courtId);
+      return;
+    }
+    // #90: fetch prima di aprire — il foglio si apre quando c'è la risposta
+    // o dopo il tetto senza nota; in entrambi i casi il layout non si muove
+    // dopo l'apertura (niente pop-in da ~31px mentre l'utente mira).
+    const supabase = createClient();
+    const timeout = new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), PREVIEW_NOTE_TIMEOUT_MS),
+    );
+    void Promise.race([fetchPreviewNote(supabase, courtId), timeout]).then(
+      (note) => {
+        if (noteRequestRef.current !== requestId) return;
+        setPreviewNote(note ? { ...note, courtId } : null);
+        setPreviewCourtId(courtId);
+        onCourtSelectRef.current?.(courtId);
+      },
+    );
   }, []);
 
   const ensureCourtLayers = useCallback((instance: maplibregl.Map) => {
@@ -477,6 +526,7 @@ export function CourtMap({
         lobbyCount={previewLobbyCount}
         reported={previewReported}
         favorite={previewFavorite}
+        note={previewNote?.courtId === previewCourt?.id ? previewNote : null}
         onClose={() => selectCourt(null)}
         finalFocus={mapContainer}
       />
