@@ -1,0 +1,2332 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Note di campo — prototipo ticket 90</title>
+<link rel="stylesheet" href="proto.css">
+<!--
+  Pipeline: ticket 90 — Note di campo (piano primavera, voce 1b).
+  Passo: quattro superfici, 20 stati: scheda campo, inserimento riservato
+  a chi modera, una riga nell'anteprima dalla mappa, note vecchie e
+  stesso tipo ri-notato.
+  Prossimo passo: review HITL su regola del tempo, frase di testa, forma
+  della card e confini con segnalazioni e recensioni.
+  Poi: Lane D del ticket (migrazione court_notes + client).
+  Decisione di prodotto: spring.md voce 1b (vincolante: niente verdetto).
+-->
+<style>
+  /* Solo ciò che è specifico di questa schermata. Colori, radius, motion e
+     famiglie tipografiche vengono da proto.css. */
+
+  [data-state-group] {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+
+  .icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+  }
+
+  .icon--sm {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Cornice a misura di screenshot 360x800: la schermata scorre dentro. */
+  .phone {
+    height: 800px;
+    min-height: 0;
+  }
+
+  /* `data-shot` su una sezione serve solo allo script di screenshot:
+     "notes" porta la card in frame, "end" scrolla al fondo. */
+
+  .content {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-height: 0;
+  }
+
+  .court-head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .court-addr {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+  }
+
+  .court-addr .icon {
+    color: var(--text-muted);
+  }
+
+  .row--wrap {
+    flex-wrap: wrap;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Zona identità (ticket 106): solo per mostrare la convivenza        */
+  /* ---------------------------------------------------------------- */
+
+  .identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 2px;
+  }
+
+  .identity__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: start;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .identity__action:hover {
+    color: var(--accent-hover);
+  }
+
+  .identity__action:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  .identity__chev {
+    color: var(--text-muted);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Note di campo                                                     */
+  /* ---------------------------------------------------------------- */
+
+  .notes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .notes__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .notes__title {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  /* Strumento di curatela: neutro, mai accent. Chi non modera non lo vede. */
+  .notes__add {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    margin: 0 -8px 0 0;
+    padding: 0 8px;
+    border: 0;
+    border-radius: var(--radius-control-sm);
+    background: none;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .notes__add:hover {
+    color: var(--text-primary);
+  }
+
+  .notes__add:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .notes__lead {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .notes__list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .note {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .note__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .note__kind {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .note__age {
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.35;
+    white-space: nowrap;
+  }
+
+  .note__body {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .note__meta {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  /* Un gradino sotto, mai invisibile: la data resta in chiaro. */
+  .note--old .note__kind {
+    color: var(--text-secondary);
+  }
+
+  .note--old .note__body {
+    color: var(--text-muted);
+  }
+
+  /* Confine temporale, non categoria. */
+  .notes__sep {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 2px 0 0;
+    color: var(--text-muted);
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .notes__sep::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .notes__more {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .notes__more:hover {
+    color: var(--text-primary);
+  }
+
+  .notes__more:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  .notes__empty {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Segnalazioni: vicino di casa rumoroso, per contrasto              */
+  /* ---------------------------------------------------------------- */
+
+  .reports {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .reports__title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--danger-dark);
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .reports__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+  }
+
+  .reports__expiry {
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Sezione successiva: serve solo a mostrare che non viene spinta    */
+  /* ---------------------------------------------------------------- */
+
+  .section-title {
+    margin: 0 0 8px;
+    font-family: var(--font-syne);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .reviews-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .reviews-score {
+    font-family: var(--font-syne);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-primary);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Sheet                                                             */
+  /* ---------------------------------------------------------------- */
+
+  .sheet__panel {
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sheet__head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .sheet__lead {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .handle {
+    width: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+
+  .handle:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+    border-radius: var(--radius-control);
+  }
+
+  .btn--quiet {
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
+  .btn--quiet:hover {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+  }
+
+  /* Form                                                              */
+
+  .kind-field {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+
+  .kind-field > .field__label {
+    display: block;
+    margin: 0 0 8px;
+    padding: 0;
+  }
+
+  .kind-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .kind {
+    display: block;
+    position: relative;
+  }
+
+  .kind input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .kind__box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    height: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control-sm);
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.3;
+    text-align: center;
+    cursor: pointer;
+    transition:
+      border-color var(--motion-fast) var(--ease-standard),
+      background-color var(--motion-fast) var(--ease-standard),
+      color var(--motion-fast) var(--ease-standard);
+  }
+
+  .kind__box:hover {
+    border-color: var(--text-muted);
+    color: var(--text-primary);
+  }
+
+  .kind input:checked + .kind__box {
+    border-color: var(--accent);
+    background: var(--accent-subtle);
+    color: var(--text-primary);
+  }
+
+  .kind input:focus-visible + .kind__box {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .field__label {
+    margin: 0;
+  }
+
+  .field__foot {
+    display: flex;
+    justify-content: flex-end;
+    margin: 0;
+  }
+
+  .counter {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .counter--over {
+    color: var(--danger-dark);
+    font-weight: 600;
+  }
+
+  .field__error--inline {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .field__error--inline .icon {
+    width: 16px;
+    height: 16px;
+    margin-top: 1px;
+  }
+
+  .request-banner {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .request-banner--danger {
+    border-color: var(--danger);
+    background: var(--bg-surface);
+    color: var(--danger-dark);
+  }
+
+  .request-banner__body {
+    min-width: 0;
+  }
+
+  .request-banner__title {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .request-banner__text {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .sheet__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .result {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .result__title {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .result__line {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .result__hint {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--accent-foreground);
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: note-spin 700ms linear infinite;
+  }
+
+  @keyframes note-spin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Mappa finta dell'anteprima (solo token)                           */
+  /* ---------------------------------------------------------------- */
+
+  .map--dark {
+    position: relative;
+    flex: 1;
+    min-height: 420px;
+    background:
+      linear-gradient(90deg, var(--border) 1px, transparent 1px) 0 0 / 56px 56px,
+      linear-gradient(var(--border) 1px, transparent 1px) 0 0 / 56px 56px,
+      var(--bg-base);
+  }
+
+  .map__pin {
+    position: absolute;
+    left: 50%;
+    top: 34%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-foreground);
+    cursor: pointer;
+  }
+
+  .map__pin:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  .sheet__address {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .sheet__actions--flat {
+    margin-top: 4px;
+  }
+
+  /* Riga nota nell'anteprima: una sola, nessuna icona, nessun colore. */
+  .sheet__note {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .sheet__note strong {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  /* Stessa posizione della nota, ma è la segnalazione: l'unico rosso. */
+  .sheet__report {
+    margin: 0;
+    color: var(--danger-dark);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+<header class="proto-head">
+  <h1 class="proto-head__title">Note di campo</h1>
+  <p class="proto-head__meta">ticket 90 · 21 stati · quattro superfici</p>
+</header>
+
+<div data-state-group data-initial="scheda-recente">
+
+  <div class="proto-toolbar" role="group" aria-label="Stati della scheda campo">
+    <span class="proto-toolbar__label">Scheda</span>
+    <button class="proto-switch" type="button" data-show="scheda-vuota" aria-pressed="false">Vuota</button>
+    <button class="proto-switch" type="button" data-show="scheda-admin" aria-pressed="false">Admin</button>
+    <button class="proto-switch" type="button" data-show="scheda-recente" aria-pressed="false">Recente</button>
+    <button class="proto-switch" type="button" data-show="scheda-vecchie" aria-pressed="false">Vecchie</button>
+    <button class="proto-switch" type="button" data-show="scheda-molte" aria-pressed="false">Molte</button>
+    <button class="proto-switch" type="button" data-show="scheda-molte-aperte" aria-pressed="false">Molte aperte</button>
+    <button class="proto-switch" type="button" data-show="scheda-ripetuta" aria-pressed="false">Ripetuta</button>
+    <button class="proto-switch" type="button" data-show="scheda-nome" aria-pressed="false">Con nome</button>
+    <button class="proto-switch" type="button" data-show="scheda-segnalazioni" aria-pressed="false">Segnalazioni</button>
+    <button class="proto-switch" type="button" data-show="scheda-errore" aria-pressed="false">Errore</button>
+    <button class="proto-switch" type="button" data-show="scheda-aggiunta" aria-pressed="false">Aggiunta</button>
+  </div>
+
+  <div class="proto-toolbar" role="group" aria-label="Stati del form di inserimento">
+    <span class="proto-toolbar__label">Aggiungi</span>
+    <button class="proto-switch" type="button" data-show="form-vuoto" aria-pressed="false">Vuoto</button>
+    <button class="proto-switch" type="button" data-show="form-tipo" aria-pressed="false">Tipo</button>
+    <button class="proto-switch" type="button" data-show="form-scritto" aria-pressed="false">Scritto</button>
+    <button class="proto-switch" type="button" data-show="form-lungo" aria-pressed="false">Troppo lungo</button>
+    <button class="proto-switch" type="button" data-show="form-invio" aria-pressed="false">Invio</button>
+    <button class="proto-switch" type="button" data-show="form-fatta" aria-pressed="false">Fatta</button>
+    <button class="proto-switch" type="button" data-show="form-errore" aria-pressed="false">Errore</button>
+  </div>
+
+  <div class="proto-toolbar" role="group" aria-label="Stati dell'anteprima dalla mappa">
+    <span class="proto-toolbar__label">Anteprima</span>
+    <button class="proto-switch" type="button" data-show="anteprima-nota" aria-pressed="false">Con nota</button>
+    <button class="proto-switch" type="button" data-show="anteprima-vecchia" aria-pressed="false">Nota vecchia</button>
+    <button class="proto-switch" type="button" data-show="anteprima-segnalazione" aria-pressed="false">Segnalazione</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 1 · Scheda, nessuna nota: informa senza allarmare. Nessun       -->
+  <!--     bottone: chi non modera non vede alcun affordance.          -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-vuota" hidden>
+    <div class="phone">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+            Condividi
+          </button>
+
+          <section class="notes" aria-labelledby="note-title-vuota">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-vuota">Note di campo</h2>
+            </div>
+            <p class="notes__empty">Nessuna nota di campo.</p>
+            <p class="notes__lead">Le note raccontano com'è il posto in un giorno preciso.</p>
+          </section>
+
+          <section aria-labelledby="rev-vuota">
+            <h2 class="section-title" id="rev-vuota">Recensioni</h2>
+            <p class="reviews-line"><span class="reviews-score">4,2</span> su 5 · 6 recensioni</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 2 · Scheda, moderatore: stesso blocco + lo strumento            -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-admin" hidden>
+    <div class="phone">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+            Condividi
+          </button>
+
+          <section class="notes" aria-labelledby="note-title-admin">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-admin">Note di campo</h2>
+              <button class="notes__add" type="button" data-goto="form-vuoto">
+                <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                Aggiungi nota
+              </button>
+            </div>
+            <p class="notes__empty">Nessuna nota di campo.</p>
+            <p class="notes__lead">Le note raccontano com'è il posto in un giorno preciso.</p>
+          </section>
+
+          <section aria-labelledby="rev-admin">
+            <h2 class="section-title" id="rev-admin">Recensioni</h2>
+            <p class="reviews-line"><span class="reviews-score">4,2</span> su 5 · 6 recensioni</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 3 · Scheda, una nota fresca: piena, con età e autore            -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-recente" hidden>
+    <div class="phone">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+            Condividi
+          </button>
+
+          <section class="notes" aria-labelledby="note-title-recente">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-recente">Note di campo</h2>
+            </div>
+            <ul class="notes__list">
+              <li class="note">
+                <div class="note__head">
+                  <p class="note__kind">Canestro rotto</p>
+                  <p class="note__age">2 settimane fa</p>
+                </div>
+                <p class="note__body">Il canestro di destra è senza rete.</p>
+                <p class="note__meta"><time datetime="2026-11-04">4 nov 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+          </section>
+
+          <section aria-labelledby="rev-recente">
+            <h2 class="section-title" id="rev-recente">Recensioni</h2>
+            <p class="reviews-line"><span class="reviews-score">4,2</span> su 5 · 6 recensioni</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 4 · Scheda, solo note vecchie: attenuate, mai "superate"        -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-vecchie" hidden>
+    <div class="phone">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+            Condividi
+          </button>
+
+          <section class="notes" aria-labelledby="note-title-vecchie">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-vecchie">Note di campo</h2>
+            </div>
+            <p class="notes__lead">Nessuna nota recente: l'ultima è di 4 mesi fa.</p>
+            <ul class="notes__list">
+              <li class="note note--old">
+                <div class="note__head">
+                  <p class="note__kind">Chiuso</p>
+                  <p class="note__age">4 mesi fa</p>
+                </div>
+                <p class="note__body">Il cancello è chiuso per lavori.</p>
+                <p class="note__meta"><time datetime="2026-07-18">18 lug 2026</time> &middot; di chi modera</p>
+              </li>
+              <li class="note note--old">
+                <div class="note__head">
+                  <p class="note__kind">Superficie rovinata</p>
+                  <p class="note__age">5 mesi fa</p>
+                </div>
+                <p class="note__body">Asfalto rotto vicino al canestro.</p>
+                <p class="note__meta"><time datetime="2026-06-18">18 giu 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+          </section>
+
+          <section aria-labelledby="rev-vecchie">
+            <h2 class="section-title" id="rev-vecchie">Recensioni</h2>
+            <p class="reviews-line"><span class="reviews-score">4,2</span> su 5 · 6 recensioni</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 5 · Scheda, molte note: tre righe + fold numerato               -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-molte" data-shot="end" hidden>
+    <div class="phone">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+            Condividi
+          </button>
+
+          <section class="notes" aria-labelledby="note-title-molte">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-molte">Note di campo</h2>
+            </div>
+            <ul class="notes__list">
+              <li class="note">
+                <div class="note__head">
+                  <p class="note__kind">Chiuso</p>
+                  <p class="note__age">3 giorni fa</p>
+                </div>
+                <p class="note__body">Il cancello è chiuso per lavori.</p>
+                <p class="note__meta"><time datetime="2026-11-15">15 nov 2026</time> &middot; di chi modera</p>
+              </li>
+              <li class="note">
+                <div class="note__head">
+                  <p class="note__kind">Canestro rotto</p>
+                  <p class="note__age">2 settimane fa</p>
+                </div>
+                <p class="note__body">Il canestro di destra è senza rete.</p>
+                <p class="note__meta"><time datetime="2026-11-04">4 nov 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+            <p class="notes__sep">Precedenti</p>
+            <ul class="notes__list">
+              <li class="note note--old">
+                <div class="note__head">
+                  <p class="note__kind">Illuminazione assente</p>
+                  <p class="note__age">4 mesi fa</p>
+                </div>
+                <p class="note__body">Le luci non si accendono dalle 21.</p>
+                <p class="note__meta"><time datetime="2026-07-18">18 lug 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+            <ul class="notes__list" id="note-extra-molte" hidden>
+              <li class="note note--old">
+                <div class="note__head">
+                  <p class="note__kind">Superficie rovinata</p>
+                  <p class="note__age">5 mesi fa</p>
+                </div>
+                <p class="note__body">Asfalto rotto vicino al canestro.</p>
+                <p class="note__meta"><time datetime="2026-06-18">18 giu 2026</time> &middot; di chi modera</p>
+              </li>
+              <li class="note note--old">
+                <div class="note__head">
+                  <p class="note__kind">Area privata</p>
+                  <p class="note__age">7 mesi fa</p>
+                </div>
+                <p class="note__body">Si entra solo dal cortile del condominio.</p>
+                <p class="note__meta"><time datetime="2026-04-18">18 apr 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+            <button class="notes__more" type="button" data-fold="note-extra-molte" aria-expanded="false" aria-controls="note-extra-molte">
+              <span data-fold-label>Mostra le altre 2 note</span>
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+          </section>
+
+          <section aria-labelledby="rev-molte">
+            <h2 class="section-title" id="rev-molte">Recensioni</h2>
+            <p class="reviews-line"><span class="reviews-score">4,2</span> su 5 · 6 recensioni</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 6 · Scheda, fold aperto: tutte le note, la più vecchia in fondo -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-molte-aperte" data-shot="notes" hidden>
+    <div class="phone">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+            Condividi
+          </button>
+
+          <section class="notes" aria-labelledby="note-title-aperte">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-aperte">Note di campo</h2>
+            </div>
+            <ul class="notes__list">
+              <li class="note">
+                <div class="note__head">
+                  <p class="note__kind">Chiuso</p>
+                  <p class="note__age">3 giorni fa</p>
+                </div>
+                <p class="note__body">Il cancello è chiuso per lavori.</p>
+                <p class="note__meta"><time datetime="2026-11-15">15 nov 2026</time> &middot; di chi modera</p>
+              </li>
+              <li class="note">
+                <div class="note__head">
+                  <p class="note__kind">Canestro rotto</p>
+                  <p class="note__age">2 settimane fa</p>
+                </div>
+                <p class="note__body">Il canestro di destra è senza rete.</p>
+                <p class="note__meta"><time datetime="2026-11-04">4 nov 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+            <p class="notes__sep">Precedenti</p>
+            <ul class="notes__list">
+              <li class="note note--old">
+                <div class="note__head">
+                  <p class="note__kind">Illuminazione assente</p>
+                  <p class="note__age">4 mesi fa</p>
+                </div>
+                <p class="note__body">Le luci non si accendono dalle 21.</p>
+                <p class="note__meta"><time datetime="2026-07-18">18 lug 2026</time> &middot; di chi modera</p>
+              </li>
+              <li class="note note--old">
+                <div class="note__head">
+                  <p class="note__kind">Superficie rovinata</p>
+                  <p class="note__age">5 mesi fa</p>
+                </div>
+                <p class="note__body">Asfalto rotto vicino al canestro.</p>
+                <p class="note__meta"><time datetime="2026-06-18">18 giu 2026</time> &middot; di chi modera</p>
+              </li>
+              <li class="note note--old">
+                <div class="note__head">
+                  <p class="note__kind">Area privata</p>
+                  <p class="note__age">7 mesi fa</p>
+                </div>
+                <p class="note__body">Si entra solo dal cortile del condominio.</p>
+                <p class="note__meta"><time datetime="2026-04-18">18 apr 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+            <button class="notes__more" type="button" aria-expanded="true" data-goto="scheda-molte">
+              <span>Mostra meno</span>
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m18 15-6-6-6 6"/></svg>
+            </button>
+          </section>
+
+          <section aria-labelledby="rev-aperte">
+            <h2 class="section-title" id="rev-aperte">Recensioni</h2>
+            <p class="reviews-line"><span class="reviews-score">4,2</span> su 5 · 6 recensioni</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 7 · Scheda, stesso tipo ri-notato: due fatti, due date          -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-ripetuta" hidden>
+    <div class="phone">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+            Condividi
+          </button>
+
+          <section class="notes" aria-labelledby="note-title-ripetuta">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-ripetuta">Note di campo</h2>
+            </div>
+            <ul class="notes__list">
+              <li class="note">
+                <div class="note__head">
+                  <p class="note__kind">Canestro rotto</p>
+                  <p class="note__age">2 settimane fa</p>
+                </div>
+                <p class="note__body">Il canestro di destra è di nuovo senza rete.</p>
+                <p class="note__meta"><time datetime="2026-11-04">4 nov 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+            <p class="notes__sep">Precedenti</p>
+            <ul class="notes__list">
+              <li class="note note--old">
+                <div class="note__head">
+                  <p class="note__kind">Canestro rotto</p>
+                  <p class="note__age">3 mesi fa</p>
+                </div>
+                <p class="note__body">Il canestro di destra è senza rete.</p>
+                <p class="note__meta"><time datetime="2026-08-18">18 ago 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+          </section>
+
+          <section aria-labelledby="rev-ripetuta">
+            <h2 class="section-title" id="rev-ripetuta">Recensioni</h2>
+            <p class="reviews-line"><span class="reviews-score">4,2</span> su 5 · 6 recensioni</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 8 · Scheda con nome automatico: le due zone non si confondono   -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-nome" hidden>
+    <div class="phone">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <button class="identity__action" type="button">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Proponi il nome vero
+              <svg class="icon icon--sm identity__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+            Condividi
+          </button>
+
+          <section class="notes" aria-labelledby="note-title-nome">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-nome">Note di campo</h2>
+            </div>
+            <ul class="notes__list">
+              <li class="note">
+                <div class="note__head">
+                  <p class="note__kind">Canestro rotto</p>
+                  <p class="note__age">2 settimane fa</p>
+                </div>
+                <p class="note__body">Il canestro di destra è senza rete.</p>
+                <p class="note__meta"><time datetime="2026-11-04">4 nov 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+          </section>
+
+          <section aria-labelledby="rev-nome">
+            <h2 class="section-title" id="rev-nome">Recensioni</h2>
+            <p class="reviews-line"><span class="reviews-score">4,2</span> su 5 · 6 recensioni</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 9 · Scheda con segnalazione attiva: due formati, due vite       -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-segnalazioni" hidden>
+    <div class="phone">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+
+          <div class="banner banner--danger reports">
+            <div>
+              <h2 class="reports__title">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                Segnalazioni attive
+              </h2>
+              <p class="reports__row">
+                Canestro rotto
+                <span class="reports__expiry">Scade il 20 nov 2026</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+            Condividi
+          </button>
+
+          <section class="notes" aria-labelledby="note-title-segnalazioni">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-segnalazioni">Note di campo</h2>
+            </div>
+            <ul class="notes__list">
+              <li class="note">
+                <div class="note__head">
+                  <p class="note__kind">Canestro rotto</p>
+                  <p class="note__age">2 settimane fa</p>
+                </div>
+                <p class="note__body">Il canestro di destra è senza rete.</p>
+                <p class="note__meta"><time datetime="2026-11-04">4 nov 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+          </section>
+
+          <section aria-labelledby="rev-segnalazioni">
+            <h2 class="section-title" id="rev-segnalazioni">Recensioni</h2>
+            <p class="reviews-line"><span class="reviews-score">4,2</span> su 5 · 6 recensioni</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 10 · Scheda, caricamento note fallito: neutro, pagina intatta   -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-errore" hidden>
+    <div class="phone">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+            Condividi
+          </button>
+
+          <section class="notes" aria-labelledby="note-title-errore">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-errore">Note di campo</h2>
+            </div>
+            <p class="notes__lead">Non riusciamo a mostrare le note di campo.</p>
+          </section>
+
+          <section aria-labelledby="rev-errore">
+            <h2 class="section-title" id="rev-errore">Recensioni</h2>
+            <p class="reviews-line"><span class="reviews-score">4,2</span> su 5 · 6 recensioni</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 11 · Scheda subito dopo l'aggiunta: la nota nuova in cima,      -->
+  <!--      nessun pop, nessun toast                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-aggiunta" hidden>
+    <div class="phone">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg>
+            Condividi
+          </button>
+
+          <section class="notes" aria-labelledby="note-title-aggiunta">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-aggiunta">Note di campo</h2>
+              <button class="notes__add" type="button" data-goto="form-vuoto">
+                <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                Aggiungi nota
+              </button>
+            </div>
+            <ul class="notes__list">
+              <li class="note">
+                <div class="note__head">
+                  <p class="note__kind">Canestro rotto</p>
+                  <p class="note__age">adesso</p>
+                </div>
+                <p class="note__body">Il canestro di destra è senza rete.</p>
+                <p class="note__meta"><time datetime="2026-11-18">18 nov 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+          </section>
+
+          <section aria-labelledby="rev-aggiunta">
+            <h2 class="section-title" id="rev-aggiunta">Recensioni</h2>
+            <p class="reviews-line"><span class="reviews-score">4,2</span> su 5 · 6 recensioni</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 12 · Aggiungi nota, vuoto: CTA disabilitata, nessun errore      -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-vuoto" hidden>
+    <div class="phone">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <section class="notes" aria-labelledby="note-title-f1">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-f1">Note di campo</h2>
+              <button class="notes__add" type="button">
+                <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                Aggiungi nota
+              </button>
+            </div>
+            <p class="notes__empty">Nessuna nota di campo.</p>
+            <p class="notes__lead">Le note raccontano com'è il posto in un giorno preciso.</p>
+          </section>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="add-title-1" data-sheet-back="scheda-admin">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-sheet-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="add-title-1">Aggiungi una nota</h2>
+            <p class="sheet__lead">Dice com'è il campo oggi. La vedono tutti: scrivi un fatto, non un giudizio.</p>
+          </div>
+          <form class="stack" novalidate data-note-form>
+            <fieldset class="kind-field">
+              <legend class="field__label">Tipo</legend>
+              <div class="kind-grid">
+                <label class="kind"><input type="radio" name="kind-f1" value="broken_hoop"><span class="kind__box">Canestro rotto</span></label>
+                <label class="kind"><input type="radio" name="kind-f1" value="closed"><span class="kind__box">Chiuso</span></label>
+                <label class="kind"><input type="radio" name="kind-f1" value="private_area"><span class="kind__box">Area privata</span></label>
+                <label class="kind"><input type="radio" name="kind-f1" value="no_lighting"><span class="kind__box">Illuminazione assente</span></label>
+                <label class="kind"><input type="radio" name="kind-f1" value="surface"><span class="kind__box">Superficie rovinata</span></label>
+                <label class="kind"><input type="radio" name="kind-f1" value="other"><span class="kind__box">Altro</span></label>
+              </div>
+            </fieldset>
+            <div class="field">
+              <label class="field__label" for="note-body-f1">Testo</label>
+              <textarea class="textarea" id="note-body-f1" placeholder="Aggiungi un dettaglio, se serve." data-note-body></textarea>
+              <p class="field__foot"><span class="counter" data-note-counter>0/200</span></p>
+              <p class="field__hint" id="note-hint-f1" data-note-hint>Facoltativo: una riga basta. La data la mette l'app.</p>
+              <p class="field__error" id="note-error-f1" role="alert" hidden data-note-error></p>
+            </div>
+            <div class="sheet__actions">
+              <button class="btn btn--primary btn--block" type="submit" disabled data-note-submit>Aggiungi nota</button>
+              <button class="btn btn--quiet btn--block" type="button" data-sheet-close>Annulla</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 13 · Aggiungi nota, tipo scelto: CTA attiva, esempio del tipo   -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-tipo" hidden>
+    <div class="phone">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <section class="notes" aria-labelledby="note-title-f2">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-f2">Note di campo</h2>
+              <button class="notes__add" type="button">
+                <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                Aggiungi nota
+              </button>
+            </div>
+            <p class="notes__empty">Nessuna nota di campo.</p>
+            <p class="notes__lead">Le note raccontano com'è il posto in un giorno preciso.</p>
+          </section>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="add-title-2" data-sheet-back="scheda-admin">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-sheet-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="add-title-2">Aggiungi una nota</h2>
+            <p class="sheet__lead">Dice com'è il campo oggi. La vedono tutti: scrivi un fatto, non un giudizio.</p>
+          </div>
+          <form class="stack" novalidate data-note-form>
+            <fieldset class="kind-field">
+              <legend class="field__label">Tipo</legend>
+              <div class="kind-grid">
+                <label class="kind"><input type="radio" name="kind-f2" value="broken_hoop"><span class="kind__box">Canestro rotto</span></label>
+                <label class="kind"><input type="radio" name="kind-f2" value="closed" checked><span class="kind__box">Chiuso</span></label>
+                <label class="kind"><input type="radio" name="kind-f2" value="private_area"><span class="kind__box">Area privata</span></label>
+                <label class="kind"><input type="radio" name="kind-f2" value="no_lighting"><span class="kind__box">Illuminazione assente</span></label>
+                <label class="kind"><input type="radio" name="kind-f2" value="surface"><span class="kind__box">Superficie rovinata</span></label>
+                <label class="kind"><input type="radio" name="kind-f2" value="other"><span class="kind__box">Altro</span></label>
+              </div>
+            </fieldset>
+            <div class="field">
+              <label class="field__label" for="note-body-f2">Testo</label>
+              <textarea class="textarea" id="note-body-f2" placeholder="Es. «Il cancello è chiuso per lavori.»" data-note-body></textarea>
+              <p class="field__foot"><span class="counter" data-note-counter>0/200</span></p>
+              <p class="field__hint" id="note-hint-f2" data-note-hint>Facoltativo: una riga basta. La data la mette l'app.</p>
+              <p class="field__error" id="note-error-f2" role="alert" hidden data-note-error></p>
+            </div>
+            <div class="sheet__actions">
+              <button class="btn btn--primary btn--block" type="submit" data-note-submit>Aggiungi nota</button>
+              <button class="btn btn--quiet btn--block" type="button" data-sheet-close>Annulla</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 14 · Aggiungi nota, scritto                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-scritto" hidden>
+    <div class="phone">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <section class="notes" aria-labelledby="note-title-f3">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-f3">Note di campo</h2>
+              <button class="notes__add" type="button">
+                <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                Aggiungi nota
+              </button>
+            </div>
+            <p class="notes__empty">Nessuna nota di campo.</p>
+            <p class="notes__lead">Le note raccontano com'è il posto in un giorno preciso.</p>
+          </section>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="add-title-3" data-sheet-back="scheda-admin">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-sheet-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="add-title-3">Aggiungi una nota</h2>
+            <p class="sheet__lead">Dice com'è il campo oggi. La vedono tutti: scrivi un fatto, non un giudizio.</p>
+          </div>
+          <form class="stack" novalidate data-note-form>
+            <fieldset class="kind-field">
+              <legend class="field__label">Tipo</legend>
+              <div class="kind-grid">
+                <label class="kind"><input type="radio" name="kind-f3" value="broken_hoop" checked><span class="kind__box">Canestro rotto</span></label>
+                <label class="kind"><input type="radio" name="kind-f3" value="closed"><span class="kind__box">Chiuso</span></label>
+                <label class="kind"><input type="radio" name="kind-f3" value="private_area"><span class="kind__box">Area privata</span></label>
+                <label class="kind"><input type="radio" name="kind-f3" value="no_lighting"><span class="kind__box">Illuminazione assente</span></label>
+                <label class="kind"><input type="radio" name="kind-f3" value="surface"><span class="kind__box">Superficie rovinata</span></label>
+                <label class="kind"><input type="radio" name="kind-f3" value="other"><span class="kind__box">Altro</span></label>
+              </div>
+            </fieldset>
+            <div class="field">
+              <label class="field__label" for="note-body-f3">Testo</label>
+              <textarea class="textarea" id="note-body-f3" placeholder="Es. «Il canestro di destra è senza rete.»" data-note-body>Il canestro di destra è senza rete, quello di sinistra è piegato.</textarea>
+              <p class="field__foot"><span class="counter" data-note-counter>0/200</span></p>
+              <p class="field__hint" id="note-hint-f3" data-note-hint>Facoltativo: una riga basta. La data la mette l'app.</p>
+              <p class="field__error" id="note-error-f3" role="alert" hidden data-note-error></p>
+            </div>
+            <div class="sheet__actions">
+              <button class="btn btn--primary btn--block" type="submit" data-note-submit>Aggiungi nota</button>
+              <button class="btn btn--quiet btn--block" type="button" data-sheet-close>Annulla</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 15 · Aggiungi nota, oltre 200 caratteri                         -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-lungo" hidden>
+    <div class="phone">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <section class="notes" aria-labelledby="note-title-f4">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-f4">Note di campo</h2>
+              <button class="notes__add" type="button">
+                <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                Aggiungi nota
+              </button>
+            </div>
+            <p class="notes__empty">Nessuna nota di campo.</p>
+            <p class="notes__lead">Le note raccontano com'è il posto in un giorno preciso.</p>
+          </section>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="add-title-4" data-sheet-back="scheda-admin">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-sheet-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="add-title-4">Aggiungi una nota</h2>
+            <p class="sheet__lead">Dice com'è il campo oggi. La vedono tutti: scrivi un fatto, non un giudizio.</p>
+          </div>
+          <form class="stack" novalidate data-note-form>
+            <fieldset class="kind-field">
+              <legend class="field__label">Tipo</legend>
+              <div class="kind-grid">
+                <label class="kind"><input type="radio" name="kind-f4" value="broken_hoop"><span class="kind__box">Canestro rotto</span></label>
+                <label class="kind"><input type="radio" name="kind-f4" value="closed"><span class="kind__box">Chiuso</span></label>
+                <label class="kind"><input type="radio" name="kind-f4" value="private_area"><span class="kind__box">Area privata</span></label>
+                <label class="kind"><input type="radio" name="kind-f4" value="no_lighting" checked><span class="kind__box">Illuminazione assente</span></label>
+                <label class="kind"><input type="radio" name="kind-f4" value="surface"><span class="kind__box">Superficie rovinata</span></label>
+                <label class="kind"><input type="radio" name="kind-f4" value="other"><span class="kind__box">Altro</span></label>
+              </div>
+            </fieldset>
+            <div class="field">
+              <label class="field__label" for="note-body-f4">Testo</label>
+              <textarea class="textarea input--error" id="note-body-f4" aria-invalid="true" placeholder="Es. «Le luci non si accendono dalle 21.»" data-note-body>Le luci sul lato nord non si accendono più dalle 21 circa, e dopo il tramonto il campo resta al buio tranne la luce del cancello. Ho provato a cercare un interruttore vicino alla recinzione ma non ne ho trovati, e il custode dice che la manutenzione è ferma da mesi.</textarea>
+              <p class="field__foot"><span class="counter counter--over" data-note-counter>0/200</span></p>
+              <p class="field__hint" id="note-hint-f4" data-note-hint>Facoltativo: una riga basta. La data la mette l'app.</p>
+              <p class="field__error" id="note-error-f4" role="alert" data-note-error>La nota può avere al massimo 200 caratteri.</p>
+            </div>
+            <div class="sheet__actions">
+              <button class="btn btn--primary btn--block" type="submit" data-note-submit>Riprova</button>
+              <button class="btn btn--quiet btn--block" type="button" data-sheet-close>Annulla</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 16 · Aggiungi nota, invio                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-invio" hidden>
+    <div class="phone">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <section class="notes" aria-labelledby="note-title-f5">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-f5">Note di campo</h2>
+              <button class="notes__add" type="button">
+                <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                Aggiungi nota
+              </button>
+            </div>
+            <p class="notes__empty">Nessuna nota di campo.</p>
+            <p class="notes__lead">Le note raccontano com'è il posto in un giorno preciso.</p>
+          </section>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="add-title-5" data-sheet-back="scheda-admin">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere"></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="add-title-5">Aggiungi una nota</h2>
+            <p class="sheet__lead">Dice com'è il campo oggi. La vedono tutti: scrivi un fatto, non un giudizio.</p>
+          </div>
+          <form class="stack" novalidate aria-busy="true" data-note-form>
+            <fieldset class="kind-field" disabled>
+              <legend class="field__label">Tipo</legend>
+              <div class="kind-grid">
+                <label class="kind"><input type="radio" name="kind-f5" value="broken_hoop"><span class="kind__box">Canestro rotto</span></label>
+                <label class="kind"><input type="radio" name="kind-f5" value="closed" checked><span class="kind__box">Chiuso</span></label>
+                <label class="kind"><input type="radio" name="kind-f5" value="private_area"><span class="kind__box">Area privata</span></label>
+                <label class="kind"><input type="radio" name="kind-f5" value="no_lighting"><span class="kind__box">Illuminazione assente</span></label>
+                <label class="kind"><input type="radio" name="kind-f5" value="surface"><span class="kind__box">Superficie rovinata</span></label>
+                <label class="kind"><input type="radio" name="kind-f5" value="other"><span class="kind__box">Altro</span></label>
+              </div>
+            </fieldset>
+            <div class="field">
+              <label class="field__label" for="note-body-f5">Testo</label>
+              <textarea class="textarea" id="note-body-f5" readonly data-note-body>Il cancello è chiuso per lavori.</textarea>
+              <p class="field__foot"><span class="counter" data-note-counter>0/200</span></p>
+              <p class="field__hint" id="note-hint-f5" data-note-hint>Facoltativo: una riga basta. La data la mette l'app.</p>
+              <p class="field__error" id="note-error-f5" role="alert" hidden data-note-error></p>
+            </div>
+            <div class="sheet__actions">
+              <button class="btn btn--primary btn--block" type="submit" disabled>
+                <span class="spinner" aria-hidden="true"></span>
+                Aggiungo…
+              </button>
+              <button class="btn btn--quiet btn--block" type="button" disabled>Annulla</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 17 · Aggiungi nota, esito: la nota è già in cima alla card      -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-fatta" hidden>
+    <div class="phone">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <section class="notes" aria-labelledby="note-title-f6">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-f6">Note di campo</h2>
+              <button class="notes__add" type="button">
+                <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                Aggiungi nota
+              </button>
+            </div>
+            <ul class="notes__list">
+              <li class="note">
+                <div class="note__head">
+                  <p class="note__kind">Canestro rotto</p>
+                  <p class="note__age">adesso</p>
+                </div>
+                <p class="note__body">Il canestro di destra è senza rete.</p>
+                <p class="note__meta"><time datetime="2026-11-18">18 nov 2026</time> &middot; di chi modera</p>
+              </li>
+            </ul>
+          </section>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="added-title" data-sheet-back="scheda-aggiunta">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-sheet-close></button>
+          <div class="result" role="status" aria-live="polite">
+            <p class="result__title" id="added-title">Nota aggiunta.</p>
+            <p class="result__line">Canestro rotto &middot; adesso</p>
+            <p class="result__hint">È già nella scheda del campo.</p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-sheet-close>Chiudi</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 18 · Aggiungi nota, errore di rete: valori conservati            -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-errore" hidden>
+    <div class="phone">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Segnala</button>
+          </div>
+          <section class="notes" aria-labelledby="note-title-f7">
+            <div class="notes__head">
+              <h2 class="notes__title" id="note-title-f7">Note di campo</h2>
+              <button class="notes__add" type="button">
+                <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                Aggiungi nota
+              </button>
+            </div>
+            <p class="notes__empty">Nessuna nota di campo.</p>
+            <p class="notes__lead">Le note raccontano com'è il posto in un giorno preciso.</p>
+          </section>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="add-title-7" data-sheet-back="scheda-admin">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-sheet-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="add-title-7">Aggiungi una nota</h2>
+            <p class="sheet__lead">Dice com'è il campo oggi. La vedono tutti: scrivi un fatto, non un giudizio.</p>
+          </div>
+          <form class="stack" novalidate data-note-form>
+            <div class="request-banner request-banner--danger" role="alert">
+              <div class="request-banner__body">
+                <p class="request-banner__title">Non siamo riusciti ad aggiungere la nota.</p>
+                <p class="request-banner__text">Il testo è ancora qui.</p>
+              </div>
+            </div>
+            <fieldset class="kind-field">
+              <legend class="field__label">Tipo</legend>
+              <div class="kind-grid">
+                <label class="kind"><input type="radio" name="kind-f7" value="broken_hoop"><span class="kind__box">Canestro rotto</span></label>
+                <label class="kind"><input type="radio" name="kind-f7" value="closed"><span class="kind__box">Chiuso</span></label>
+                <label class="kind"><input type="radio" name="kind-f7" value="private_area"><span class="kind__box">Area privata</span></label>
+                <label class="kind"><input type="radio" name="kind-f7" value="no_lighting"><span class="kind__box">Illuminazione assente</span></label>
+                <label class="kind"><input type="radio" name="kind-f7" value="surface" checked><span class="kind__box">Superficie rovinata</span></label>
+                <label class="kind"><input type="radio" name="kind-f7" value="other"><span class="kind__box">Altro</span></label>
+              </div>
+            </fieldset>
+            <div class="field">
+              <label class="field__label" for="note-body-f7">Testo</label>
+              <textarea class="textarea" id="note-body-f7" placeholder="Es. «Asfalto rotto vicino al canestro.»" data-note-body>Asfalto rotto vicino al canestro, si rischia di prendere una storta.</textarea>
+              <p class="field__foot"><span class="counter" data-note-counter>0/200</span></p>
+              <p class="field__hint" id="note-hint-f7" data-note-hint>Facoltativo: una riga basta. La data la mette l'app.</p>
+              <p class="field__error" id="note-error-f7" role="alert" hidden data-note-error></p>
+            </div>
+            <div class="sheet__actions">
+              <button class="btn btn--primary btn--block" type="submit" data-note-submit>Riprova</button>
+              <button class="btn btn--quiet btn--block" type="button" data-sheet-close>Annulla</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 19 · Anteprima in mappa con una nota fresca: una riga sola      -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="anteprima-nota" hidden>
+    <div class="phone">
+      <div class="screen" inert>
+        <div class="map--dark" aria-hidden="true">
+          <button class="map__pin" type="button" aria-label="Campetto dell'Arte">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ant-title-1">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere"></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="ant-title-1">Campetto dell'Arte</h2>
+            <p class="sheet__address">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge badge--accent">Basket</span>
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <p class="body">2 lobby attive</p>
+          <p class="sheet__note"><strong>Canestro rotto</strong> &middot; 2 settimane fa</p>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button">Apri dettaglio</button>
+            <button class="btn btn--secondary btn--block" type="button">Chiudi</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 20 · Anteprima con solo nota vecchia: nessuna riga              -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="anteprima-vecchia" hidden>
+    <div class="phone">
+      <div class="screen" inert>
+        <div class="map--dark" aria-hidden="true">
+          <button class="map__pin" type="button" aria-label="Campetto dell'Arte">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ant-title-2">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere"></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="ant-title-2">Campetto dell'Arte</h2>
+            <p class="sheet__address">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge badge--accent">Basket</span>
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <p class="body">Nessuna lobby attiva</p>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button">Apri dettaglio</button>
+            <button class="btn btn--secondary btn--block" type="button">Chiudi</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 21 · Anteprima con segnalazione: lo slot è suo, la nota tace    -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="anteprima-segnalazione" hidden>
+    <div class="phone">
+      <div class="screen" inert>
+        <div class="map--dark" aria-hidden="true">
+          <button class="map__pin" type="button" aria-label="Campetto dell'Arte">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ant-title-3">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere"></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="ant-title-3">Campetto dell'Arte</h2>
+            <p class="sheet__address">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge badge--accent">Basket</span>
+            <span class="badge">Asfalto</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <p class="body">2 lobby attive</p>
+          <p class="sheet__report">C'è una segnalazione attiva su questo campo: controlla prima di andare.</p>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button">Apri dettaglio</button>
+            <button class="btn btn--secondary btn--block" type="button">Chiudi</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<p class="note">
+  La foto della scheda è omessa: sposterebbe le note sotto il bordo degli 800px.
+  Guarda «Nessuna nota recente: l'ultima è di 4 mesi fa», il confine
+  «Precedenti» e il fold. La card delle note non usa accent, icone di tipo o
+  colori di stato: le segnalazioni restano l'unico blocco rosso. Chi non modera
+  non vede «Aggiungi nota» (stato «Vuota»). Il foglio si chiude con backdrop,
+  Esc, l'handle o «Annulla»; i form sono interattivi (tipo → CTA, contatore,
+  fold).
+</p>
+
+<script src="proto.js"></script>
+<script>
+  (function () {
+    "use strict";
+
+    function all(selector, root) {
+      return Array.prototype.slice.call((root || document).querySelectorAll(selector));
+    }
+
+    function go(id) {
+      var button = document.querySelector('[data-show="' + id + '"]');
+      if (button) button.click();
+    }
+
+    // Scorciatoie di lettura: il prototipo racconta un percorso, non è l'app.
+    all("[data-goto]").forEach(function (element) {
+      element.addEventListener("click", function (event) {
+        event.preventDefault();
+        go(element.getAttribute("data-goto"));
+      });
+    });
+
+    // ---------------------------------------------------------------- //
+    // Form: esempio per tipo, CTA, contatore ed errori                   //
+    // ---------------------------------------------------------------- //
+
+    var EXAMPLES = {
+      broken_hoop: "Es. «Il canestro di destra è senza rete.»",
+      closed: "Es. «Il cancello è chiuso per lavori.»",
+      private_area: "Es. «Si entra solo dal cortile del condominio.»",
+      no_lighting: "Es. «Le luci non si accendono dalle 21.»",
+      surface: "Es. «Asfalto rotto vicino al canestro.»",
+      other: "Es. «Il campo è diventato un parcheggio.»",
+    };
+    var DEFAULT_PLACEHOLDER = "Aggiungi un dettaglio, se serve.";
+    var DEFAULT_HINT = "Facoltativo: una riga basta. La data la mette l'app.";
+    var OTHER_HINT = "Con «Altro» il testo serve: altrimenti la nota non dice niente.";
+    var MAX = 200;
+
+    all("[data-note-form]").forEach(function (form) {
+      var body = form.querySelector("[data-note-body]");
+      var counter = form.querySelector("[data-note-counter]");
+      var hint = form.querySelector("[data-note-hint]");
+      var error = form.querySelector("[data-note-error]");
+      var submit = form.querySelector("[data-note-submit]");
+      var radios = all('input[type="radio"]', form);
+
+      function selectedKind() {
+        var checked = radios.filter(function (radio) {
+          return radio.checked;
+        })[0];
+        return checked ? checked.value : null;
+      }
+
+      function syncCounter(live) {
+        if (!body || !counter) return;
+        var length = body.value.length;
+        counter.textContent = length + "/" + MAX;
+        var over = length > MAX;
+        counter.classList.toggle("counter--over", over);
+        if (body.classList.contains("input--error") !== over) {
+          body.classList.toggle("input--error", over);
+          body.setAttribute("aria-invalid", over ? "true" : "false");
+        }
+        if (error && live) {
+          var tooLong = over;
+          var needsText = selectedKind() === "other" && body.value.trim() === "";
+          if (tooLong) {
+            error.textContent = "La nota può avere al massimo " + MAX + " caratteri.";
+            error.hidden = false;
+          } else if (needsText) {
+            error.textContent = "Scrivi cosa hai visto.";
+            error.hidden = false;
+          } else {
+            error.hidden = true;
+          }
+        }
+      }
+
+      function syncKind() {
+        var kind = selectedKind();
+        if (body) body.placeholder = kind && EXAMPLES[kind] ? EXAMPLES[kind] : DEFAULT_PLACEHOLDER;
+        if (hint) hint.textContent = kind === "other" ? OTHER_HINT : DEFAULT_HINT;
+        // Durante l'invio il form è aria-busy: la CTA resta ferma e disabilitata.
+        if (submit) {
+          var busy = form.getAttribute("aria-busy") === "true";
+          submit.disabled = kind === null || busy;
+        }
+      }
+
+      radios.forEach(function (radio) {
+        radio.addEventListener("change", function () {
+          syncKind();
+          syncCounter(true);
+        });
+      });
+
+      if (body) {
+        body.addEventListener("input", function () {
+          syncCounter(true);
+        });
+      }
+
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        if (!selectedKind()) return;
+        var length = body ? body.value.length : 0;
+        if (length > MAX) {
+          syncCounter(true);
+          if (body) body.focus();
+          return;
+        }
+        if (selectedKind() === "other" && body && body.value.trim() === "") {
+          syncCounter(true);
+          body.focus();
+          return;
+        }
+        go("form-fatta");
+      });
+
+      syncKind();
+      syncCounter(false);
+    });
+
+    // ---------------------------------------------------------------- //
+    // Fold delle note vecchie                                           //
+    // ---------------------------------------------------------------- //
+
+    all("[data-fold]").forEach(function (button) {
+      var target = document.getElementById(button.getAttribute("data-fold"));
+      var label = button.querySelector("[data-fold-label]");
+      var total = target ? all(".note", target).length : 0;
+      button.addEventListener("click", function () {
+        var open = button.getAttribute("aria-expanded") === "true";
+        button.setAttribute("aria-expanded", String(!open));
+        if (target) target.hidden = open;
+        if (label) {
+          label.textContent = open
+            ? (total === 1 ? "Mostra l'altra nota" : "Mostra le altre " + total + " note")
+            : "Mostra meno";
+        }
+      });
+    });
+
+    // ---------------------------------------------------------------- //
+    // Foglio: backdrop e Esc chiudono (il prototipo non è l'app)        //
+    // ---------------------------------------------------------------- //
+
+    all(".sheet").forEach(function (sheet) {
+      sheet.addEventListener("click", function (event) {
+        if (event.target !== sheet) return;
+        var back = sheet.getAttribute("data-sheet-back");
+        if (back) go(back);
+      });
+    });
+
+    all("[data-sheet-close]").forEach(function (element) {
+      element.addEventListener("click", function () {
+        var sheet = element.closest(".sheet");
+        var back = sheet ? sheet.getAttribute("data-sheet-back") : null;
+        if (back) go(back);
+      });
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape") return;
+      var openSheet = document.querySelector('[data-state]:not([hidden]) .sheet');
+      if (!openSheet) return;
+      var back = openSheet.getAttribute("data-sheet-back");
+      if (back) go(back);
+    });
+  })();
+</script>
+
+</body>
+</html>
