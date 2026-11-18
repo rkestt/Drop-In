@@ -1,4 +1,4 @@
-export type Sport = "basketball" | "soccer" | "tennis" | "padel" | "futsal" | "volleyball" | "multi";
+export type Sport = "basketball" | "soccer" | "tennis" | "padel" | "futsal" | "volleyball" | "beach_volleyball" | "multi";
 export type SportFilter = Sport | null; // null = "Tutti"
 
 export const SPORTS: { value: Sport; label: string }[] = [
@@ -8,6 +8,7 @@ export const SPORTS: { value: Sport; label: string }[] = [
   { value: "padel", label: "Padel" },
   { value: "futsal", label: "Calcio a 5" },
   { value: "volleyball", label: "Pallavolo" },
+  { value: "beach_volleyball", label: "Beach volley" },
   { value: "multi", label: "Polivalente" },
 ];
 

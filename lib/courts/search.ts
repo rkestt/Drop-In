@@ -169,6 +169,7 @@ const SPORT_LABELS: Record<string, string> = {
   padel: "Padel",
   futsal: "Calcio a 5",
   volleyball: "Pallavolo",
+  beach_volleyball: "Beach volley",
   multi: "Polivalente",
 };
 

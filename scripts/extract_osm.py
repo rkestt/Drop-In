@@ -17,7 +17,46 @@ from urllib.parse import urlencode
 DEFAULT_OVERPASS = "https://overpass-api.de/api/interpreter"
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
 UA = "Drop-In/1.0 (+https://github.com/rkestt/Drop-In)"
-DEFAULT_NAME = "Spazio aperto"
+DEFAULT_NAME = "Campo"
+
+# Nome generico = etichetta del venue_type (decisione #106: niente sport nel
+# nome, niente quartiere — i dati non lo permettono). Stesso mapping di
+# `venueTypeLabel` in lib/courts/search.ts; fallback "Campo" per i tipi
+# ignoti (incluso `open_space`, che in app resta "Spazio aperto" solo come
+# etichetta di lettura). DEFAULT_NAME sopra e' il fallback, tenuto per compat.
+GENERIC_NAME_BY_VENUE = {
+    "park": "Parco",
+    "playground": "Parco giochi",
+    "recreation_ground": "Area ricreativa",
+    "green_space": "Spazio verde",
+}
+
+
+def generic_name_for_venue(venue_type):
+    """Nome generico derivato dal venue_type (`field_*` -> "Campo").
+
+    Funzione unica e testabile: sia il parse che l'upsert SQL usano questi
+    valori, mai CASE sparsi.
+    """
+    if venue_type and venue_type.startswith("field_"):
+        return "Campo"
+    if venue_type:
+        return GENERIC_NAME_BY_VENUE.get(venue_type, DEFAULT_NAME)
+    return DEFAULT_NAME
+
+# OSM usa tag senza underscore (`beachvolleyball`); l'app usa lo slug
+# canonico con underscore. Qui la normalizzazione, così il prossimo reseed
+# produce direttamente `beach_volleyball` (venue_type resta `field_*` grezzo).
+SPORT_CANONICAL = {
+    "beachvolleyball": "beach_volleyball",
+}
+
+
+def canonical_sport(raw):
+    """Slug OSM -> slug canonico dell'app (None invariato)."""
+    if raw is None:
+        return None
+    return SPORT_CANONICAL.get(raw, raw)
 
 
 def resolve_bbox_country_city(country, city):
@@ -86,7 +125,7 @@ def parse_courts(data):
         landuse = tags.get("landuse")
         raw_sport = tags.get("sport")
         if leisure == "pitch":
-            sport = raw_sport  # None if absent; 'multi' only if OSM says so
+            sport = canonical_sport(raw_sport)  # None if absent; 'multi' only if OSM says so
             if raw_sport:
                 venue_type = f"field_{raw_sport}"
             else:
@@ -106,11 +145,13 @@ def parse_courts(data):
         else:
             venue_type = "open_space"
             sport = None
-        name = tags.get("name") or DEFAULT_NAME
+        name = tags.get("name") or generic_name_for_venue(venue_type)
+        is_auto_name = not tags.get("name")
         address = tags.get("addr:street") or tags.get("addr:full")
         venues.append({
             "osm_id": str(osm_id),
             "name": name,
+            "is_auto_name": is_auto_name,
             "address": address,
             "lat": lat,
             "lng": lng,
@@ -155,13 +196,14 @@ def sql_val(v):
 
 
 def generate_sql(venues, upsert=False):
-    cols = "osm_id, name, address, lat, lng, surface_type, venue_type, sport, source, moderation_status"
+    cols = "osm_id, name, is_auto_name, address, lat, lng, surface_type, venue_type, sport, source, moderation_status"
     header = f"INSERT INTO courts ({cols}) VALUES"
     rows = []
     for v in venues:
         vals = [
             sql_val(v["osm_id"]),
             sql_val(v["name"]),
+            "TRUE" if v["is_auto_name"] else "FALSE",
             sql_val(v["address"]),
             str(v["lat"]),
             str(v["lng"]),
@@ -178,7 +220,12 @@ def generate_sql(venues, upsert=False):
     sql = (
         f"{header}\n{body}\n"
         "ON CONFLICT (osm_id) DO UPDATE SET\n"
-        "    name = COALESCE(NULLIF(EXCLUDED.name, 'Spazio aperto'), courts.name),\n"
+        # Nome vero in import vince sempre (flag=false); generico in import
+        # non sovrascrive mai un nome vero a DB; generico-su-generico
+        # aggiorna l'etichetta (il venue_type potrebbe essere cambiato).
+        # Il flag segue sempre il nome che resta (#106).
+        "    name = CASE WHEN (NOT EXCLUDED.is_auto_name) OR courts.is_auto_name THEN EXCLUDED.name ELSE courts.name END,\n"
+        "    is_auto_name = CASE WHEN NOT EXCLUDED.is_auto_name THEN FALSE ELSE courts.is_auto_name END,\n"
         "    address = COALESCE(EXCLUDED.address, courts.address),\n"
         "    lat = EXCLUDED.lat,\n"
         "    lng = EXCLUDED.lng,\n"

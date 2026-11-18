@@ -153,6 +153,9 @@ describe("courtSportsLabel", () => {
   it("sport sconosciuto resta leggibile, non sparisce", () => {
     expect(courtSportsLabel("handball")).toBe("handball");
   });
+  it("beach volley: filtro suo, label italiana", () => {
+    expect(courtSportsLabel("beach_volleyball")).toBe("Beach volley");
+  });
   it("assente = null", () => {
     expect(courtSportsLabel(null)).toBeNull();
     expect(courtSportsLabel(" ; ")).toBeNull();

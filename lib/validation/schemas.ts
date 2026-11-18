@@ -25,6 +25,7 @@ export const SPORT_VALUES = [
   "soccer",
   "tennis",
   "volleyball",
+  "beach_volleyball",
   "padel",
   "futsal",
   "multi",

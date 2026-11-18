@@ -7,9 +7,9 @@ import {
 import { SPORTS, fromStorage, sportLabel } from "@/lib/sport/sports";
 
 describe("SPORT_CHIP_OPTIONS", () => {
-  it("8 options, last is Tutti", () => {
-    expect(SPORT_CHIP_OPTIONS).toHaveLength(8);
-    expect(SPORT_CHIP_OPTIONS[7]).toEqual({ value: null, label: "Tutti" });
+  it("9 options, last is Tutti", () => {
+    expect(SPORT_CHIP_OPTIONS).toHaveLength(9);
+    expect(SPORT_CHIP_OPTIONS[8]).toEqual({ value: null, label: "Tutti" });
   });
   it("every SPORTS value appears exactly once", () => {
     const values = SPORT_CHIP_OPTIONS.map((o) => o.value);

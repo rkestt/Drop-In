@@ -1,7 +1,7 @@
 import { SPORTS, type SportFilter } from "@/lib/sport/sports";
 
 /**
- * Le 7 discipline più "Tutti" (`null`), nello stesso ordine del
+ * Le 8 discipline più "Tutti" (`null`), nello stesso ordine del
  * `SportSelector`: "Tutti" resta l'ultima opzione, come nel select.
  */
 export const SPORT_CHIP_OPTIONS: { value: SportFilter; label: string }[] = [

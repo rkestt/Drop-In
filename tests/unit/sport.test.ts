@@ -30,6 +30,12 @@ describe("sportMatches", () => {
   it("different sport -> false", () => {
     expect(sportMatches("soccer", "basketball")).toBe(false);
   });
+  // Beach volley e' un filtro suo: non passa per "Pallavolo" ne' viceversa.
+  it("beach_volleyball is not volleyball", () => {
+    expect(sportMatches("beach_volleyball", "beach_volleyball")).toBe(true);
+    expect(sportMatches("beach_volleyball", "volleyball")).toBe(false);
+    expect(sportMatches("volleyball", "beach_volleyball")).toBe(false);
+  });
   it("null active -> always true", () => {
     expect(sportMatches("soccer", null)).toBe(true);
     expect(sportMatches(null, null)).toBe(true);
