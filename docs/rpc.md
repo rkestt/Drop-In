@@ -20,7 +20,8 @@ nearby_courts(
 RETURNS TABLE (
   id uuid, name text, lat double precision, lng double precision,
   address text, surface_type text, hoop_count integer, venue_type text,
-  sport text, status text, distance_m double precision, photo_path text
+  sport text, status text, distance_m double precision, photo_path text,
+  is_auto_name boolean              -- #106: true = nome generato, proponi il vero
 )
 ```
 
@@ -46,13 +47,13 @@ RETURNS TABLE (
   id uuid, name text, lat double precision, lng double precision,
   address text, surface_type text, hoop_count integer, status text,
   sport text, venue_type text, source text, photo_path text,
-  moderation_status text
+  moderation_status text, is_auto_name boolean  -- #106: in coda, come nearby
 )
 ```
 
 - **Semantica**: `location && ST_MakeEnvelope(...)`, **nessun ordinamento**, `LIMIT max_results`. È la mappa quando non stai cercando.
 - **Non ha `p_query`**: la ricerca per nome *non* passa da qui. Aggiungerla significherebbe due implementazioni della stessa cosa — se serve, si passa a `nearby_courts`.
-- **Ritorna in più** `source` e `moderation_status` rispetto a `nearby_courts` (13 colonne esplicite dalla 018, confermate nella 023).
+- **Ritorna in più** `source` e `moderation_status` rispetto a `nearby_courts` (14 colonne esplicite dalla 050: le 13 della 023 più `is_auto_name` in coda).
 - **Sport non specificato**: come `nearby_courts`, `sport IS NULL` è visibile con qualunque `p_sport` (#71/#72).
 - **Chiamata da**: `app/(app)/page.tsx`, fetch del browse, con guardia anti-stale e cache offline (`COURTS_CACHE_KEY`). I risultati di ricerca **non** vanno in quella cache.
 
@@ -82,7 +83,7 @@ RETURNS TABLE (
 - **Ogni funzione trigger e ogni SECURITY DEFINER in `public` pinna lo search_path** (`SET search_path = public[, extensions]`, #102: la cascata deleteUser gira con search_path ostile): lo pretende `npm run check:search-path` nel gate.
 - **Aggiungere una colonna a `RETURNS TABLE` è retro-compatibile** per i client tipizzati, ma va rigenerato `lib/supabase/database.types.ts` con `npm run types` (mai a mano).
 - **Da Studio/psql la RLS non si applica** (ruolo `postgres` con `rolbypassrls`): le RPC restituiscono anche `pending`/`rejected`. Le verifiche anonime vanno fatte via REST con la publishable key.
-- **`courts_in_viewport` non è "la versione grande" di `nearby_courts`**: bbox vs raggio, ordine assente vs KNN, 13 colonne vs 12. Se il client deve mostrare qualcosa in più, si sceglie la RPC giusta invece di allineare le colonne a caso.
+- **`courts_in_viewport` non è "la versione grande" di `nearby_courts`**: bbox vs raggio, ordine assente vs KNN, 14 colonne vs 13. Se il client deve mostrare qualcosa in più, si sceglie la RPC giusta invece di allineare le colonne a caso.
 
 ## Verifiche rapide (REST, senza browser)
 

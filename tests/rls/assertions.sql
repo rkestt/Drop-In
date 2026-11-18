@@ -670,6 +670,7 @@ END $$;
 -- Uguaglianza esatta sull'elenco dei parametri OUT/TABLE: niente location,
 -- submitted_by, osm_id, duplicate_of, created_at/updated_at, e nessuna
 -- futura colonna sensibile finita dentro per sbaglio via SELECT *.
+-- (#106 aggiunge in coda is_auto_name: aggiornamento intenzionale, non leak.)
 DO $$ DECLARE v TEXT[]; BEGIN
   SELECT COALESCE(array_agg(u.name ORDER BY u.ord), '{}') INTO v
   FROM pg_proc p
@@ -678,7 +679,8 @@ DO $$ DECLARE v TEXT[]; BEGIN
     AND p.proname = 'courts_in_viewport'
     AND u.mode IN ('o', 'b', 't');
   IF v <> ARRAY['id','name','lat','lng','address','surface_type','hoop_count',
-                'status','sport','venue_type','source','photo_path','moderation_status'] THEN
+                'status','sport','venue_type','source','photo_path','moderation_status',
+                'is_auto_name'] THEN
     RAISE EXCEPTION 'courts_in_viewport columns changed: %', v;
   END IF;
 END $$;
@@ -3644,6 +3646,384 @@ DO $$ BEGIN
       JOIN public.courts c ON c.id = l.court_id
       WHERE c.name = 'Materialize Court') <> 1 THEN
     RAISE EXCEPTION 'materialize ha toccato i partecipanti (#92 addendum)';
+  END IF;
+END $$;
+
+-- ================= 59. #106: proposte nome campo =================
+-- Fixture dedicate (nomi unici: il seed ne ha 10k, mai matchare per LIKE).
+-- Alpha/Beta/Gamma approved con flag auto (come dopo il backfill 050);
+-- Pending Court resta pending (proporre sopra -> P0001); Dup Target e'
+-- l'obiettivo approved di mark_duplicate in 59n.
+-- Utenti: A e' stata cancellata nel blocco 50 (#94) e mai ricreata, quindi
+-- qui il proponente e' D (utenza fresca, profilo da handle_new_user); B
+-- resta il moderatore, C lo spettatore/proponente secondario.
+SET LOCAL request.jwt.claims = '';
+INSERT INTO auth.users (id, email) VALUES
+  ('dddddddd-dddd-dddd-dddd-dddddddddddd','d@test.local');
+INSERT INTO public.courts (name, lat, lng, location, source, moderation_status, status, is_auto_name)
+VALUES
+ ('NameProp Alpha Court', 41.92, 12.52, ST_SetSRID(ST_MakePoint(12.52,41.92),4326)::geography, 'osm', 'approved', 'active', true),
+ ('NameProp Beta Court', 41.93, 12.53, ST_SetSRID(ST_MakePoint(12.53,41.93),4326)::geography, 'osm', 'approved', 'active', true),
+ ('NameProp Gamma Court', 41.94, 12.54, ST_SetSRID(ST_MakePoint(12.54,41.94),4326)::geography, 'osm', 'approved', 'active', true),
+ ('NameProp Pending Court', 41.95, 12.55, ST_SetSRID(ST_MakePoint(12.55,41.95),4326)::geography, 'community', 'pending', 'active', false),
+ ('NameProp Dup Target', 41.96, 12.56, ST_SetSRID(ST_MakePoint(12.56,41.96),4326)::geography, 'osm', 'approved', 'active', false);
+
+-- Setup: A propone 'Campetto Unico Sole' su Alpha (resta pending fino a 59i).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
+SELECT public.propose_court_name(
+  (SELECT id FROM public.courts WHERE name = 'NameProp Alpha Court'), 'Campetto Unico Sole');
+RESET ROLE;
+
+-- 59a. anon non vede court_name_proposals (policy: zero righe, non errore).
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.court_name_proposals) THEN
+    RAISE EXCEPTION 'anon vede court_name_proposals';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 59b. C (non proponente, non mod) non vede la proposta di A.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.court_name_proposals) THEN
+    RAISE EXCEPTION 'C vede la proposta di A';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 59c. A vede solo la sua (una riga, la propria).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
+DO $$ BEGIN
+  IF (SELECT count(*) FROM public.court_name_proposals) <> 1 THEN
+    RAISE EXCEPTION 'A non vede esattamente la sua proposta';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.court_name_proposals
+                 WHERE proposer_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+                   AND proposed_name = 'Campetto Unico Sole' AND status = 'pending') THEN
+    RAISE EXCEPTION 'A non vede la sua pending';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 59d. Nome proposto pendente: invisibile a ricerca/viewport, la corte
+-- mostra ancora il vecchio nome con is_auto_name=true.
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.nearby_courts(41.92, 12.52, 2000, 200, NULL, 'Unico Sole')) THEN
+    RAISE EXCEPTION 'p_search trova un nome proposto-pending';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.courts_in_viewport(12.515, 41.915, 12.525, 41.925)
+             WHERE name = 'Campetto Unico Sole') THEN
+    RAISE EXCEPTION 'viewport mostra un nome proposto-pending';
+  END IF;
+  -- Bbox stretta su Alpha: la bbox di Roma intera contiene i 10k seed e il
+  -- LIMIT 2000 senza ordinamento taglierebbe la fixture a caso.
+  IF NOT EXISTS (SELECT 1 FROM public.courts_in_viewport(12.515, 41.915, 12.525, 41.925)
+                 WHERE name = 'NameProp Alpha Court') THEN
+    RAISE EXCEPTION 'viewport non mostra piu la corte con proposta pending';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.nearby_courts(41.92, 12.52, 2000, 200)
+                 WHERE name = 'NameProp Alpha Court' AND is_auto_name IS TRUE) THEN
+    RAISE EXCEPTION 'nearby_courts non restituisce is_auto_name=true';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 59e. Seconda pending dello stesso utente sullo stesso campo -> P0001.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.propose_court_name(
+      (SELECT id FROM public.courts WHERE name = 'NameProp Alpha Court'), 'Altro Nome Stesso Campo');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'doppia pending: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'doppia pending dello stesso utente riuscita';
+END $$;
+RESET ROLE;
+
+-- 59f. Validazione propose: corte pending -> P0001...
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.propose_court_name(
+      (SELECT id FROM public.courts WHERE name = 'NameProp Pending Court'), 'Nome Su Pending');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'propose su pending: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'propose su corte pending riuscita';
+END $$;
+RESET ROLE;
+-- ...nome uguale all'attuale -> P0001...
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.propose_court_name(
+      (SELECT id FROM public.courts WHERE name = 'NameProp Beta Court'), 'NameProp Beta Court');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'propose nome uguale: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'propose con nome uguale all attuale riuscita';
+END $$;
+RESET ROLE;
+-- ...corte inesistente -> P0001...
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.propose_court_name('99999999-9999-9999-9999-999999999999', 'Nome Fantasma');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'propose su corte inesistente: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'propose su corte inesistente riuscita';
+END $$;
+RESET ROLE;
+-- ...anon -> 42501.
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.propose_court_name(
+      (SELECT id FROM public.courts WHERE name = 'NameProp Beta Court'), 'Nome Anonimo');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'propose anon: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'propose anonima riuscita';
+END $$;
+RESET ROLE;
+
+-- 59g. C (non-mod) non approva -> 42501...
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.approve_name_proposal(
+      (SELECT id FROM public.court_name_proposals WHERE proposed_name = 'Campetto Unico Sole'));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'approve da non-mod: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'non-mod ha approvato';
+END $$;
+RESET ROLE;
+-- ...e non rifiuta -> 42501.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.reject_name_proposal(
+      (SELECT id FROM public.court_name_proposals WHERE proposed_name = 'Campetto Unico Sole'), 'no');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'reject da non-mod: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'non-mod ha rifiutato';
+END $$;
+RESET ROLE;
+
+-- Setup 59h: C propone un secondo nome su Alpha (indice unico: una pending
+-- per campo PER utente, due utenti diversi ok).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+SELECT public.propose_court_name(
+  (SELECT id FROM public.courts WHERE name = 'NameProp Alpha Court'), 'Altro Nome Unico');
+RESET ROLE;
+
+-- 59i. B (mod) approva la proposta di A: nome applicato, flag spento,
+-- vincitrice approved, l'altra pending rigettata d'ufficio.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+SELECT public.approve_name_proposal(
+  (SELECT id FROM public.court_name_proposals WHERE proposed_name = 'Campetto Unico Sole'));
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.courts
+                 WHERE name = 'Campetto Unico Sole' AND is_auto_name IS FALSE) THEN
+    RAISE EXCEPTION 'approve non ha applicato il nome o spento il flag';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.court_name_proposals
+                 WHERE proposed_name = 'Campetto Unico Sole' AND status = 'approved'
+                   AND decided_by = '22222222-2222-2222-2222-222222222222') THEN
+    RAISE EXCEPTION 'vincitrice non approved';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.court_name_proposals
+                 WHERE proposed_name = 'Altro Nome Unico' AND status = 'rejected'
+                   AND moderator_note = 'Un altro nome è stato approvato per questo campo.') THEN
+    RAISE EXCEPTION 'altra pending non rejected d ufficio';
+  END IF;
+END $$;
+
+-- 59j. Dopo l'approvazione: p_search trova il nome, is_auto_name=false,
+-- il vecchio nome generico non matcha piu' Alpha.
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.nearby_courts(41.92, 12.52, 2000, 200, NULL, 'Unico Sole')
+                 WHERE name = 'Campetto Unico Sole' AND is_auto_name IS FALSE) THEN
+    RAISE EXCEPTION 'p_search non trova il nome approvato o flag non spento';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.nearby_courts(41.92, 12.52, 2000, 200, NULL, 'NameProp Alpha')
+             WHERE name = 'Campetto Unico Sole') THEN
+    RAISE EXCEPTION 'vecchio nome ancora associato ad Alpha';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 59k. Approva-con-modifica: B approva la proposta di A su Beta passando
+-- l'override; la corte prende il nome corretto.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
+SELECT public.propose_court_name(
+  (SELECT id FROM public.courts WHERE name = 'NameProp Beta Court'), 'Nome Base Unico');
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+SELECT public.approve_name_proposal(
+  (SELECT id FROM public.court_name_proposals WHERE proposed_name = 'Nome Base Unico'),
+  'Nome Corretto Unico');
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.courts
+                 WHERE name = 'Nome Corretto Unico' AND is_auto_name IS FALSE) THEN
+    RAISE EXCEPTION 'approve-con-modifica non applicata';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.court_name_proposals
+                 WHERE proposed_name = 'Nome Corretto Unico' AND status = 'approved') THEN
+    RAISE EXCEPTION 'proposta non aggiornata con override';
+  END IF;
+END $$;
+
+-- 59l. Ritiro: A propone e ritira (withdrawn); secondo ritiro -> 42501;
+-- ritiro di proposta altrui -> 42501.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
+SELECT public.propose_court_name(
+  (SELECT id FROM public.courts WHERE name = 'Nome Corretto Unico'), 'Nome Ritirato Unico');
+SELECT public.withdraw_name_proposal(
+  (SELECT id FROM public.court_name_proposals WHERE proposed_name = 'Nome Ritirato Unico'));
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.court_name_proposals
+                 WHERE proposed_name = 'Nome Ritirato Unico' AND status = 'withdrawn') THEN
+    RAISE EXCEPTION 'withdraw non applicato';
+  END IF;
+END $$;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.withdraw_name_proposal(
+      (SELECT id FROM public.court_name_proposals WHERE proposed_name = 'Nome Ritirato Unico'));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'doppio withdraw: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'doppio ritiro riuscito';
+END $$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
+SELECT public.propose_court_name(
+  (SELECT id FROM public.courts WHERE name = 'Nome Corretto Unico'), 'Nome Altrui Unico');
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.withdraw_name_proposal(
+      (SELECT id FROM public.court_name_proposals WHERE proposed_name = 'Nome Altrui Unico'));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'withdraw altrui: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'ritiro di proposta altrui riuscito';
+END $$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
+SELECT public.withdraw_name_proposal(
+  (SELECT id FROM public.court_name_proposals WHERE proposed_name = 'Nome Altrui Unico'));
+RESET ROLE;
+
+-- 59m. Rifiuto: nota obbligatoria (NULL -> P0001), poi rifiuto con nota.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+SELECT public.propose_court_name(
+  (SELECT id FROM public.courts WHERE name = 'Nome Corretto Unico'), 'Nome Brutto Unico');
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.reject_name_proposal(
+      (SELECT id FROM public.court_name_proposals WHERE proposed_name = 'Nome Brutto Unico'), NULL);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'reject senza nota: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'rifiuto senza nota riuscito';
+END $$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+SELECT public.reject_name_proposal(
+  (SELECT id FROM public.court_name_proposals WHERE proposed_name = 'Nome Brutto Unico'),
+  'Nome offensivo.');
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.court_name_proposals
+                 WHERE proposed_name = 'Nome Brutto Unico' AND status = 'rejected'
+                   AND moderator_note = 'Nome offensivo.'
+                   AND decided_by = '22222222-2222-2222-2222-222222222222') THEN
+    RAISE EXCEPTION 'reject con nota non applicato';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.courts WHERE name = 'Nome Brutto Unico') THEN
+    RAISE EXCEPTION 'rifiuto ha cambiato il nome della corte';
+  END IF;
+END $$;
+
+-- 59n. Chiusura d'ufficio: Gamma diventa duplicata -> pending rigettata con
+-- nota automatica (trigger, non estensione degli RPC).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+SELECT public.propose_court_name(
+  (SELECT id FROM public.courts WHERE name = 'NameProp Gamma Court'), 'Nome Orfano Unico');
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+SELECT public.mark_duplicate(
+  (SELECT id FROM public.courts WHERE name = 'NameProp Gamma Court'),
+  (SELECT id FROM public.courts WHERE name = 'NameProp Dup Target'));
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.court_name_proposals
+                 WHERE proposed_name = 'Nome Orfano Unico' AND status = 'rejected'
+                   AND moderator_note LIKE '%duplicato%' AND decided_by IS NULL) THEN
+    RAISE EXCEPTION 'chiusura d ufficio non applicata';
   END IF;
 END $$;
 
