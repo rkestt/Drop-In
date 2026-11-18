@@ -157,11 +157,23 @@ function SeriesActions({
 }) {
   // Conferma inline (#92 decisione 7, come "Esci dalla lobby"): il
   // contenitore riceve il focus all'apertura, il bottone sparisce.
+  // Alla cancellazione ("Lascia attiva") il focus torna al trigger, che
+  // viene rimontato: senza, resterebbe sul body (contratto di spec,
+  // ordine di tabulazione switch → link → "Cancella serie").
   const [confirming, setConfirming] = useState(false);
   const confirmRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef = useRef(false);
 
   useEffect(() => {
     if (confirming) confirmRef.current?.focus();
+  }, [confirming]);
+
+  useEffect(() => {
+    if (!confirming && returnFocusRef.current) {
+      returnFocusRef.current = false;
+      triggerRef.current?.focus();
+    }
   }, [confirming]);
 
   const hasNext = item.nextOccurrenceId !== null;
@@ -205,7 +217,12 @@ function SeriesActions({
           variant="secondary"
           className="min-h-[44px] w-full"
           disabled={busy}
-          onClick={() => setConfirming(false)}
+          onClick={() => {
+            // Il trigger viene rimontato: il focus va riportato lì con un
+            // effetto post-render, non qui (il nodo non esiste ancora).
+            returnFocusRef.current = true;
+            setConfirming(false);
+          }}
         >
           Lascia attiva
         </Button>
@@ -223,6 +240,7 @@ function SeriesActions({
       </Link>
       <button
         type="button"
+        ref={triggerRef}
         aria-label={deleteLabel}
         disabled={busy}
         onClick={() => setConfirming(true)}
