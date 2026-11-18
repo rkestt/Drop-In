@@ -61,6 +61,8 @@ La parte delicata. Oggi `decrement_karma_on_missed_check_in` (mig. 027) penalizz
 
 *Fatto quando*: con tre serie attive, nessuno perde karma per una partita di un mese dopo, e la lista "vicine" mostra solo ciò che è vicino nel tempo.
 
+*Stato (2026-11-18)*: **fatta** in `037`-`039` più il client (`lib/lobby/phase.ts`), ticket #91 chiuso. Due scostamenti dalla meccanica raccomandata, entrambi deliberati dopo la review: il -3 guarda la **presenza** (check-in sulla corte dentro `[inizio - 2h, fine]`), non lo stato `active`, perché il checkout a 2 ore avrebbe penalizzato chi era stato lì; e la quarta migrazione non è servita — predicato nuovo e rimozione di `in_progress` sono nella stessa, con un ordine che resta "mai prima di `lobby_id` valorizzato". Generazione delle serie (14 giorni) e capienza restano di #92.
+
 *Meccanica raccomandata (@oracle, commento su #91)*: cron notturno con orizzonte mobile di 14 giorni (mai generazione lazy: la RLS INSERT impone auth e due lettori duplicherebbero); filtro `start_time < now() + interval '36h'` dentro `open_lobbies` e nella query "vicine", più indice parziale su `(status, start_time)`; `reconfirmed_at timestamptz NULL` su `lobby_participants` con finestra `start_time - 24h … start_time - 30min`; `lobby_id` del check-in assegnato da un `BEFORE INSERT` che cerca la lobby riconfermata sulla stessa corte (mai dal client); capienza con trigger e `FOR UPDATE` (un CHECK non può contare righe); `starting_soon` filtrata sui riconfermati.
 
 Rilascio in quattro migrazioni: **M1** filtri di lettura e indice, **M2** riconferma e auto-`lobby_id`, **M3** serie, capienza e policy DELETE, **M4** cambio del predicato karma. **Mai M4 prima di M2**: applicherebbe il predicato nuovo a dati con `lobby_id` ancora NULL.
@@ -110,6 +112,8 @@ Oggi "si chiude alle" è `start_time + 30 minuti`, e `auto_close_lobbies` chiude
 *Decisione*: `duration_minutes` sulla lobby (default 30; volley e padel 90, calcetto 60) usata per la chiusura automatica e per l'orario mostrato. L'**uscita individuale** non è un orario dichiarato: è il check-out, che esiste già. I doppioni non si fondono — si **prevengono alla creazione**: se sul campo c'è già una lobby sovrapposta, la creazione avverte e propone di unirsi.
 
 *Fatto quando*: una partita di volley non risulta chiusa mentre si gioca, e non esistono due lobby sovrapposte sulla stessa corte senza che l'autore lo abbia saputo.
+
+*Stato (2026-11-18)*: **fatta** in `036` (durata, `ends_at` generata, chiusura su `ends_at`, `open_lobbies`) e nel drawer (sport, durata, avviso con Unisciti/Crea comunque). Ticket #96 chiuso. Le durate per sport vivono in `lib/sport/sports.ts`, non in un CHECK: si ritoccano con i dati della beta.
 
 ### 13. Crescita: da venti a qualche centinaio in un polo
 I ricavi sono un traguardo d'estate, quindi vanno scritti i numeri che li rendono possibili. **Nessuno sponsorizza venti persone**: uno sponsor di quartiere compra appartenenza in una community visibile, e la soglia realistica è qualche centinaio di attivi **nello stesso polo**. Il ricavo non è una funzione del codice ma della densità.
