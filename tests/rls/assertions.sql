@@ -2618,4 +2618,51 @@ WHERE user_id = '22222222-2222-2222-2222-222222222222'
   AND lobby_id IN (SELECT id FROM public.lobbies
                    WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Join Policy Court'));
 
+-- ================= 49. #100: il join di un secondo utente riesce =================
+-- P0: `notify_participant_joined` era SECURITY INVOKER e l'INSERT in
+-- `push_notifications` moriva (035 revoca INSERT ad authenticated),
+-- annullando il join. La 040 lo porta a DEFINER. Qui il join lo fa davvero
+-- B autenticato sulla lobby di C, con i permessi del client: prima della
+-- 040 falliva con permission denied. Il creatore riceve la notifica.
+SET LOCAL request.jwt.claims = '';
+DO $$
+DECLARE
+  v_court UUID;
+  v_lobby UUID;
+BEGIN
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES ('Second Join Court', 41.912, 12.512, ST_SetSRID(ST_MakePoint(12.512,41.912),4326)::geography, 'community',
+          '33333333-3333-3333-3333-333333333333','approved','active')
+  RETURNING id INTO v_court;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status)
+  VALUES (v_court, '33333333-3333-3333-3333-333333333333', now() + interval '2 hours', 10, 'open')
+  RETURNING id INTO v_lobby;
+  INSERT INTO public.lobby_participants (lobby_id, user_id)
+  VALUES (v_lobby, '33333333-3333-3333-3333-333333333333');
+END $$;
+
+-- 49a. B si unisce alla lobby di C: riesce, e C viene notificato.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+INSERT INTO public.lobby_participants (lobby_id, user_id)
+VALUES ((SELECT id FROM public.lobbies
+         WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Second Join Court')),
+        '22222222-2222-2222-2222-222222222222');
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobby_participants
+                 WHERE user_id = '22222222-2222-2222-2222-222222222222'
+                   AND lobby_id IN (SELECT id FROM public.lobbies
+                                    WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Second Join Court'))) THEN
+    RAISE EXCEPTION 'join del secondo utente fallito (#100)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.push_notifications
+                 WHERE user_id = '33333333-3333-3333-3333-333333333333'
+                   AND data->>'type' = 'participant_joined'
+                   AND (data->>'lobby_id')::uuid IN (SELECT id FROM public.lobbies
+                                    WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Second Join Court'))) THEN
+    RAISE EXCEPTION 'notifica participant_joined mancante (#100)';
+  END IF;
+END $$;
+
 ROLLBACK;
