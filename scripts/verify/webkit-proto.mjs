@@ -18,8 +18,9 @@
  * rubber-band, pinch), PWA installata. Per la safe-area serve Chromium con
  * `Emulation.setSafeAreaInsetsOverride`.
  *
- * Se il prototipo espone `window.__proto.state()` (come nav-map-lobby.html)
- * controlla anche snap, altezze e ordine del contenuto; altrimenti fa i check
+ * Se il prototipo è in SPECIFIC_SUITES con la suite "snap" (come
+ * nav-map-lobby.html) ed espone `window.__proto.state()`, controlla anche
+ * snap, altezze e ordine del contenuto; altrimenti fa solo i check
  * generici (overflow, console, font, target).
  *
  * Esce con codice 1 se un check fallisce. Non è in `test:all`: è un check di
@@ -31,6 +32,16 @@ const args = process.argv.slice(2);
 const urlArg = args.find((a) => a.startsWith("--url="));
 const URL = urlArg ? urlArg.slice(6) : process.env.URL ?? "http://127.0.0.1:4173/nav-map-lobby.html";
 const ENGINE = process.env.BROWSER ?? "webkit";
+
+// Suite specifiche per prototipo: la suite "snap" (foglio nav-map-lobby:
+// tap/drag/fullscreen su #sheet, reduced motion, safe-area) gira solo per i
+// file che la prevedono. Gli altri prototipi fanno solo i check generici
+// (overflow, font, console) e chiudono verdi.
+const SPECIFIC_SUITES = {
+  "nav-map-lobby.html": ["snap"],
+};
+const FILE = new globalThis.URL(URL).pathname.split("/").pop() ?? "";
+const HAS_SNAP = (SPECIFIC_SUITES[FILE] ?? []).includes("snap");
 
 const results = [];
 function check(name, ok, detail) {
@@ -73,7 +84,7 @@ async function audit(deviceName, viewport) {
   check(`${label} · font locali caricati`, base.fonts.syne && base.fonts.source, JSON.stringify(base.fonts));
   check(`${label} · nessun errore console`, errors.length === 0, errors.slice(0, 2).join(" | "));
 
-  if (!base.proto) {
+  if (!HAS_SNAP || !base.proto) {
     await browser.close();
     return;
   }
@@ -150,8 +161,8 @@ console.log("# non coperti: URL bar/dvh che cambia, env(safe-area-inset), tastie
 await audit("iPhone 13");
 await audit(null, { width: 360, height: 800 });
 
-// reduced motion su un contesto a parte
-{
+// reduced motion su un contesto a parte (solo suite snap: usa #sheet)
+if (HAS_SNAP) {
   const browser = await launcher.launch();
   const context = await browser.newContext({ viewport: { width: 360, height: 800 }, reducedMotion: "reduce", hasTouch: true });
   const page = await context.newPage();
@@ -165,6 +176,7 @@ await audit(null, { width: 360, height: 800 });
 // La safe-area è l'unico pezzo iOS che WebKit non emula (vale sempre 0). Chromium 156+ la sa
 // simulare via CDP: qui si verifica che il foglio si alzi davvero e che la nav cresca.
 async function safeArea() {
+  if (!HAS_SNAP) return;
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 360, height: 800 } });
   await page.goto(URL, { waitUntil: "load" });
