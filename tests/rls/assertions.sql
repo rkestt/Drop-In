@@ -4041,20 +4041,20 @@ VALUES
 INSERT INTO public.court_notes (court_id, author_id, kind, body)
 VALUES
  ((SELECT id FROM public.courts WHERE name = 'CourtNote Pending Court'),
-  '22222222-2222-2222-2222-222222222222', 'chiuso', 'Nota pending invisibile'),
+  '22222222-2222-2222-2222-222222222222', 'closed', 'Nota pending invisibile'),
  ((SELECT id FROM public.courts WHERE name = 'CourtNote Rejected Court'),
-  '22222222-2222-2222-2222-222222222222', 'chiuso', 'Nota rejected invisibile');
+  '22222222-2222-2222-2222-222222222222', 'closed', 'Nota rejected invisibile');
 
 -- 60a. B (mod) aggiunge una nota senza testo su corte approved.
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
 SELECT public.add_court_note(
   (SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court'),
-  'canestro_rotto', NULL);
+  'broken_hoop', NULL);
 RESET ROLE;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.court_notes
-                 WHERE kind = 'canestro_rotto' AND body IS NULL
+                 WHERE kind = 'broken_hoop' AND body IS NULL
                    AND author_id = '22222222-2222-2222-2222-222222222222'
                    AND court_id = (SELECT id FROM public.courts
                                    WHERE name = 'CourtNote Approved Court')) THEN
@@ -4066,7 +4066,7 @@ END $$;
 SET LOCAL ROLE anon;
 SET LOCAL request.jwt.claims = '';
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.court_notes WHERE kind = 'canestro_rotto') THEN
+  IF NOT EXISTS (SELECT 1 FROM public.court_notes WHERE kind = 'broken_hoop') THEN
     RAISE EXCEPTION 'anon non vede la nota di corte approved';
   END IF;
 END $$;
@@ -4096,7 +4096,7 @@ BEGIN
   BEGIN
     PERFORM public.add_court_note(
       (SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court'),
-      'chiuso', 'tentativo');
+      'closed', 'tentativo');
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = '42501' THEN RETURN; END IF;
     RAISE EXCEPTION 'add da non-mod: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
@@ -4110,8 +4110,8 @@ DO $$
 BEGIN
   BEGIN
     PERFORM public.edit_court_note(
-      (SELECT id FROM public.court_notes WHERE kind = 'canestro_rotto'),
-      'chiuso', 'tentativo');
+      (SELECT id FROM public.court_notes WHERE kind = 'broken_hoop'),
+      'closed', 'tentativo');
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = '42501' THEN RETURN; END IF;
     RAISE EXCEPTION 'edit da non-mod: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
@@ -4125,7 +4125,7 @@ DO $$
 BEGIN
   BEGIN
     PERFORM public.delete_court_note(
-      (SELECT id FROM public.court_notes WHERE kind = 'canestro_rotto'));
+      (SELECT id FROM public.court_notes WHERE kind = 'broken_hoop'));
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = '42501' THEN RETURN; END IF;
     RAISE EXCEPTION 'delete da non-mod: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
@@ -4143,7 +4143,7 @@ BEGIN
   BEGIN
     PERFORM public.add_court_note(
       (SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court'),
-      'chiuso', 'tentativo');
+      'closed', 'tentativo');
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = '42501' THEN RETURN; END IF;
     RAISE EXCEPTION 'add da anon: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
@@ -4158,7 +4158,7 @@ BEGIN
   BEGIN
     INSERT INTO public.court_notes (court_id, author_id, kind)
     VALUES ((SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court'),
-            '33333333-3333-3333-3333-333333333333', 'altro');
+            '33333333-3333-3333-3333-333333333333', 'other');
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = '42501' THEN RETURN; END IF;
     RAISE EXCEPTION 'insert diretta: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
@@ -4183,7 +4183,7 @@ BEGIN
   RAISE EXCEPTION 'kind fuori allowlist accettato';
 END $$;
 RESET ROLE;
--- ...body >500 -> P0001...
+-- ...body >200 -> P0001...
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
 DO $$
@@ -4191,12 +4191,12 @@ BEGIN
   BEGIN
     PERFORM public.add_court_note(
       (SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court'),
-      'altro', repeat('x', 501));
+      'other', repeat('x', 201));
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = 'P0001' THEN RETURN; END IF;
-    RAISE EXCEPTION 'body >500: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+    RAISE EXCEPTION 'body >200: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
   END;
-  RAISE EXCEPTION 'body oltre 500 caratteri accettato';
+  RAISE EXCEPTION 'body oltre 200 caratteri accettato';
 END $$;
 RESET ROLE;
 -- ...corte pending -> P0001, corte inesistente -> P0001.
@@ -4207,7 +4207,7 @@ BEGIN
   BEGIN
     PERFORM public.add_court_note(
       (SELECT id FROM public.courts WHERE name = 'CourtNote Pending Court'),
-      'chiuso', 'tentativo');
+      'closed', 'tentativo');
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = 'P0001' THEN RETURN; END IF;
     RAISE EXCEPTION 'add su pending: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
@@ -4220,7 +4220,7 @@ SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","r
 DO $$
 BEGIN
   BEGIN
-    PERFORM public.add_court_note('99999999-9999-9999-9999-999999999999', 'chiuso', 'tentativo');
+    PERFORM public.add_court_note('99999999-9999-9999-9999-999999999999', 'closed', 'tentativo');
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = 'P0001' THEN RETURN; END IF;
     RAISE EXCEPTION 'add su corte inesistente: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
@@ -4234,11 +4234,11 @@ SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
 SELECT public.add_court_note(
   (SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court'),
-  'superficie', '   ');
+  'surface', '   ');
 RESET ROLE;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.court_notes
-                 WHERE kind = 'superficie' AND body IS NULL) THEN
+                 WHERE kind = 'surface' AND body IS NULL) THEN
     RAISE EXCEPTION 'body blank non normalizzato a NULL';
   END IF;
 END $$;
@@ -4249,14 +4249,14 @@ SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
 SELECT public.add_court_note(
   (SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court'),
-  'altro', 'Nota Unica Alfa');
+  'other', 'Nota Unica Alfa');
 SELECT public.edit_court_note(
   (SELECT id FROM public.court_notes WHERE body = 'Nota Unica Alfa'),
-  'illuminazione', 'Nota Unica Beta');
+  'no_lighting', 'Nota Unica Beta');
 RESET ROLE;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.court_notes
-                 WHERE kind = 'illuminazione' AND body = 'Nota Unica Beta') THEN
+                 WHERE kind = 'no_lighting' AND body = 'Nota Unica Beta') THEN
     RAISE EXCEPTION 'edit non applicato';
   END IF;
 END $$;
@@ -4280,7 +4280,7 @@ SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","r
 DO $$
 BEGIN
   BEGIN
-    PERFORM public.edit_court_note('99999999-9999-9999-9999-999999999999', 'chiuso', 'x');
+    PERFORM public.edit_court_note('99999999-9999-9999-9999-999999999999', 'closed', 'x');
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = 'P0001' THEN RETURN; END IF;
     RAISE EXCEPTION 'edit inesistente: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
@@ -4329,5 +4329,66 @@ DO $$ BEGIN
   END IF;
 END $$;
 RESET ROLE;
+
+-- 60k. Slug italiani della 052 rifiutati (053): il vecchio 'canestro_rotto'
+-- non e' piu' nell'allowlist -> P0001. 'other' senza testo -> P0001
+-- (decisione 9 della spec); body di 200 caratteri accettato, 201 no.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.add_court_note(
+      (SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court'),
+      'canestro_rotto', 'tentativo');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'vecchio slug italiano: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'vecchio slug italiano canestro_rotto accettato';
+END $$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.add_court_note(
+      (SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court'),
+      'other', NULL);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'other senza testo: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'other senza testo accettato';
+END $$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.add_court_note(
+      (SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court'),
+      'other', '   ');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'other con blank: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'other con body blank accettato';
+END $$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+SELECT public.add_court_note(
+  (SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court'),
+  'surface', repeat('y', 200));
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.court_notes
+                 WHERE kind = 'surface' AND char_length(body) = 200) THEN
+    RAISE EXCEPTION 'body di 200 caratteri rifiutato';
+  END IF;
+END $$;
 
 ROLLBACK;
