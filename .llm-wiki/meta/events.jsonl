@@ -25,3 +25,5 @@
 {"timestamp":"2026-11-17T20:08:03.692Z","kind":"retro","slug":"test-all-verde-perche-meta-degli-e2e-si-skippa","title":"test:all verde perché metà degli e2e si skippa senza E2E_WITH_DB"}
 {"timestamp":"2026-11-17T21:19:48.029Z","kind":"retro","slug":"ends-at-generated-column-timestamptz-immutable","title":"ends_at come colonna generata: timestamptz + interval non è IMMUTABLE (42P17)"}
 {"timestamp":"2026-11-18T00:11:49.271Z","kind":"retro","slug":"join-rotto-trigger-notify-invoker-permessi","title":"Join alla lobby rotto: il trigger di notifica invoker contro il REVOKE della 035"}
+{"timestamp":"2026-11-18T12:28:08.375Z","kind":"retro","slug":"guard-trigger-pinna-creator-id","title":"Guard trigger su una tabella con proprietario: il path del creatore va pinnato"}
+{"timestamp":"2026-11-18T12:28:08.380Z","kind":"retro","slug":"e2e-fallimenti-spuri-chunk-dev-server","title":"e2e di Drop-In: fallimenti spuri dal chunk corrotto del dev server, non dal codice"}

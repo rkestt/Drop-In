@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-11-18T00:11:49.271Z",
+  "last_updated": "2026-11-18T12:28:08.380Z",
   "pages": {
     "sources/drop-in-check-in-accuratezza-adattiva-e-permessi-ios": {
       "type": "source",
@@ -20,6 +20,15 @@
       "created": "2026-11-16",
       "updated": "2026-11-16"
     },
+    "sources/e2e-fallimenti-spuri-chunk-dev-server": {
+      "type": "source",
+      "title": "e2e di Drop-In: fallimenti spuri dal chunk corrotto del dev server, non dal codice",
+      "category": "sources",
+      "status": "insight",
+      "slug": "e2e-fallimenti-spuri-chunk-dev-server",
+      "created": "2026-11-18",
+      "updated": "2026-11-18"
+    },
     "sources/e2e-hydration-server-utc-browser-roma": {
       "type": "source",
       "title": "E2E di idratazione: server in UTC e browser a Roma",
@@ -37,6 +46,15 @@
       "slug": "ends-at-generated-column-timestamptz-immutable",
       "created": "2026-11-17",
       "updated": "2026-11-17"
+    },
+    "sources/guard-trigger-pinna-creator-id": {
+      "type": "source",
+      "title": "Guard trigger su una tabella con proprietario: il path del creatore va pinnato",
+      "category": "sources",
+      "status": "insight",
+      "slug": "guard-trigger-pinna-creator-id",
+      "created": "2026-11-18",
+      "updated": "2026-11-18"
     },
     "sources/join-rotto-trigger-notify-invoker-permessi": {
       "type": "source",

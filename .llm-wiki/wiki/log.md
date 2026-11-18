@@ -51,3 +51,5 @@
 ## 2026-11-18
 
 - **retro**: {"slug":"join-rotto-trigger-notify-invoker-permessi","title":"Join alla lobby rotto: il trigger di notifica invoker contro il REVOKE della 035"}
+- **retro**: {"slug":"guard-trigger-pinna-creator-id","title":"Guard trigger su una tabella con proprietario: il path del creatore va pinnato"}
+- **retro**: {"slug":"e2e-fallimenti-spuri-chunk-dev-server","title":"e2e di Drop-In: fallimenti spuri dal chunk corrotto del dev server, non dal codice"}

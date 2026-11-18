@@ -4,8 +4,10 @@
 
 - [Check-in Drop-In: accuratezza GPS adattiva e permessi posizione iOS separati dalla PWA](drop-in-check-in-accuratezza-adattiva-e-permessi-ios.md)
 - [Drop-In: posizionamento — infrastruttura per chi organizza, e chi c'è già a Roma](drop-in-posizionamento-organizzatori-e-concorrenti.md)
+- [e2e di Drop-In: fallimenti spuri dal chunk corrotto del dev server, non dal codice](e2e-fallimenti-spuri-chunk-dev-server.md)
 - [E2E di idratazione: server in UTC e browser a Roma](e2e-hydration-server-utc-browser-roma.md)
 - [ends_at come colonna generata: timestamptz + interval non è IMMUTABLE (42P17)](ends-at-generated-column-timestamptz-immutable.md)
+- [Guard trigger su una tabella con proprietario: il path del creatore va pinnato](guard-trigger-pinna-creator-id.md)
 - [Join alla lobby rotto: il trigger di notifica invoker contro il REVOKE della 035](join-rotto-trigger-notify-invoker-permessi.md)
 - [Una riscrittura di trigger ha cancellato un INSERT: le notifiche karma non esistevano più](karma-loss-notification-persa-in-una-riscrittura-di-trigger.md)
 - [Drop-In: l'occorrenza esisteva già, il costo della ricorrenza è nel karma](lobby-gia-e-l-occorrenza-il-costo-e-nel-karma.md)
