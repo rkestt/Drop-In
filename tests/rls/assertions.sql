@@ -3685,27 +3685,32 @@ DO $$ BEGIN
 END $$;
 RESET ROLE;
 
--- 59b. C (non proponente, non mod) non vede la proposta di A.
+-- 59b. C (non proponente, non mod) non vede la pending di D (scoping su
+-- fixture: mai EXISTS globale, altre righe visibili non devono interferire).
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
 DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM public.court_name_proposals) THEN
-    RAISE EXCEPTION 'C vede la proposta di A';
+  IF EXISTS (SELECT 1 FROM public.court_name_proposals
+             WHERE proposed_name = 'Campetto Unico Sole') THEN
+    RAISE EXCEPTION 'C vede la proposta di D';
   END IF;
 END $$;
 RESET ROLE;
 
--- 59c. A vede solo la sua (una riga, la propria).
+-- 59c. D vede la sua pending e non le pending altrui (mai conteggi
+-- globali: le righe visibili dipendono da policy e dati, non dalle fixture).
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
 DO $$ BEGIN
-  IF (SELECT count(*) FROM public.court_name_proposals) <> 1 THEN
-    RAISE EXCEPTION 'A non vede esattamente la sua proposta';
-  END IF;
   IF NOT EXISTS (SELECT 1 FROM public.court_name_proposals
                  WHERE proposer_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
                    AND proposed_name = 'Campetto Unico Sole' AND status = 'pending') THEN
-    RAISE EXCEPTION 'A non vede la sua pending';
+    RAISE EXCEPTION 'D non vede la sua pending';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.court_name_proposals
+             WHERE proposer_id <> 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+               AND status = 'pending') THEN
+    RAISE EXCEPTION 'D vede pending altrui';
   END IF;
 END $$;
 RESET ROLE;
@@ -4062,11 +4067,16 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 60b. anon legge la nota della corte approved...
+-- 60b. anon legge la nota della corte approved (scoping su fixture:
+-- mai matchare per solo kind, una nota estranea farebbe passare il test).
 SET LOCAL ROLE anon;
 SET LOCAL request.jwt.claims = '';
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.court_notes WHERE kind = 'broken_hoop') THEN
+  IF NOT EXISTS (SELECT 1 FROM public.court_notes n
+                 WHERE n.court_id = (SELECT id FROM public.courts
+                                     WHERE name = 'CourtNote Approved Court')
+                   AND n.author_id = '22222222-2222-2222-2222-222222222222'
+                   AND n.kind = 'broken_hoop' AND n.body IS NULL) THEN
     RAISE EXCEPTION 'anon non vede la nota di corte approved';
   END IF;
 END $$;
@@ -4082,8 +4092,10 @@ DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM public.court_notes WHERE body = 'Nota rejected invisibile') THEN
     RAISE EXCEPTION 'anon vede nota di corte rejected';
   END IF;
-  IF (SELECT count(*) FROM public.court_notes) <> 1 THEN
-    RAISE EXCEPTION 'anon vede righe oltre la nota approved';
+  IF EXISTS (SELECT 1 FROM public.court_notes n
+             JOIN public.courts c ON c.id = n.court_id
+             WHERE c.moderation_status <> 'approved') THEN
+    RAISE EXCEPTION 'anon vede note di corti non approved';
   END IF;
 END $$;
 RESET ROLE;
@@ -4110,7 +4122,10 @@ DO $$
 BEGIN
   BEGIN
     PERFORM public.edit_court_note(
-      (SELECT id FROM public.court_notes WHERE kind = 'broken_hoop'),
+      (SELECT id FROM public.court_notes
+        WHERE kind = 'broken_hoop'
+          AND court_id = (SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court')
+          AND author_id = '22222222-2222-2222-2222-222222222222'),
       'closed', 'tentativo');
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = '42501' THEN RETURN; END IF;
@@ -4125,7 +4140,10 @@ DO $$
 BEGIN
   BEGIN
     PERFORM public.delete_court_note(
-      (SELECT id FROM public.court_notes WHERE kind = 'broken_hoop'));
+      (SELECT id FROM public.court_notes
+        WHERE kind = 'broken_hoop'
+          AND court_id = (SELECT id FROM public.courts WHERE name = 'CourtNote Approved Court')
+          AND author_id = '22222222-2222-2222-2222-222222222222'));
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = '42501' THEN RETURN; END IF;
     RAISE EXCEPTION 'delete da non-mod: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
@@ -4238,7 +4256,10 @@ SELECT public.add_court_note(
 RESET ROLE;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.court_notes
-                 WHERE kind = 'surface' AND body IS NULL) THEN
+                 WHERE kind = 'surface' AND body IS NULL
+                   AND court_id = (SELECT id FROM public.courts
+                                   WHERE name = 'CourtNote Approved Court')
+                   AND author_id = '22222222-2222-2222-2222-222222222222') THEN
     RAISE EXCEPTION 'body blank non normalizzato a NULL';
   END IF;
 END $$;
@@ -4386,7 +4407,10 @@ SELECT public.add_court_note(
 RESET ROLE;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.court_notes
-                 WHERE kind = 'surface' AND char_length(body) = 200) THEN
+                 WHERE kind = 'surface' AND char_length(body) = 200
+                   AND court_id = (SELECT id FROM public.courts
+                                   WHERE name = 'CourtNote Approved Court')
+                   AND author_id = '22222222-2222-2222-2222-222222222222') THEN
     RAISE EXCEPTION 'body di 200 caratteri rifiutato';
   END IF;
 END $$;
