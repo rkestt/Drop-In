@@ -130,14 +130,14 @@ isOneToOne: false
                   ]
                 },"lobbies": {
                   Row: {
-                    "court_id": string,"created_at": string | null,"creator_id": string,"duration_minutes": number,"ends_at": string | null,"id": string,"max_players": number,"sport": string | null,"start_time": string,"status": string | null,"updated_at": string | null
+                    "court_id": string,"created_at": string | null,"creator_id": string | null,"duration_minutes": number,"ends_at": string | null,"id": string,"max_players": number,"sport": string | null,"start_time": string,"status": string | null,"updated_at": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "court_id": string,"created_at"?: string | null,"creator_id": string,"duration_minutes"?: number,"ends_at"?: never,"id"?: string,"max_players"?: number,"sport"?: string | null,"start_time": string,"status"?: string | null,"updated_at"?: string | null
+                    "court_id": string,"created_at"?: string | null,"creator_id"?: string | null,"duration_minutes"?: number,"ends_at"?: never,"id"?: string,"max_players"?: number,"sport"?: string | null,"start_time": string,"status"?: string | null,"updated_at"?: string | null
                   }
                   Update: {
-                    "court_id"?: string,"created_at"?: string | null,"creator_id"?: string,"duration_minutes"?: number,"ends_at"?: never,"id"?: string,"max_players"?: number,"sport"?: string | null,"start_time"?: string,"status"?: string | null,"updated_at"?: string | null
+                    "court_id"?: string,"created_at"?: string | null,"creator_id"?: string | null,"duration_minutes"?: number,"ends_at"?: never,"id"?: string,"max_players"?: number,"sport"?: string | null,"start_time"?: string,"status"?: string | null,"updated_at"?: string | null
                   }
                   Relationships: [
                     {

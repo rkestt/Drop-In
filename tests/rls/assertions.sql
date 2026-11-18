@@ -2665,4 +2665,113 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ================= 50. #94: delete utente -> lobby con creator NULL, zero orfani =================
+-- Fixture: corte approvata + lobby passata di A con B iscritto, e una riga
+-- di A in ogni tabella utente (profilo via handle_new_user, check-in,
+-- report, review, preferito, notifica, submission, subscription).
+-- 50a. con i permessi del client la cancellazione fallisce; 50b. con i
+-- permessi del server (service_role/postgres, come la route di delete)
+-- la cascata lascia la lobby con creator_id NULL, le partecipazioni di B
+-- intatte e nessuna riga orfana su A.
+DO $$
+DECLARE
+  v_court UUID;
+  v_lobby UUID;
+BEGIN
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES ('Delete Me Court', 41.913, 12.513, ST_SetSRID(ST_MakePoint(12.513,41.913),4326)::geography, 'community',
+          '11111111-1111-1111-1111-111111111111','approved','active')
+  RETURNING id INTO v_court;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status)
+  VALUES (v_court, '11111111-1111-1111-1111-111111111111', now() - interval '1 day', 10, 'open')
+  RETURNING id INTO v_lobby;
+  INSERT INTO public.lobby_participants (lobby_id, user_id)
+  VALUES (v_lobby, '22222222-2222-2222-2222-222222222222');
+  INSERT INTO public.check_ins (user_id, court_id, lat, lng)
+  VALUES ('11111111-1111-1111-1111-111111111111', v_court, 41.913, 12.513);
+  INSERT INTO public.court_reports (court_id, user_id, category, expires_at)
+  VALUES (v_court, '11111111-1111-1111-1111-111111111111', 'other', now() + interval '1 day');
+  INSERT INTO public.court_reviews (court_id, user_id, rating)
+  VALUES (v_court, '11111111-1111-1111-1111-111111111111', 5);
+  INSERT INTO public.user_favorites (user_id, court_id)
+  VALUES ('11111111-1111-1111-1111-111111111111', v_court);
+  INSERT INTO public.push_notifications (user_id, title, body)
+  VALUES ('11111111-1111-1111-1111-111111111111', 'Delete Me', 'corpo');
+  INSERT INTO public.court_submissions (court_id, submitter_id, raw_name, lat, lng, status)
+  VALUES (v_court, '11111111-1111-1111-1111-111111111111', 'Delete Me Court', 41.913, 12.513, 'pending');
+  INSERT INTO public.push_subscriptions (user_id, subscription)
+  VALUES ('11111111-1111-1111-1111-111111111111', '{"endpoint":"https://push.test/delete-me"}'::jsonb);
+END $$;
+
+-- 50a. A non cancella se stesso con i permessi del client -> 42501.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    DELETE FROM auth.users WHERE id = '11111111-1111-1111-1111-111111111111';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'delete utente da client: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'client ha cancellato auth.users (#94)';
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'utente sparito dopo delete negata (#94)';
+  END IF;
+END $$;
+
+-- 50b. delete con i permessi del server: la lobby sopravvive senza creatore.
+DELETE FROM auth.users WHERE id = '11111111-1111-1111-1111-111111111111';
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM auth.users WHERE id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'delete server di auth.users non riuscita (#94)';
+  END IF;
+  -- La lobby passata di A esiste ancora, con creator_id NULL (041).
+  IF NOT EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+                 WHERE c.name = 'Delete Me Court' AND l.creator_id IS NULL) THEN
+    RAISE EXCEPTION 'lobby sparita o creator non azzerato dopo il delete (#94)';
+  END IF;
+  -- La partecipazione di B e' intatta.
+  IF NOT EXISTS (SELECT 1 FROM public.lobby_participants lp JOIN public.lobbies l ON l.id = lp.lobby_id
+                 JOIN public.courts c ON c.id = l.court_id
+                 WHERE c.name = 'Delete Me Court'
+                   AND lp.user_id = '22222222-2222-2222-2222-222222222222') THEN
+    RAISE EXCEPTION 'partecipazione altrui persa nel delete (#94)';
+  END IF;
+  -- Nessuna riga orfana su A: tutto cio' che e' riga-utente e' cascato.
+  IF EXISTS (SELECT 1 FROM public.profiles WHERE user_id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'profilo orfano dopo il delete (#94)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.lobby_participants WHERE user_id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'partecipazione orfana dopo il delete (#94)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.check_ins WHERE user_id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'check-in orfano dopo il delete (#94)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.court_reports WHERE user_id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'report orfano dopo il delete (#94)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.court_reviews WHERE user_id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'review orfana dopo il delete (#94)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.user_favorites WHERE user_id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'preferito orfano dopo il delete (#94)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.push_notifications WHERE user_id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'notifica orfana dopo il delete (#94)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.push_subscriptions WHERE user_id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'subscription orfana dopo il delete (#94)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.court_submissions WHERE submitter_id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'submission orfana dopo il delete (#94)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.lobbies WHERE creator_id = '11111111-1111-1111-1111-111111111111') THEN
+    RAISE EXCEPTION 'lobby con creator fantasma dopo il delete (#94)';
+  END IF;
+END $$;
+
 ROLLBACK;
