@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Users } from "lucide-react";
+import { ChevronRight, Pencil, Users } from "lucide-react";
 import { Drawer } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,8 @@ export interface CourtPreview {
   sport?: string | null;
   surface_type?: string | null;
   photo_path?: string | null;
+  /** True = nome generato: mostra chip + invito (ticket 106). */
+  is_auto_name?: boolean | null;
 }
 
 interface CourtPreviewSheetProps {
@@ -109,6 +111,26 @@ export function CourtPreviewSheet({
             C&apos;è una segnalazione attiva su questo campo: controlla prima di
             andare.
           </p>
+        )}
+
+        {/* ticket 106: stessa riga identità della scheda, fuori dalla riga
+            miniatura+titolo e sopra i CTA. È un link — mai un drawer dentro
+            un drawer: il tap porta alla scheda con `?proponi=nome`. Lo stato
+            "proposta propria in attesa" resta sulla scheda: la viewport RPC
+            non espone la pending dell'utente. */}
+        {shown.is_auto_name === true && (
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+            <Badge variant="default">Nome automatico</Badge>
+            <Link
+              href={`/courts/${shown.id}?proponi=nome`}
+              aria-label={`Proponi il nome vero per ${shown.name}`}
+              className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 rounded"
+            >
+              <Pencil className="h-4 w-4 shrink-0" aria-hidden="true" />
+              Proponi il nome vero
+              <ChevronRight className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+            </Link>
+          </div>
         )}
 
         <div className="space-y-2 pt-1">

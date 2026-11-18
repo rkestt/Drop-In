@@ -6,6 +6,7 @@ import { ModerationBlocked } from "@/components/moderation/moderation-blocked";
 import {
   fetchActiveReportGroups,
   fetchPendingCourts,
+  fetchPendingNameProposals,
 } from "@/lib/moderation/queries";
 
 export const dynamic = "force-dynamic";
@@ -63,9 +64,10 @@ export default async function AdminPage() {
     );
   }
 
-  const [queue, reports] = await Promise.all([
+  const [queue, reports, names] = await Promise.all([
     fetchPendingCourts(supabase),
     fetchActiveReportGroups(supabase),
+    fetchPendingNameProposals(supabase),
   ]);
 
   return (
@@ -88,6 +90,8 @@ export default async function AdminPage() {
         initialQueueError={queue.error}
         initialReportGroups={reports.groups}
         initialReportsError={reports.error}
+        initialNameProposals={names.items}
+        initialNamesError={names.error}
       />
     </main>
   );

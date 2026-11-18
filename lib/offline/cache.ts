@@ -2,7 +2,10 @@
 // Solo campi e lobby: mai profilo, karma, notifiche o coordinate utente.
 // TTL 24h. Funzioni pure rispetto allo storage iniettato (default: localStorage).
 
-export const COURTS_CACHE_KEY = "dropin:cache:courts:v1";
+// v2: le righe includono `is_auto_name` (050). Le entry v1 non hanno il
+// flag e nasconderebbero il chip "Nome automatico": chiave diversa = le
+// cache vecchie non vengono servite.
+export const COURTS_CACHE_KEY = "dropin:cache:courts:v2";
 export const LOBBIES_CACHE_KEY = "dropin:cache:lobbies:v1";
 const COURT_DETAIL_PREFIX = "dropin:cache:court:v1:";
 

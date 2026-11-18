@@ -5,6 +5,7 @@ import { courtPhotoPublicUrl } from "@/lib/storage/court-photo-url";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { CheckInButton } from "@/components/check-in/check-in-button";
+import { NameProvenance } from "@/components/court/name-provenance";
 import { FavoriteButton } from "@/components/court/favorite-button";
 import { CoachMark } from "@/components/onboarding/coach-mark";
 import { CreateLobbyButton } from "@/components/lobby/create-lobby-button";
@@ -16,6 +17,7 @@ import {
   formatReportExpiry,
 } from "@/lib/reports/active";
 import { formatAppDateTime, formatAppTime } from "@/lib/datetime";
+import { queueDateLabel } from "@/lib/moderation/queue";
 import { resolveNickname } from "@/lib/profile/utils";
 import { lobbyPhase, lobbyPhaseLabel } from "@/lib/lobby/phase";
 import { LoginPrompt } from "@/components/auth/login-prompt";
@@ -89,10 +91,19 @@ export async function generateMetadata({
 
 export default async function CourtPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ proponi?: string | string[] }>;
 }) {
   const { id } = await params;
+  // Deep link dal preview sheet (`?proponi=nome`): il client apre il form una
+  // volta sola e ripulisce l'URL (nessuna useSearchParams + Suspense).
+  const query = searchParams ? await searchParams : undefined;
+  const rawProponi = query?.proponi;
+  const openPropose = Array.isArray(rawProponi)
+    ? rawProponi.includes("nome")
+    : rawProponi === "nome";
   const supabase = await createClient();
 
   // d24: Supabase irraggiungibile ≠ 404. Il fallimento di rete finisce
@@ -110,6 +121,7 @@ export default async function CourtPage({
     photo_path: string | null;
     sport: string | null;
     moderation_status: string;
+    is_auto_name: boolean;
   } | null = null;
   let lobbies: {
     id: string;
@@ -238,6 +250,47 @@ export default async function CourtPage({
     }
   }
 
+  // ticket 106: blocco identità (chip "Nome automatico" + CTA/stato). Solo sulle
+  // corti approvate con nome generato: due query additive in try/catch
+  // propri — un errore qui non deve mai rompere la pagina.
+  // - propria pending: il proponente vede il suo nome proposto (RLS);
+  //   le pending altrui non sono pubbliche e non si mostrano mai.
+  // - blocco: bannato o karma < 50 → testo, nessun controllo.
+  let ownPendingName: string | null = null;
+  let blockedReason: string | null = null;
+  const isAutoName = court.is_auto_name === true;
+  if (!isPending && isAutoName && user) {
+    try {
+      const { data } = await supabase
+        .from("court_name_proposals")
+        .select("proposed_name")
+        .eq("court_id", id)
+        .eq("proposer_id", user.id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      ownPendingName = data?.proposed_name ?? null;
+    } catch {
+      ownPendingName = null;
+    }
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("banned_until,karma_score")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const bannedUntil = data?.banned_until ?? null;
+      if (bannedUntil && new Date(bannedUntil) > new Date()) {
+        blockedReason = `Sei bannato fino al ${queueDateLabel(bannedUntil)}.`;
+      } else if ((data?.karma_score ?? 90) < 50) {
+        blockedReason = "Il tuo karma è sotto 50.";
+      }
+    } catch {
+      blockedReason = null;
+    }
+  }
+
   // #34: recensioni. Ogni lettura ha il suo try/catch: un errore qui non deve
   // mai rompere la pagina (stessa regola di check_ins/user_favorites).
   // Il nickname non è embeddabile (FK user_id → auth.users): seconda query
@@ -354,6 +407,25 @@ export default async function CourtPage({
           initialIsFavorite={isFavorite}
         />
       </div>
+
+      {/* ticket 106: zona identità — fuori dalla riga titolo/cuore, subito dopo
+          l'indirizzo e prima di foto e badge. Solo sulle corti approvate:
+          proporre un nome richiede una corte approvata (RPC). Con nome vero
+          il blocco non rende nulla (zero pixel). `key` sul campo: navigando
+          da A a B lo stato locale (pending appena proposta, deep link
+          consumato) non deve sopravvivere al cambio campo. */}
+      {!isPending && (
+        <NameProvenance
+          key={court.id}
+          courtId={court.id}
+          courtName={court.name}
+          isAutoName={isAutoName}
+          signedIn={user != null}
+          blockedReason={blockedReason}
+          ownPendingName={ownPendingName}
+          initialOpen={openPropose}
+        />
+      )}
 
       {photoUrl && (
         <div className="relative aspect-video rounded-xl overflow-hidden bg-[var(--bg-surface)]">

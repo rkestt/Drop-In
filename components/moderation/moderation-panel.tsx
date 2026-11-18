@@ -2,25 +2,29 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { CheckCircle2, ClipboardList, Flag } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { postgrestErrorFields } from "@/lib/lobbies/join-errors";
 import {
   fetchActiveReportGroups,
   fetchDedupCandidates,
   fetchPendingCourts,
+  fetchPendingNameProposals,
 } from "@/lib/moderation/queries";
 import type {
   DedupCandidateItem,
   ModerationQueueItem,
+  NameProposalItem,
   ReportCourtGroup,
 } from "@/lib/moderation/queue";
 import { cn } from "@/lib/utils";
 import { PendingCourtCard } from "./pending-court-card";
+import { NameProposalCard } from "./name-proposal-card";
 import { ReportsSection } from "./reports-section";
 
-type TabId = "courts" | "reports";
-const TAB_IDS: TabId[] = ["courts", "reports"];
+type TabId = "courts" | "reports" | "names";
+const TAB_IDS: TabId[] = ["courts", "reports", "names"];
 
 interface Feedback {
   tone: "success" | "error";
@@ -34,10 +38,13 @@ interface ModerationPanelProps {
   initialQueueError: boolean;
   initialReportGroups: ReportCourtGroup[];
   initialReportsError: boolean;
+  initialNameProposals: NameProposalItem[];
+  initialNamesError: boolean;
 }
 
 /**
- * Pannello di moderazione (#33): due tab, "Proposte" e "Segnalazioni".
+ * Pannello di moderazione (#33 + ticket 106): tre tab — "Proposte", "Segnalazioni"
+ * e "Nomi".
  *
  * - Nessun optimistic update: dopo un RPC la coda viene riletta dal DB; se
  *   l'azione fallisce la riga resta al suo posto con il messaggio del server
@@ -50,6 +57,8 @@ export function ModerationPanel({
   initialQueueError,
   initialReportGroups,
   initialReportsError,
+  initialNameProposals,
+  initialNamesError,
 }: ModerationPanelProps) {
   // Client Supabase stabile per tutta la vita del pannello: crearlo a ogni
   // render ricreerebbe l'identita' vista dalle callback di refetch.
@@ -62,6 +71,10 @@ export function ModerationPanel({
     useState<ReportCourtGroup[]>(initialReportGroups);
   const [reportsError, setReportsError] = useState(initialReportsError);
   const [reportsLoading, setReportsLoading] = useState(false);
+  const [nameProposals, setNameProposals] =
+    useState<NameProposalItem[]>(initialNameProposals);
+  const [namesError, setNamesError] = useState(initialNamesError);
+  const [namesLoading, setNamesLoading] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const busyRef = useRef(false);
@@ -83,30 +96,44 @@ export function ModerationPanel({
     return true;
   };
 
+  const refreshNames = async (): Promise<boolean> => {
+    const { items, error } = await fetchPendingNameProposals(supabase);
+    if (error) {
+      setNamesError(true);
+      return false;
+    }
+    setNamesError(false);
+    setNameProposals(items);
+    return true;
+  };
+
   const run = async (
-    court: ModerationQueueItem,
+    target: { id: string },
     call: () => PromiseLike<{ error: PostgrestError | null }>,
     successText: string,
+    refresh: () => Promise<boolean>,
+    focusTabIndex: number,
   ) => {
     if (busyRef.current) return;
     busyRef.current = true;
-    setBusyId(court.id);
+    setBusyId(target.id);
     setFeedback(null);
     try {
       const { error } = await call();
       if (error) {
+        const { message } = postgrestErrorFields(error);
         setFeedback({
           tone: "error",
-          text: `Azione non riuscita. ${error.message}`,
-          courtId: court.id,
+          text: `Azione non riuscita. ${message || error.message}`,
+          courtId: target.id,
         });
         return;
       }
-      const refreshed = await refreshQueue();
+      const refreshed = await refresh();
       if (refreshed) {
         // La riga su cui si è agito è sparita: il focus sul bottone andrebbe
         // perso sul body. Si torna alla tab della coda, che resta visibile.
-        tabRefs.current[0]?.focus();
+        tabRefs.current[focusTabIndex]?.focus();
       }
       setFeedback({
         tone: refreshed ? "success" : "error",
@@ -118,7 +145,7 @@ export function ModerationPanel({
       setFeedback({
         tone: "error",
         text: err instanceof Error ? err.message : "Errore di rete. Riprova.",
-        courtId: court.id,
+        courtId: target.id,
       });
     } finally {
       busyRef.current = false;
@@ -131,6 +158,8 @@ export function ModerationPanel({
       court,
       () => supabase.rpc("approve_court", { p_court_id: court.id }),
       `Campo approvato: ${court.name}.`,
+      refreshQueue,
+      0,
     );
   };
 
@@ -147,6 +176,8 @@ export function ModerationPanel({
       trimmed === ""
         ? `Proposta rifiutata: ${court.name}.`
         : `Proposta rifiutata: ${court.name}. Motivo: ${trimmed}`,
+      refreshQueue,
+      0,
     );
   };
 
@@ -164,6 +195,46 @@ export function ModerationPanel({
           p_duplicate_of: originalId,
         }),
       `${court.name} è ora segnato come duplicato di ${original.name}.`,
+      refreshQueue,
+      0,
+    );
+  };
+
+  const approveName = (item: NameProposalItem) => {
+    void run(
+      item,
+      () => supabase.rpc("approve_name_proposal", { p_proposal_id: item.id }),
+      `Nome approvato: «${item.proposedName}».`,
+      refreshNames,
+      2,
+    );
+  };
+
+  const approveNameEdited = (item: NameProposalItem, name: string) => {
+    void run(
+      item,
+      () =>
+        supabase.rpc("approve_name_proposal", {
+          p_proposal_id: item.id,
+          p_edited_name: name,
+        }),
+      `Nome approvato: «${name}».`,
+      refreshNames,
+      2,
+    );
+  };
+
+  const rejectName = (item: NameProposalItem, note: string) => {
+    void run(
+      item,
+      () =>
+        supabase.rpc("reject_name_proposal", {
+          p_proposal_id: item.id,
+          p_note: note,
+        }),
+      `Nome rifiutato. Motivo: ${note}`,
+      refreshNames,
+      2,
     );
   };
 
@@ -198,12 +269,24 @@ export function ModerationPanel({
     setReportGroups(groups);
   };
 
+  const retryNames = async () => {
+    setNamesLoading(true);
+    const { items, error } = await fetchPendingNameProposals(supabase);
+    setNamesLoading(false);
+    if (error) {
+      setNamesError(true);
+      return;
+    }
+    setNamesError(false);
+    setNameProposals(items);
+  };
+
   return (
     <div className="space-y-4">
       <div
         role="tablist"
         aria-label="Moderazione"
-        className="flex gap-2"
+        className="flex flex-wrap gap-2"
         onKeyDown={(event) => {
           if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
           event.preventDefault();
@@ -234,7 +317,6 @@ export function ModerationPanel({
               : "bg-[var(--bg-surface)] text-[var(--text-secondary)]",
           )}
         >
-          <ClipboardList className="h-4 w-4" aria-hidden="true" />
           Proposte
           {!queueError && (
             <span className="tabular-nums"> {courts.length}</span>
@@ -258,10 +340,32 @@ export function ModerationPanel({
               : "bg-[var(--bg-surface)] text-[var(--text-secondary)]",
           )}
         >
-          <Flag className="h-4 w-4" aria-hidden="true" />
           Segnalazioni
           {!reportsError && (
             <span className="tabular-nums"> {reportCount}</span>
+          )}
+        </button>
+        <button
+          ref={(element) => {
+            tabRefs.current[2] = element;
+          }}
+          type="button"
+          role="tab"
+          id="tab-names"
+          aria-controls="panel-names"
+          aria-selected={tab === "names"}
+          tabIndex={tab === "names" ? 0 : -1}
+          onClick={() => setTab("names")}
+          className={cn(
+            "flex min-h-11 items-center gap-1.5 rounded-chip px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]",
+            tab === "names"
+              ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+              : "bg-[var(--bg-surface)] text-[var(--text-secondary)]",
+          )}
+        >
+          Nomi
+          {!namesError && (
+            <span className="tabular-nums"> {nameProposals.length}</span>
           )}
         </button>
       </div>
@@ -363,6 +467,80 @@ export function ModerationPanel({
           loading={reportsLoading}
           onRetry={retryReports}
         />
+      </div>
+
+      <div
+        role="tabpanel"
+        id="panel-names"
+        aria-labelledby="tab-names"
+        hidden={tab !== "names"}
+      >
+        <div className="space-y-3">
+          <h2 className="sr-only">Nomi in attesa</h2>
+          {!namesError && nameProposals.length > 0 && (
+            <p className="text-[13px] text-[var(--text-muted)]">
+              Dal più vecchio. Approvare un nome lo rende pubblico subito.
+            </p>
+          )}
+          {namesError && (
+            <div
+              role="alert"
+              className="rounded-card border border-[var(--danger)]/40 bg-[var(--danger)]/10 p-4"
+            >
+              <p className="text-sm font-semibold text-[var(--danger-dark)]">
+                Non riusciamo a caricare i nomi.
+              </p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                Controlla la connessione e riprova.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={retryNames}
+                disabled={namesLoading}
+                className="mt-3"
+              >
+                {namesLoading ? "Caricamento…" : "Riprova"}
+              </Button>
+            </div>
+          )}
+
+          {nameProposals.length === 0 && !namesError ? (
+            <div className="rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-6 text-center">
+              <CheckCircle2
+                className="mx-auto mb-2 h-8 w-8 text-[var(--text-muted)]"
+                aria-hidden="true"
+              />
+              <p className="text-sm text-[var(--text-secondary)]">
+                Nessun nome in attesa.
+              </p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Le proposte dei giocatori arrivano qui.
+              </p>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {nameProposals.map((item) => (
+                <NameProposalCard
+                  key={item.id}
+                  item={item}
+                  busy={busyId === item.id}
+                  disabled={busyId !== null}
+                  errorText={
+                    feedback?.tone === "error" &&
+                    feedback.courtId === item.id
+                      ? feedback.text
+                      : null
+                  }
+                  onApprove={approveName}
+                  onApproveEdited={approveNameEdited}
+                  onReject={rejectName}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );

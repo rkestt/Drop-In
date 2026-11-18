@@ -145,6 +145,46 @@ export function mapPendingCourt(
   };
 }
 
+/**
+ * Riga grezza di `court_name_proposals` per la tab Nomi (sola lettura, RLS
+ * moderatore): nome proposto + nome/indirizzo/flag attuali della corte
+ * (join `courts`). Il nickname si risolve a parte su `profiles`
+ * (FK proposer_id → auth.users): la query sta in `queries.ts`.
+ */
+export interface NameProposalRow {
+  id: string;
+  court_id: string;
+  proposed_name: string;
+  proposer_id: string;
+  created_at: string | null;
+  courts?: {
+    name: string | null;
+    address: string | null;
+    is_auto_name: boolean | null;
+  } | Array<{
+    name: string | null;
+    address: string | null;
+    is_auto_name: boolean | null;
+  }> | null;
+}
+
+/** Riga pronta per la tab Nomi: etichette e testi già composti. */
+export interface NameProposalItem {
+  id: string;
+  courtId: string;
+  currentName: string;
+  /** Vera quando la corte ha ancora un nome generato. */
+  isAutoName: boolean;
+  proposedName: string;
+  /** Nickname già risolto, o "un giocatore" come fallback. */
+  proposerLabel: string;
+  address: string | null;
+  /** Anzianità relativa ("2 ore fa"). */
+  submittedAgo: string;
+  /** Data dell'invio ("12 nov 2026"). */
+  submittedOn: string;
+}
+
 /** Riga grezza di `dedup_candidates`; nullable per le righe mascherate. */
 export interface DedupCandidateRow {
   id: string | null;
@@ -295,4 +335,34 @@ export function toReportCourtGroups(
       newestAt: group.newestAt,
     }))
     .sort((a, b) => b.newestAt - a.newestAt);
+}
+
+/**
+ * Riga `court_name_proposals` -> voce della tab Nomi. Il nickname arriva
+ * già risolto dalla query (`resolveNickname` in `queries.ts`); qui resta
+ * solo il fallback "un giocatore". Non inventa valori: i null restano null.
+ */
+export function mapNameProposal(
+  row: NameProposalRow,
+  proposerLabel: string | null | undefined,
+  now: string | Date = new Date(),
+): NameProposalItem {
+  const joined = row.courts;
+  const court = Array.isArray(joined) ? joined[0] : joined;
+  const rawName = court?.name?.trim();
+  const rawAddress = court?.address?.trim();
+  return {
+    id: row.id,
+    courtId: row.court_id,
+    currentName: rawName && rawName.length > 0 ? rawName : "Campo senza nome",
+    isAutoName: court?.is_auto_name === true,
+    proposedName: row.proposed_name,
+    proposerLabel:
+      proposerLabel?.trim() && proposerLabel.trim().length > 0
+        ? proposerLabel.trim()
+        : "un giocatore",
+    address: rawAddress && rawAddress.length > 0 ? rawAddress : null,
+    submittedAgo: submittedAgoLabel(row.created_at ?? "", now),
+    submittedOn: queueDateLabel(row.created_at ?? ""),
+  };
 }

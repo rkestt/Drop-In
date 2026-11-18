@@ -9,11 +9,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import {
   mapDedupCandidate,
+  mapNameProposal,
   mapPendingCourt,
   toReportCourtGroups,
   type DedupCandidateItem,
   type DedupCandidateRow,
   type ModerationQueueItem,
+  type NameProposalItem,
+  type NameProposalRow,
   type PendingCourtRow,
   type ReportCourtGroup,
   type ReportCourtRow,
@@ -35,6 +38,18 @@ export const REPORTS_LIMIT = 100;
 /** Tetto di sicurezza per la coda proposte (stesso ruolo di REPORTS_LIMIT). */
 export const PENDING_COURTS_LIMIT = 200;
 
+/**
+ * Colonne della coda nomi: proposta + nome/indirizzo/flag attuali della
+ * corte (join `courts`). La tab "Nomi" non mostra nulla di una corte non
+ * `approved`: la RPC di moderazione legge solo proposte vive (051), e il
+ * refetch dopo l'approvazione fa sparire la riga.
+ */
+export const PENDING_NAMES_SELECT =
+  "id,court_id,proposed_name,proposer_id,created_at,courts(name,address,is_auto_name)";
+
+/** Tetto di sicurezza per la coda nomi (stesso ruolo delle altre code). */
+export const PENDING_NAMES_LIMIT = 200;
+
 export interface QueueResult {
   items: ModerationQueueItem[];
   error: boolean;
@@ -47,6 +62,11 @@ export interface ReportGroupsResult {
 
 export interface DedupResult {
   items: DedupCandidateItem[];
+  error: boolean;
+}
+
+export interface NameProposalsResult {
+  items: NameProposalItem[];
   error: boolean;
 }
 
@@ -88,6 +108,51 @@ export async function fetchActiveReportGroups(
     return { groups: toReportCourtGroups(rows, now), error: false };
   } catch {
     return { groups: [], error: true };
+  }
+}
+
+/** Coda nomi: proposte pending più vecchie prima (FIFO). */
+export async function fetchPendingNameProposals(
+  supabase: ModerationClient,
+  now: Date = new Date(),
+): Promise<NameProposalsResult> {
+  try {
+    const { data, error } = await supabase
+      .from("court_name_proposals")
+      .select(PENDING_NAMES_SELECT)
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      // Tetto di sicurezza: il pannello e' una coda di lavoro, non un archivio.
+      .limit(PENDING_NAMES_LIMIT);
+    if (error) return { items: [], error: true };
+    const rows = (data ?? []) as unknown as NameProposalRow[];
+    // Nickname non embeddabile (FK proposer_id → auth.users): seconda query
+    // su profiles + map lato client, come le recensioni in courts/[id].
+    const proposerIds = [...new Set(rows.map((row) => row.proposer_id))];
+    let nicknames = new Map<string, string | null>();
+    if (proposerIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id,nickname")
+        .in("user_id", proposerIds);
+      nicknames = new Map(
+        ((profiles ?? []) as { user_id: string; nickname: string | null }[]).map(
+          (p) => [p.user_id, p.nickname] as const,
+        ),
+      );
+    }
+    return {
+      items: rows.map((row) =>
+        mapNameProposal(
+          row,
+          nicknames.get(row.proposer_id) ?? null,
+          now,
+        ),
+      ),
+      error: false,
+    };
+  } catch {
+    return { items: [], error: true };
   }
 }
 

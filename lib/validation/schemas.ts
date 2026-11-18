@@ -172,6 +172,26 @@ export const editProfileSchema = z.object({
 
 export type EditProfileValues = z.infer<typeof editProfileSchema>;
 
+/**
+ * Proposta di nome per un campo con nome automatico (ticket 106). Solo il nome:
+ * niente sport, superficie o foto. Il confronto "uguale all'attuale" e
+ * "proposta già aperta" è del client (trim + spazi collassati +
+ * case-insensitive); l'indice unico parziale e il rate limit restano la
+ * difesa server.
+ */
+export const proposeNameSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Scrivi il nome del campo.")
+    .max(
+      COURT_NAME_MAX,
+      `Il nome può avere al massimo ${COURT_NAME_MAX} caratteri.`
+    ),
+});
+
+export type ProposeNameValues = z.infer<typeof proposeNameSchema>;
+
 /** Categorie = CHECK del DB (001_initial_schema); descrizione trimmata nello schema. */
 export const reportSchema = z.object({
   category: z.enum(REPORT_CATEGORY_VALUES, { error: "Seleziona una categoria." }),

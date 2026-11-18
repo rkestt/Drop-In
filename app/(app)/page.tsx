@@ -235,8 +235,9 @@ export default function HomePage() {
     async (bbox: BBox) => {
       const thisReq = ++courtsReqId.current;
       try {
-        // Browse = bbox, non raggio: `courts_in_viewport` (13 colonne, no
-        // p_query). La ricerca usa un'altra RPC — vedi docs/rpc.md.
+        // Browse = bbox, non raggio: `courts_in_viewport` (14 colonne con
+        // `is_auto_name` dalla 050, no p_query). La ricerca usa un'altra RPC
+        // — vedi docs/rpc.md.
         // Nota: supabase-js non lancia su errore rete, ritorna { error }:
         // va controllato esplicitamente o il fallback cache non scatta mai.
         const { data, error } = await supabase.rpc("courts_in_viewport", {

@@ -34,6 +34,8 @@ export interface CourtMapCourt extends CourtMarkerInput {
   sport?: string | null;
   surface_type?: string | null;
   photo_path?: string | null;
+  /** #106: nome generato → chip + invito nel preview sheet. */
+  is_auto_name?: boolean | null;
 }
 
 interface CourtMapProps {

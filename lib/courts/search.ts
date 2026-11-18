@@ -41,6 +41,8 @@ export interface Court {
   photo_path: string | null;
   source?: string | null;
   moderation_status?: string | null;
+  /** Solo lettura: true = nome generato dal sistema (ticket 106). */
+  is_auto_name?: boolean | null;
   /** Solo ricerca per raggio: metri dal centro della ricerca. */
   distance_m?: number | null;
 }
@@ -63,6 +65,8 @@ export interface NearbyCourtRow {
   status: string | null;
   distance_m: number | null;
   photo_path: string | null;
+  /** Colonna 050: presente sia in `nearby_courts` che in `courts_in_viewport`. */
+  is_auto_name?: boolean | null;
 }
 
 export interface SearchOrigin {
@@ -141,6 +145,7 @@ export function mapNearbyCourtRow(row: NearbyCourtRow): Court {
     sport: row.sport ?? null,
     venue_type: row.venue_type ?? null,
     photo_path: row.photo_path ?? null,
+    is_auto_name: row.is_auto_name ?? null,
     distance_m: distance,
   };
 }
