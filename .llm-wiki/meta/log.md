@@ -71,3 +71,7 @@
 
 - **retro**: {"slug":"test-all-verde-perche-meta-degli-e2e-si-skippa","title":"test:all verde perché metà degli e2e si skippa senza E2E_WITH_DB"}
 - **retro**: {"slug":"ends-at-generated-column-timestamptz-immutable","title":"ends_at come colonna generata: timestamptz + interval non è IMMUTABLE (42P17)"}
+
+## 2026-11-18
+
+- **retro**: {"slug":"join-rotto-trigger-notify-invoker-permessi","title":"Join alla lobby rotto: il trigger di notifica invoker contro il REVOKE della 035"}

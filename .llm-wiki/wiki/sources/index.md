@@ -6,6 +6,7 @@
 - [Drop-In: posizionamento — infrastruttura per chi organizza, e chi c'è già a Roma](drop-in-posizionamento-organizzatori-e-concorrenti.md)
 - [E2E di idratazione: server in UTC e browser a Roma](e2e-hydration-server-utc-browser-roma.md)
 - [ends_at come colonna generata: timestamptz + interval non è IMMUTABLE (42P17)](ends-at-generated-column-timestamptz-immutable.md)
+- [Join alla lobby rotto: il trigger di notifica invoker contro il REVOKE della 035](join-rotto-trigger-notify-invoker-permessi.md)
 - [Una riscrittura di trigger ha cancellato un INSERT: le notifiche karma non esistevano più](karma-loss-notification-persa-in-una-riscrittura-di-trigger.md)
 - [Drop-In: l'occorrenza esisteva già, il costo della ricorrenza è nel karma](lobby-gia-e-l-occorrenza-il-costo-e-nel-karma.md)
 - [Mappa: da 200 marker DOM a source GeoJSON con cluster, anteprima e un solo tab stop](mappa-marker-geojson-clustering-preview.md)

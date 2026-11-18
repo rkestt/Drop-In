@@ -150,14 +150,17 @@ test.describe("offline mutation queue", () => {
       expect(await adminParticipantRows()).toEqual([]);
 
       await context.setOffline(false);
-      // Entro ~5 s il banner sparisce: flush partito all'evento online.
-      await expect(page.getByTestId("outbox-banner")).toBeHidden({ timeout: 10_000 });
+      // Finestra 25s, non 10: se il primo invio incappa in un errore
+      // transiente (server occupato) la coda riprova dopo 15s (backoff in
+      // lib/offline/outbox.ts): un tetto di 10s rendeva il test
+      // matematicamente condannato in quel caso.
+      await expect(page.getByTestId("outbox-banner")).toBeHidden({ timeout: 25_000 });
       // Esattamente una riga, letta via REST con il token dell'utente.
       await expect
-        .poll(async () => participantRows(), { timeout: 10_000 })
+        .poll(async () => participantRows(), { timeout: 25_000 })
         .toHaveLength(1);
       await expect(page.getByText("1 operazione inviata")).toBeVisible({
-        timeout: 10_000,
+        timeout: 25_000,
       });
 
       // Secondo flush forzato: nessun duplicato (UNIQUE + item già rimosso).
@@ -186,9 +189,11 @@ test.describe("offline mutation queue", () => {
       expect(await adminParticipantRows()).toHaveLength(1);
 
       await context.setOffline(false);
-      await expect(page.getByTestId("outbox-banner")).toBeHidden({ timeout: 10_000 });
+      // Stessa ragione del test sopra: il secondo tentativo della coda parte
+      // a 15s, quindi 10s di tetto era una sconfitta annunciata.
+      await expect(page.getByTestId("outbox-banner")).toBeHidden({ timeout: 25_000 });
       await expect
-        .poll(async () => adminParticipantRows(), { timeout: 10_000 })
+        .poll(async () => adminParticipantRows(), { timeout: 25_000 })
         .toEqual([]);
     });
   });

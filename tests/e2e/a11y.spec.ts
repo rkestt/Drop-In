@@ -337,10 +337,21 @@ test.describe("accessibility (axe) — autenticate (E2E_WITH_DB)", () => {
       await page.keyboard.press("Tab");
       await page.keyboard.type("password-errata");
       await page.keyboard.press("Enter");
-      // Esito annunciato: errore con role=alert + aria-live (login-modal).
-      await expect(page.getByRole("alert").first()).toBeVisible({
+      // Esito annunciato: errore con role=alert dentro il dialog di login.
+      // Circoscritto al dialog: la home ha già un `role="alert"` suo (errore
+      // geolocalizzazione della mappa), e `.first()` lo prendeva, lasciando
+      // passare l'asserzione mentre il form stava ancora inviando.
+      const loginDialog = page.getByRole("dialog");
+      await expect(loginDialog.getByRole("alert")).toBeVisible({
         timeout: 15_000,
       });
+      // Il submit è `disabled:opacity-50` con `transition-all duration-150`:
+      // misurato a metà dissolvenza il bottone dà contrasto 3.13 invece di
+      // 5.2 e axe lo segnala (caduto una volta il 2026-11-18). Si aspetta la
+      // fine della transizione, non un tempo fisso.
+      await expect(
+        loginDialog.getByRole("button", { name: /Accedi|Entra/i }).first(),
+      ).toHaveCSS("opacity", "1", { timeout: 10_000 });
       const results = await new AxeBuilder({ page })
         .withTags([...TAGS])
         .analyze();

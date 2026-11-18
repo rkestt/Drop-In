@@ -29,6 +29,11 @@ export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
+  // Due worker, non il default (meta' dei core): con sei browser insieme il
+  // server non stava dietro e tre test diversi sono caduti per fatica, non
+  // per difetti. Le riprove automatiche restano a zero: un cancello ogni
+  // tanto rosso per caso insegna a ignorare il rosso.
+  workers: 2,
   reporter: "list",
   use: {
     baseURL: `http://localhost:${E2E_PORT}`,
@@ -74,6 +79,11 @@ export default defineConfig({
     },
   ],
   webServer: {
+    // `next dev`, non build di produzione: `/styleguide` chiama `notFound()`
+    // in produzione (`app/styleguide/page.tsx:11`) e i demo di drawer, toast
+    // e motion girano solo li'. Il prezzo del dev server e' la compilazione
+    // alla prima visita, e si paga con `workers: 2` piu' sotto: a 6 worker
+    // tre test cadevano per contesa, non per difetti.
     command: `npm run dev -- -p ${E2E_PORT}`,
     url: `http://localhost:${E2E_PORT}`,
     reuseExistingServer: true,
