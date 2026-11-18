@@ -208,3 +208,76 @@ export const reviewSchema = z.object({
 });
 
 export type ReviewValues = z.infer<typeof reviewSchema>;
+
+/** Bound Serie (#92): stessi del CHECK su `lobby_series` (044). */
+export const SERIES_WEEKDAY_MIN = 1;
+export const SERIES_WEEKDAY_MAX = 7;
+export const SERIES_MAX_PLAYERS_MIN = 1;
+export const SERIES_MAX_PLAYERS_MAX = 50;
+/**
+ * Ora del giorno `HH:MM` (i secondi si normalizzano a `:00` nel thin client
+ * `lib/series/client.ts` prima dell'INSERT: la colonna è `TIME`).
+ */
+export const SERIES_TIME_OF_DAY_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * Serie (#92, "il giovedì alle 20 al campo X"): regola di ripetizione, non
+ * una partita. La validazione degli slug sport sta qui: il DB non ha enum
+ * (`sport TEXT NULL`, `NULL` = non specificato). `active` è opzionale: il
+ * default `true` del DB vale quando la chiave resta `undefined`.
+ */
+export const seriesSchema = z.object({
+  courtId: z
+    .string()
+    .min(1, "Seleziona un campo.")
+    .uuid("Campo non valido."),
+  weekday: z.coerce
+    .number()
+    .refine((v) => !Number.isNaN(v), "Scegli il giorno della settimana.")
+    .int("Scegli il giorno della settimana.")
+    .min(SERIES_WEEKDAY_MIN, "Scegli il giorno della settimana.")
+    .max(SERIES_WEEKDAY_MAX, "Scegli il giorno della settimana."),
+  timeOfDay: z
+    .string()
+    .trim()
+    .regex(SERIES_TIME_OF_DAY_RE, "Usa il formato HH:MM (es. 20:00)."),
+  sport: z.enum(SPORT_VALUES).optional(),
+  durationMinutes: z.coerce
+    .number()
+    .refine((v) => !Number.isNaN(v), "Inserisci una durata valida.")
+    .int("La durata deve essere un numero intero di minuti.")
+    .min(
+      LOBBY_DURATION_MIN_MINUTES,
+      `Minimo ${LOBBY_DURATION_MIN_MINUTES} minuti.`
+    )
+    .max(
+      LOBBY_DURATION_MAX_MINUTES,
+      `Massimo ${LOBBY_DURATION_MAX_MINUTES} minuti.`
+    )
+    .optional(),
+  maxPlayers: z.coerce
+    .number()
+    .refine((v) => !Number.isNaN(v), "Inserisci un numero di giocatori valido.")
+    .int("Il numero di giocatori deve essere un numero intero.")
+    .min(SERIES_MAX_PLAYERS_MIN, `Minimo ${SERIES_MAX_PLAYERS_MIN} giocatore.`)
+    .max(SERIES_MAX_PLAYERS_MAX, `Massimo ${SERIES_MAX_PLAYERS_MAX} giocatori.`),
+  active: z.boolean().optional(),
+});
+
+export type SeriesValues = z.infer<typeof seriesSchema>;
+
+/** Input grezzo del form (prima della coercizione): per `useForm<Input, _, Output>`. */
+export type SeriesInput = z.input<typeof seriesSchema>;
+
+/**
+ * Modifica di una Serie: il creatore può cambiare la regola a piacere
+ * (giorno, ora, campo); il guard del DB (044) limita già i non-creatori al
+ * solo `active true → false` sulle Serie orfane. Almeno un campo, altrimenti
+ * è un no-op che spreca un round-trip.
+ */
+export const updateSeriesSchema = seriesSchema.partial().refine(
+  (d) => Object.values(d).some((v) => v !== undefined),
+  { message: "Nessuna modifica da salvare." }
+);
+
+export type UpdateSeriesValues = z.infer<typeof updateSeriesSchema>;
