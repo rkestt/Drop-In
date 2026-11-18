@@ -2921,4 +2921,730 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ================= 53. #92: join oltre capienza rifiutato dal DB =================
+-- Il "pieno" era solo client (`count >= max_players`); la 045 lo porta nel
+-- DB con `FOR UPDATE` sulla lobby (gli INSERT concorrenti si serializzano:
+-- il secondo aspetta il commit del primo e poi conta anche la sua riga).
+-- Utenti freschi D/E/F: A e' stato cancellato dal blocco 50.
+-- Utenti D/E/F esistono gia' dal blocco 42 (A e' stato cancellato dal 50).
+-- Il blocco 52 lascia `search_path = auth` (simula gotrue) e il file e' una
+-- sola transazione: si ripristina il path (stessa coppia della 043).
+SET LOCAL search_path = public, extensions;
+SET LOCAL request.jwt.claims = '';
+DO $$
+DECLARE
+  v_court UUID;
+  v_lobby UUID;
+BEGIN
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES ('Capacity Court', 41.915, 12.515, ST_SetSRID(ST_MakePoint(12.515,41.915),4326)::geography, 'community',
+          '44444444-4444-4444-4444-444444444444','approved','active')
+  RETURNING id INTO v_court;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status)
+  VALUES (v_court, '44444444-4444-4444-4444-444444444444', now() + interval '2 hours', 2, 'open')
+  RETURNING id INTO v_lobby;
+  INSERT INTO public.lobby_participants (lobby_id, user_id)
+  VALUES (v_lobby, '44444444-4444-4444-4444-444444444444');
+END $$;
+
+-- 53a. E entra (2/2): riesce.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+INSERT INTO public.lobby_participants (lobby_id, user_id)
+VALUES ((SELECT id FROM public.lobbies
+         WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Capacity Court')),
+        '55555555-5555-5555-5555-555555555555');
+RESET ROLE;
+
+-- 53b. F oltre capienza -> P0001 (passa la RLS, la nega il trigger 045).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"66666666-6666-6666-6666-666666666666","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.lobby_participants (lobby_id, user_id)
+    VALUES ((SELECT id FROM public.lobbies
+             WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Capacity Court')),
+            '66666666-6666-6666-6666-666666666666');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'join oltre capienza: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'join oltre capienza riuscito (#92)';
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF (SELECT count(*) FROM public.lobby_participants
+      WHERE lobby_id IN (SELECT id FROM public.lobbies
+                         WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Capacity Court'))) <> 2 THEN
+    RAISE EXCEPTION 'capienza corrotta (#92)';
+  END IF;
+END $$;
+
+-- ================= 54. #92: il partecipante chiude l'Occorrenza di Serie =================
+-- Scelta (a): chi ha Confermato puo' chiudere la singola Occorrenza
+-- (open -> closed); il resto resta del creatore (policy 001 invariata).
+SET LOCAL request.jwt.claims = '';
+DO $$
+DECLARE
+  v_court UUID;
+  v_series UUID;
+  v_occ1 UUID;
+  v_occ2 UUID;
+BEGIN
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES ('Series Court', 41.916, 12.516, ST_SetSRID(ST_MakePoint(12.516,41.916),4326)::geography, 'community',
+          '44444444-4444-4444-4444-444444444444','approved','active')
+  RETURNING id INTO v_court;
+  INSERT INTO public.lobby_series (court_id, creator_id, weekday, time_of_day, duration_minutes, max_players)
+  VALUES (v_court, '44444444-4444-4444-4444-444444444444', 4, '20:00', 60, 10)
+  RETURNING id INTO v_series;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status, duration_minutes, series_id)
+  VALUES (v_court, '44444444-4444-4444-4444-444444444444', now() + interval '2 days', 10, 'open', 60, v_series)
+  RETURNING id INTO v_occ1;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status, duration_minutes, series_id)
+  VALUES (v_court, '44444444-4444-4444-4444-444444444444', now() + interval '3 days', 10, 'open', 60, v_series)
+  RETURNING id INTO v_occ2;
+  INSERT INTO public.lobby_participants (lobby_id, user_id)
+  VALUES (v_occ1, '55555555-5555-5555-5555-555555555555');
+END $$;
+
+-- 54a. E (partecipante) chiude l'Occorrenza: riesce.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+UPDATE public.lobbies SET status = 'closed'
+WHERE id IN (SELECT l.id FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+             WHERE c.name = 'Series Court' AND l.series_id IS NOT NULL
+             ORDER BY l.start_time ASC LIMIT 1);
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+                 WHERE c.name = 'Series Court' AND l.status = 'closed' AND l.series_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'partecipante non ha chiuso l''occorrenza (#92)';
+  END IF;
+END $$;
+
+-- 54b. E non riapre (closed -> open): P0001 del guard.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.lobbies SET status = 'open'
+    WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Series Court')
+      AND status = 'closed' AND series_id IS NOT NULL;
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'riapertura occorrenza: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'partecipante ha riaperto l''occorrenza (#92)';
+END $$;
+RESET ROLE;
+
+-- 54c. E non tocca null'altro (max_players): P0001 del guard.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.lobbies SET max_players = 4
+    WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Series Court')
+      AND status = 'closed' AND series_id IS NOT NULL;
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'modifica occorrenza altrui: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'partecipante ha modificato l''occorrenza (#92)';
+END $$;
+RESET ROLE;
+
+-- 54d. D (creatore) resta libero sulle proprie Occorrenze: riesce.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"44444444-4444-4444-4444-444444444444","role":"authenticated"}';
+UPDATE public.lobbies SET max_players = 12
+WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Series Court')
+  AND status = 'closed' AND series_id IS NOT NULL;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+                 WHERE c.name = 'Series Court' AND l.max_players = 12 AND l.series_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'creatore bloccato sulla propria occorrenza (#92)';
+  END IF;
+END $$;
+
+-- ================= 55. #92: il non-partecipante non chiude =================
+-- F non e' iscritto all'Occorrenza aperta (occ2, +3 giorni): nessuna policy
+-- passa -> 42501.
+-- F non e' iscritto all'Occorrenza aperta (occ2, +3 giorni): nessuna policy
+-- passa -> 0 righe (su UPDATE la RLS negata non alza errori, cfr 51d).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"66666666-6666-6666-6666-666666666666","role":"authenticated"}';
+DO $$
+DECLARE
+  v_n INTEGER;
+BEGIN
+  UPDATE public.lobbies SET status = 'closed'
+  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Series Court')
+    AND status = 'open' AND series_id IS NOT NULL;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'non-partecipante ha chiuso % occorrenze (#92)', v_n;
+  END IF;
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+                 WHERE c.name = 'Series Court' AND l.status = 'open' AND l.series_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'occorrenza chiusa dal non-partecipante (#92)';
+  END IF;
+END $$;
+
+-- ================= 56. #92: kill-switch sulle Serie orfane =================
+-- Serie di D con E iscritto a un'Occorrenza passata (-2 giorni, entro i 28:
+-- il kill-switch vuole occorrenze già iniziate, mai solo future); poi D
+-- viene cancellato (creator_id -> NULL come la 041). E puo' solo disattivare,
+-- F (non-partecipante) niente, e finche' il creatore esiste il kill-switch
+-- non passa.
+SET LOCAL request.jwt.claims = '';
+DO $$
+DECLARE
+  v_court UUID;
+  v_series UUID;
+  v_occ UUID;
+BEGIN
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES ('Orphan Court', 41.917, 12.517, ST_SetSRID(ST_MakePoint(12.517,41.917),4326)::geography, 'community',
+          '44444444-4444-4444-4444-444444444444','approved','active')
+  RETURNING id INTO v_court;
+  INSERT INTO public.lobby_series (court_id, creator_id, weekday, time_of_day, duration_minutes, max_players)
+  VALUES (v_court, '44444444-4444-4444-4444-444444444444', 4, '20:00', 60, 10)
+  RETURNING id INTO v_series;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status, duration_minutes, series_id)
+  VALUES (v_court, '44444444-4444-4444-4444-444444444444', now() - interval '2 days', 10, 'open', 60, v_series)
+  RETURNING id INTO v_occ;
+  INSERT INTO public.lobby_participants (lobby_id, user_id)
+  VALUES (v_occ, '55555555-5555-5555-5555-555555555555');
+  INSERT INTO public.lobby_series (court_id, creator_id, weekday, time_of_day)
+  VALUES (v_court, '55555555-5555-5555-5555-555555555555', 5, '19:00');
+END $$;
+DELETE FROM auth.users WHERE id = '44444444-4444-4444-4444-444444444444';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobby_series s JOIN public.courts c ON c.id = s.court_id
+                 WHERE c.name = 'Orphan Court' AND s.creator_id IS NULL AND s.weekday = 4) THEN
+    RAISE EXCEPTION 'serie non orfana dopo il delete (#92)';
+  END IF;
+END $$;
+
+-- 56a. E (partecipante) disattiva la Serie orfana: riesce.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+UPDATE public.lobby_series SET active = false
+WHERE id IN (SELECT s.id FROM public.lobby_series s JOIN public.courts c ON c.id = s.court_id
+             WHERE c.name = 'Orphan Court' AND s.creator_id IS NULL);
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobby_series s JOIN public.courts c ON c.id = s.court_id
+                 WHERE c.name = 'Orphan Court' AND s.creator_id IS NULL AND s.active = false) THEN
+    RAISE EXCEPTION 'kill-switch orfano fallito (#92)';
+  END IF;
+END $$;
+
+-- 56b. F (non-partecipante) non disattiva: 0 righe (RLS negata su UPDATE).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"66666666-6666-6666-6666-666666666666","role":"authenticated"}';
+DO $$
+DECLARE
+  v_n INTEGER;
+BEGIN
+  UPDATE public.lobby_series SET active = false
+  WHERE id IN (SELECT s.id FROM public.lobby_series s JOIN public.courts c ON c.id = s.court_id
+               WHERE c.name = 'Orphan Court' AND s.creator_id IS NULL);
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'non-partecipante ha disattivato % serie (#92)', v_n;
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 56c. E non cambia la regola (ora): P0001 del guard.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.lobby_series SET time_of_day = '21:00'
+    WHERE id IN (SELECT s.id FROM public.lobby_series s JOIN public.courts c ON c.id = s.court_id
+                 WHERE c.name = 'Orphan Court' AND s.creator_id IS NULL);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'modifica serie orfana: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'partecipante ha cambiato la regola orfana (#92)';
+END $$;
+RESET ROLE;
+
+-- 56d. E non riattiva (false -> true): P0001 del guard.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.lobby_series SET active = true
+    WHERE id IN (SELECT s.id FROM public.lobby_series s JOIN public.courts c ON c.id = s.court_id
+                 WHERE c.name = 'Orphan Court' AND s.creator_id IS NULL);
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'riattivazione orfana: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'partecipante ha riattivato la serie orfana (#92)';
+END $$;
+RESET ROLE;
+
+-- 56e. Creatore vivo: F non tocca la Serie di E -> 0 righe (kill-switch solo orfano).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"66666666-6666-6666-6666-666666666666","role":"authenticated"}';
+DO $$
+DECLARE
+  v_n INTEGER;
+BEGIN
+  UPDATE public.lobby_series SET active = false
+  WHERE creator_id = '55555555-5555-5555-5555-555555555555';
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'serie con creatore disattivata da estraneo: % righe (#92)', v_n;
+  END IF;
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobby_series
+                 WHERE creator_id = '55555555-5555-5555-5555-555555555555' AND active = true) THEN
+    RAISE EXCEPTION 'serie viva disattivata (#92)';
+  END IF;
+END $$;
+
+-- 56f. Il creatore cambia la regola ma non creator_id (provenienza immutabile).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+UPDATE public.lobby_series SET time_of_day = '19:30'
+WHERE creator_id = '55555555-5555-5555-5555-555555555555';
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobby_series
+                 WHERE creator_id = '55555555-5555-5555-5555-555555555555' AND time_of_day = '19:30') THEN
+    RAISE EXCEPTION 'creatore non aggiorna la propria regola (#92)';
+  END IF;
+END $$;
+
+-- 56f-2. ... ma non cede la serie a F: 42501 del guard.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.lobby_series SET creator_id = '66666666-6666-6666-6666-666666666666'
+    WHERE creator_id = '55555555-5555-5555-5555-555555555555';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'cessione serie: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'creatore ha ceduto la serie (#92)';
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobby_series
+                 WHERE creator_id = '55555555-5555-5555-5555-555555555555') THEN
+    RAISE EXCEPTION 'serie ceduta nonostante il guard (#92)';
+  END IF;
+END $$;
+
+-- 56f-3. ... né si auto-orfanizza (creator_id = NULL): 42501 del guard.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.lobby_series SET creator_id = NULL
+    WHERE creator_id = '55555555-5555-5555-5555-555555555555';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'auto-orfanizzazione: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'creatore ha auto-orfanizzato la serie (#92)';
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobby_series
+                 WHERE creator_id = '55555555-5555-5555-5555-555555555555') THEN
+    RAISE EXCEPTION 'serie orfanizzata nonostante il guard (#92)';
+  END IF;
+END $$;
+
+-- 56g. Kill-switch solo su occorrenze già iniziate (<= NOW()): F con sola
+-- occorrenza futura (+10 giorni) non spegne; E con occorrenza passata
+-- (-5 giorni, entro i 28) sì.
+SET LOCAL request.jwt.claims = '';
+DO $$
+DECLARE
+  v_court UUID;
+  v_fut UUID;
+  v_past UUID;
+  v_of UUID;
+  v_op UUID;
+BEGIN
+  SELECT id INTO v_court FROM public.courts WHERE name = 'Orphan Court' LIMIT 1;
+  INSERT INTO public.lobby_series (court_id, creator_id, weekday, time_of_day)
+  VALUES (v_court, NULL, 6, '18:00') RETURNING id INTO v_fut;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status, duration_minutes, series_id)
+  VALUES (v_court, NULL, now() + interval '10 days', 10, 'open', 60, v_fut) RETURNING id INTO v_of;
+  INSERT INTO public.lobby_participants (lobby_id, user_id)
+  VALUES (v_of, '66666666-6666-6666-6666-666666666666');
+  INSERT INTO public.lobby_series (court_id, creator_id, weekday, time_of_day)
+  VALUES (v_court, NULL, 2, '18:00') RETURNING id INTO v_past;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status, duration_minutes, series_id)
+  VALUES (v_court, NULL, now() - interval '5 days', 10, 'open', 60, v_past) RETURNING id INTO v_op;
+  INSERT INTO public.lobby_participants (lobby_id, user_id)
+  VALUES (v_op, '55555555-5555-5555-5555-555555555555');
+END $$;
+
+-- 56g-1. F (sola futura) non spegne: 0 righe (RLS negata su UPDATE).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"66666666-6666-6666-6666-666666666666","role":"authenticated"}';
+DO $$
+DECLARE
+  v_n INTEGER;
+BEGIN
+  UPDATE public.lobby_series SET active = false
+  WHERE id IN (SELECT s.id FROM public.lobby_series s JOIN public.courts c ON c.id = s.court_id
+               WHERE c.name = 'Orphan Court' AND s.creator_id IS NULL AND s.weekday = 6);
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'solo-futuro ha spento % serie (#92)', v_n;
+  END IF;
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobby_series s JOIN public.courts c ON c.id = s.court_id
+                 WHERE c.name = 'Orphan Court' AND s.creator_id IS NULL AND s.weekday = 6 AND s.active = true) THEN
+    RAISE EXCEPTION 'serie futura spenta da solo-futuro (#92)';
+  END IF;
+END $$;
+
+-- 56g-2. E (passata entro 28 giorni) spegne: riesce.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+UPDATE public.lobby_series SET active = false
+WHERE id IN (SELECT s.id FROM public.lobby_series s JOIN public.courts c ON c.id = s.court_id
+             WHERE c.name = 'Orphan Court' AND s.creator_id IS NULL AND s.weekday = 2);
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobby_series s JOIN public.courts c ON c.id = s.court_id
+                 WHERE c.name = 'Orphan Court' AND s.creator_id IS NULL AND s.weekday = 2 AND s.active = false) THEN
+    RAISE EXCEPTION 'kill-switch su occorrenza passata fallito (#92)';
+  END IF;
+END $$;
+
+-- ================= 57. #92: generatore, idempotenza, DST, skip =================
+-- `p_now` fissa il riferimento (il cron chiama senza argomenti = NOW()).
+SET LOCAL request.jwt.claims = '';
+DO $$
+DECLARE
+  v_spring_court UUID;
+  v_fall_court UUID;
+  v_overlap_court UUID;
+  v_pending_court UUID;
+BEGIN
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES
+    ('DST Spring Court', 41.918, 12.518, ST_SetSRID(ST_MakePoint(12.518,41.918),4326)::geography, 'community',
+     '55555555-5555-5555-5555-555555555555','approved','active'),
+    ('DST Fall Court', 41.919, 12.519, ST_SetSRID(ST_MakePoint(12.519,41.919),4326)::geography, 'community',
+     '55555555-5555-5555-5555-555555555555','approved','active'),
+    ('Overlap Court', 41.920, 12.520, ST_SetSRID(ST_MakePoint(12.520,41.920),4326)::geography, 'community',
+     '55555555-5555-5555-5555-555555555555','approved','active'),
+    ('Pending Gen Court', 41.921, 12.521, ST_SetSRID(ST_MakePoint(12.521,41.921),4326)::geography, 'community',
+     '55555555-5555-5555-5555-555555555555','pending','active');
+  SELECT id INTO v_spring_court FROM public.courts WHERE name = 'DST Spring Court';
+  SELECT id INTO v_fall_court FROM public.courts WHERE name = 'DST Fall Court';
+  SELECT id INTO v_overlap_court FROM public.courts WHERE name = 'Overlap Court';
+  SELECT id INTO v_pending_court FROM public.courts WHERE name = 'Pending Gen Court';
+
+  -- Domenica 10:00 (ora locale del campo), prima/dopo il cambio ora legale.
+  INSERT INTO public.lobby_series (court_id, creator_id, weekday, time_of_day, duration_minutes, max_players)
+  VALUES (v_spring_court, '55555555-5555-5555-5555-555555555555', 7, '10:00', 60, 10);
+  INSERT INTO public.lobby_series (court_id, creator_id, weekday, time_of_day, duration_minutes, max_players)
+  VALUES (v_fall_court, '55555555-5555-5555-5555-555555555555', 7, '10:00', 60, 10);
+
+  -- Giovedi' 20:00 sul campo overlap; la singola del 19/11 copre uno slot.
+  INSERT INTO public.lobby_series (court_id, creator_id, weekday, time_of_day, duration_minutes, max_players)
+  VALUES (v_overlap_court, '55555555-5555-5555-5555-555555555555',
+          EXTRACT(ISODOW FROM DATE '2026-11-19')::SMALLINT, '20:00', 60, 10);
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status, duration_minutes)
+  VALUES (v_overlap_court, '55555555-5555-5555-5555-555555555555',
+          '2026-11-19 20:30:00+01'::timestamptz, 10, 'open', 30);
+
+  -- Serie su corte pending: il generatore la salta (altrimenti
+  -- `require_approved_court` abortirebbe il batch notturno).
+  INSERT INTO public.lobby_series (court_id, creator_id, weekday, time_of_day)
+  VALUES (v_pending_court, '55555555-5555-5555-5555-555555555555', 7, '10:00');
+
+  -- Il generatore gira su TUTTE le serie attive: si congelano quelle dei
+  -- blocchi 54/56 (gia' asserite), cosi' i conteggi sotto sono per-corte.
+  UPDATE public.lobby_series SET active = false
+  WHERE court_id NOT IN (SELECT id FROM public.courts
+                         WHERE name IN ('DST Spring Court', 'DST Fall Court',
+                                        'Overlap Court', 'Pending Gen Court'));
+END $$;
+
+-- 57a. Ora legale (scatto 29/03/2026): 2 domeniche, 10:00 Roma = 09:00Z
+-- prima e 08:00Z dopo. Il rerun aggiunge zero righe (globale: tutto
+-- idempotente allo stesso p_now).
+DO $$
+DECLARE
+  v_n INTEGER;
+BEGIN
+  SELECT public.generate_series_occurrences('2026-03-20 12:00:00+00'::timestamptz) INTO v_n;
+  IF v_n < 2 THEN
+    RAISE EXCEPTION 'generate primavera: % righe (#92)', v_n;
+  END IF;
+  IF (SELECT count(*) FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+      WHERE c.name = 'DST Spring Court') <> 2 THEN
+    RAISE EXCEPTION 'occorrenze primavera != 2 (#92)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+                 WHERE c.name = 'DST Spring Court' AND l.start_time = '2026-03-22 09:00:00+00'::timestamptz) THEN
+    RAISE EXCEPTION '22/03 non alle 09:00Z (10:00 Roma pre-DST) (#92)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+                 WHERE c.name = 'DST Spring Court' AND l.start_time = '2026-03-29 08:00:00+00'::timestamptz) THEN
+    RAISE EXCEPTION '29/03 non alle 08:00Z (10:00 Roma post-DST) (#92)';
+  END IF;
+  SELECT public.generate_series_occurrences('2026-03-20 12:00:00+00'::timestamptz) INTO v_n;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'rerun primavera: % righe, attese 0 (#92)', v_n;
+  END IF;
+END $$;
+
+-- 57b. Ora solare (ritorno 25/10/2026): 10:00 Roma = 08:00Z prima, 09:00Z dopo.
+DO $$
+DECLARE
+  v_n INTEGER;
+BEGIN
+  SELECT public.generate_series_occurrences('2026-10-15 12:00:00+00'::timestamptz) INTO v_n;
+  IF v_n < 2 THEN
+    RAISE EXCEPTION 'generate autunno: % righe (#92)', v_n;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+                 WHERE c.name = 'DST Fall Court' AND l.start_time = '2026-10-18 08:00:00+00'::timestamptz) THEN
+    RAISE EXCEPTION '18/10 non alle 08:00Z (10:00 Roma pre-fallback) (#92)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+                 WHERE c.name = 'DST Fall Court' AND l.start_time = '2026-10-25 09:00:00+00'::timestamptz) THEN
+    RAISE EXCEPTION '25/10 non alle 09:00Z (10:00 Roma post-fallback) (#92)';
+  END IF;
+  SELECT public.generate_series_occurrences('2026-10-15 12:00:00+00'::timestamptz) INTO v_n;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'rerun autunno: % righe, attese 0 (#92)', v_n;
+  END IF;
+END $$;
+
+-- 57c. Overlap: sopra la singola del 19/11 non si genera; il 26/11 si'.
+-- Pending: zero Occorrenze (skip, non errore).
+DO $$
+DECLARE
+  v_n INTEGER;
+BEGIN
+  SELECT public.generate_series_occurrences('2026-11-18 12:00:00+00'::timestamptz) INTO v_n;
+  IF v_n < 1 THEN
+    RAISE EXCEPTION 'generate overlap: % righe (#92)', v_n;
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+             WHERE c.name = 'Overlap Court' AND l.series_id IS NOT NULL
+               AND l.start_time = '2026-11-19 19:00:00+00'::timestamptz) THEN
+    RAISE EXCEPTION 'occorrenza generata sopra la singola (#92)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+                 WHERE c.name = 'Overlap Court' AND l.series_id IS NOT NULL
+                   AND l.start_time = '2026-11-26 19:00:00+00'::timestamptz) THEN
+    RAISE EXCEPTION 'occorrenza del 26/11 mancante (#92)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+             WHERE c.name = 'Pending Gen Court' AND l.series_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'occorrenza su corte pending (#92)';
+  END IF;
+END $$;
+
+-- 57d. Le Occorrenze nascono senza partecipanti (nessuna Conferma implicita)
+-- e copiano creatore/sport/durata/capienza dalla Serie.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.lobby_participants lp JOIN public.lobbies l ON l.id = lp.lobby_id
+             JOIN public.courts c ON c.id = l.court_id
+             WHERE c.name IN ('DST Spring Court', 'DST Fall Court', 'Overlap Court')
+               AND l.series_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'partecipanti precaricati sulle occorrenze (#92)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+             WHERE c.name IN ('DST Spring Court', 'DST Fall Court', 'Overlap Court')
+               AND l.series_id IS NOT NULL
+               AND (l.creator_id IS DISTINCT FROM '55555555-5555-5555-5555-555555555555'
+                    OR l.duration_minutes <> 60 OR l.max_players <> 10)) THEN
+    RAISE EXCEPTION 'occorrenze senza copia dei valori serie (#92)';
+  END IF;
+END $$;
+
+-- 57e. Serie disattivata: il generatore la salta.
+DO $$
+DECLARE
+  v_n INTEGER;
+BEGIN
+  UPDATE public.lobby_series SET active = false
+  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'DST Fall Court');
+  SELECT public.generate_series_occurrences('2026-03-20 12:00:00+00'::timestamptz) INTO v_n;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'generate con serie spenta e slot noti: % righe (#92)', v_n;
+  END IF;
+END $$;
+
+-- ================= 58. #92 addendum: materializzazione immediata =================
+-- `materialize_series` (047, grant ad authenticated): solo il creatore;
+-- `generate_series_one` (046) e `generate_series_occurrences` restano senza
+-- EXECUTE (solo cron). Logica di generazione unica: stesse regole della 046.
+SET LOCAL request.jwt.claims = '';
+INSERT INTO auth.users (id, email) VALUES
+  ('99999999-9999-9999-9999-999999999999','i@test.local');
+DO $$
+DECLARE
+  v_court UUID;
+BEGIN
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES ('Materialize Court', 41.922, 12.522, ST_SetSRID(ST_MakePoint(12.522,41.922),4326)::geography, 'community',
+          '99999999-9999-9999-9999-999999999999','approved','active')
+  RETURNING id INTO v_court;
+  -- weekday = oggi+3 giorni (Roma), ore 20:00: due slot futuri (+3, +10),
+  -- entrambi dentro l'orizzonte 14 giorni qualunque sia l'ora di esecuzione.
+  INSERT INTO public.lobby_series (court_id, creator_id, weekday, time_of_day, duration_minutes, max_players)
+  VALUES (v_court, '99999999-9999-9999-9999-999999999999',
+          EXTRACT(ISODOW FROM ((NOW() AT TIME ZONE 'Europe/Rome')::date + 3))::SMALLINT,
+          '20:00', 60, 10);
+END $$;
+
+-- 58a. Il creatore materializza: 2 Occorrenze; il rerun e' un no-op (0).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"99999999-9999-9999-9999-999999999999","role":"authenticated"}';
+DO $$
+DECLARE
+  v_n INTEGER;
+  v_m INTEGER;
+BEGIN
+  SELECT public.materialize_series((SELECT id FROM public.lobby_series
+    WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Materialize Court'))) INTO v_n;
+  IF v_n <> 2 THEN
+    RAISE EXCEPTION 'materialize creatore: % righe, attese 2 (#92 addendum)', v_n;
+  END IF;
+  SELECT count(*) INTO v_m FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+  WHERE c.name = 'Materialize Court' AND l.series_id IS NOT NULL;
+  IF v_m <> 2 THEN
+    RAISE EXCEPTION 'materialize: % occorrenze, attese 2 (#92 addendum)', v_m;
+  END IF;
+  SELECT public.materialize_series((SELECT id FROM public.lobby_series
+    WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Materialize Court'))) INTO v_n;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'materialize rerun: % righe, attese 0 (#92 addendum)', v_n;
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 58b. Il non-creatore (E, anche da partecipante di un'Occorrenza)
+-- -> insufficient_privilege (42501).
+SET LOCAL request.jwt.claims = '';
+DO $$ BEGIN
+  INSERT INTO public.lobby_participants (lobby_id, user_id)
+  SELECT l.id, '55555555-5555-5555-5555-555555555555' FROM public.lobbies l
+  JOIN public.courts c ON c.id = l.court_id
+  WHERE c.name = 'Materialize Court' AND l.series_id IS NOT NULL
+  ORDER BY l.start_time ASC LIMIT 1;
+END $$;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.materialize_series((SELECT id FROM public.lobby_series
+      WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Materialize Court')));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'materialize non-creatore: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'non-creatore ha materializzato (#92 addendum)';
+END $$;
+RESET ROLE;
+
+-- 58c. anon -> permission denied (42501: nessun EXECUTE ad anon).
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.materialize_series((SELECT id FROM public.lobby_series
+      WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Materialize Court')));
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'materialize anon: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'anon ha materializzato (#92 addendum)';
+END $$;
+RESET ROLE;
+
+-- 58d. Serie disattivata: il creatore ottiene 0 righe, niente di nuovo.
+SET LOCAL request.jwt.claims = '';
+DO $$ BEGIN
+  UPDATE public.lobby_series SET active = false
+  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Materialize Court');
+END $$;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"99999999-9999-9999-9999-999999999999","role":"authenticated"}';
+DO $$
+DECLARE
+  v_n INTEGER;
+  v_before INTEGER;
+  v_after INTEGER;
+BEGIN
+  SELECT count(*) INTO v_before FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+  WHERE c.name = 'Materialize Court' AND l.series_id IS NOT NULL;
+  SELECT public.materialize_series((SELECT id FROM public.lobby_series
+    WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Materialize Court'))) INTO v_n;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'materialize su serie spenta: % righe (#92 addendum)', v_n;
+  END IF;
+  SELECT count(*) INTO v_after FROM public.lobbies l JOIN public.courts c ON c.id = l.court_id
+  WHERE c.name = 'Materialize Court' AND l.series_id IS NOT NULL;
+  IF v_after <> v_before THEN
+    RAISE EXCEPTION 'materialize su serie spenta ha creato righe (#92 addendum)';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 58e. Cron-path dopo il refactor: doppia chiamata globale, la seconda e'
+-- zero righe (stessa idempotenza della 046 prima dell'estrazione).
+SET LOCAL request.jwt.claims = '';
+DO $$
+DECLARE
+  v_a INTEGER;
+  v_b INTEGER;
+BEGIN
+  SELECT public.generate_series_occurrences() INTO v_a;
+  SELECT public.generate_series_occurrences() INTO v_b;
+  IF v_b <> 0 THEN
+    RAISE EXCEPTION 'cron-path post-refactor: rerun % righe, attese 0 (#92 addendum)', v_b;
+  END IF;
+END $$;
+
+-- 58f. Zero effetti su `lobby_participants`: solo la riga E di 58b.
+DO $$ BEGIN
+  IF (SELECT count(*) FROM public.lobby_participants lp JOIN public.lobbies l ON l.id = lp.lobby_id
+      JOIN public.courts c ON c.id = l.court_id
+      WHERE c.name = 'Materialize Court') <> 1 THEN
+    RAISE EXCEPTION 'materialize ha toccato i partecipanti (#92 addendum)';
+  END IF;
+END $$;
+
 ROLLBACK;
