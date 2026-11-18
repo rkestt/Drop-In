@@ -79,6 +79,7 @@ RETURNS TABLE (
 ## Trappole comuni
 
 - **`DROP FUNCTION` azzera i grant**: ogni `CREATE OR REPLACE` con firma o colonne diverse richiede `DROP` + `CREATE`, quindi **ri-concedere** `EXECUTE` ad `anon`/`authenticated` (e `service_role` se serve) nello stesso file, come fanno 012 e 022.
+- **Ogni funzione trigger e ogni SECURITY DEFINER in `public` pinna lo search_path** (`SET search_path = public[, extensions]`, #102: la cascata deleteUser gira con search_path ostile): lo pretende `npm run check:search-path` nel gate.
 - **Aggiungere una colonna a `RETURNS TABLE` è retro-compatibile** per i client tipizzati, ma va rigenerato `lib/supabase/database.types.ts` con `npm run types` (mai a mano).
 - **Da Studio/psql la RLS non si applica** (ruolo `postgres` con `rolbypassrls`): le RPC restituiscono anche `pending`/`rejected`. Le verifiche anonime vanno fatte via REST con la publishable key.
 - **`courts_in_viewport` non è "la versione grande" di `nearby_courts`**: bbox vs raggio, ordine assente vs KNN, 13 colonne vs 12. Se il client deve mostrare qualcosa in più, si sceglie la RPC giusta invece di allineare le colonne a caso.
