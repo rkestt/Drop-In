@@ -6,13 +6,13 @@
 
 ## Stato
 
-Pagine legali con `[DA COMPILARE]`. Nessuna eliminazione account, nessun export dati. Nessun backup verificato. SMTP di default di Supabase: **2 email/ora**, e in molti progetti solo verso indirizzi del team. Produzione ferma a schema `022` mentre master è avanti di tredici migrazioni.
+Pagine legali con `[DA COMPILARE]`. Eliminazione account self-service ed export dati fatti (#94, 2026-11-18). Nessun backup verificato. SMTP di default di Supabase: **2 email/ora**, e in molti progetti solo verso indirizzi del team. Produzione ferma a schema `022` mentre master è avanti di tredici migrazioni.
 
 ## Voci
 
 | Voce | Ticket | Stato |
 | --- | --- | --- |
-| Eliminazione account ed export dati (codice) | #94 | aperto — **prima di ogni tester** |
+| Eliminazione account ed export dati (codice) | #94 | fatto 2026-11-18 — self-service con 409 sulle lobby condivise, export JSON, `creator_id` nullable |
 | Privacy, ToS, cookie (testi) | #83 | aperto, dopo |
 | Backup + ripristino provato, promozione produzione | #85 | aperto, scope ridotto |
 | SMTP dedicato | #86 | aperto — blocca #95 |
@@ -23,6 +23,7 @@ Pagine legali con `[DA COMPILARE]`. Nessuna eliminazione account, nessun export 
 ## Decisioni chiuse
 
 - La voce legale si spezza: **8a codice presto** (tocca schema, cascade e storage), **8b testi tardi**.
+- **8a fatta (2026-11-18**, `d62bc2b`+`911bdc7`+`3ea71e3`+`e3a91c0`): eliminazione self-service (`POST /api/account/delete`, 409 sulle lobby non finite con altri iscritti, storage prima del database, scrub di `data->'user_id'` sulle notifiche altrui, `lobbies.creator_id` nullable), export JSON (`GET /api/account/export`), sezione dati nelle impostazioni con fallback "Giocatore eliminato". Resta scoperto: e2e (#101), guardrail search_path (#102), testi legali 8b (#83).
 - Niente analytics di terze parti e niente Sentry, con criteri di riapertura in `docs/observability.md`.
 - Flusso di rilascio in quattro migrazioni sul core loop, non un big bang.
 

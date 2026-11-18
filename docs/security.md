@@ -158,4 +158,4 @@ Se in futuro arrivano abusi coordinati, l'ordine è: regole Supabase
 - `spatial_ref_sys` su staging/prod (query sopra) — nota di deploy.
 - Quota email e template: `docs/email.md`.
 - Backup/rollback e secret: `docs/ci.md` (lane CI).
-- Cancellazione account / export dati: `docs/legal/` (lane legal).
+- Cancellazione account / export dati (codice fatto in #94, 2026-11-18): `POST /api/account/delete` tocca lo storage prima del database, lo scrub toglie `data->'user_id'` dalle `push_notifications` altrui, la service key vive solo nella route. Restano: e2e (#101), testi legali (#83, `docs/legal/`).

@@ -91,6 +91,8 @@ Le push esistono come codice e non sono attive (#87: chiavi, secrets, cron). Son
 
 *Vincolo*: **nessun utente esterno prima di 8a**.
 
+*Stato (2026-11-18)*: **fatta** in `d62bc2b` (export + `creator_id` nullable) + `911bdc7` (sezione dati, fallback "Giocatore eliminato") + `3ea71e3` (delete con 409, storage prima del database, scrub notifiche) + `e3a91c0` (pre-check su `ends_at`), ticket #94 chiuso. Resta scoperto: e2e (#101), guardrail search_path (#102), testi 8b (#83).
+
 ### 9. Backup verificato
 Backup di stage con **restore provato almeno una volta**. Senza, un comando sbagliato azzera campi e dati dei tester in modo irreversibile.
 
