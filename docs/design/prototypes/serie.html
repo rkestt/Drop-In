@@ -1,0 +1,2034 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drop-In — Appuntamento ricorrente (prototipo)</title>
+<link rel="stylesheet" href="proto.css">
+<style>
+  :root { color-scheme: dark; }
+
+  /* proto.js nasconde gli stati con [hidden]: le display:flex di proto.css
+     battono lo stile UA, quindi la regola va ripetuta. */
+  [hidden] { display: none !important; }
+
+  /* Il gruppo di proto.js contiene toolbar e telefono. */
+  .proto-group { display: contents; }
+
+  /* --- Appbar con meta (come lobby.html) ---------------------------- */
+
+  .appbar__meta {
+    margin: 0 0 0 auto;
+    color: var(--text-muted);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  /* --- Tab (come lobby.html) --------------------------------------- */
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-base);
+  }
+
+  .tab {
+    min-height: 48px;
+    padding: 0 12px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .tab:hover { color: var(--text-primary); }
+
+  .tab[aria-selected="true"] {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  .tab__count {
+    margin-left: 4px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tab[aria-selected="true"] .tab__count { color: var(--accent); }
+
+  .content--scroll {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* --- Sheet (blocco di lobby.html) -------------------------------- */
+
+  .sheet__scrim {
+    position: absolute;
+    inset: 0;
+  }
+
+  .sheet__panel {
+    position: relative;
+    max-height: 96%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sheet__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .sheet__head .sheet__title { flex: 1; }
+
+  .sheet__title:focus { outline: none; }
+
+  .sheet__close {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin: -8px -8px 0 0;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .sheet__close:hover {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+  }
+
+  .sheet__close:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .field__value {
+    margin: 2px 0 0;
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .sheet__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 4px;
+  }
+
+  .banner--stack {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .banner--stack p { margin: 0; }
+
+  .banner__title { font-weight: 600; }
+
+  /* --- Picker giorno/ora (specchio di StartTimePicker) -------------- */
+
+  .picker__days {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 6px 0;
+    scrollbar-width: none;
+  }
+
+  .picker__days::-webkit-scrollbar { display: none; }
+
+  .picker__day {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control-sm);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .picker__day[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent-subtle);
+    color: var(--text-primary);
+  }
+
+  .picker__day:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .picker__slots {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .picker__slot {
+    min-height: 44px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control-sm);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+  }
+
+  .picker__slot:hover { border-color: var(--border-strong); }
+
+  .picker__slot[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  .picker__slot:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .picker__day[disabled],
+  .picker__slot[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .picker__day[disabled]:hover,
+  .picker__slot[disabled]:hover {
+    border-color: var(--border);
+  }
+
+  /* --- Opzione "Ripeti ogni settimana" ------------------------------ */
+
+  .repeat {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .repeat[data-on="true"] { border-color: var(--accent); }
+
+  .repeat__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 56px;
+    padding: 10px 14px;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .repeat__head:hover { background: var(--bg-elevated); }
+
+  .repeat__head:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+  }
+
+  .repeat__head[disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .repeat__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .repeat__title {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .repeat__hint {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .repeat__head .switch,
+  .series-toggle .switch {
+    background: var(--bg-base);
+  }
+
+  .repeat__head[aria-checked="true"] .switch {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+
+  .repeat__head[aria-checked="true"] .switch::after {
+    transform: translateX(20px);
+    background: var(--accent-foreground);
+  }
+
+  .repeat__body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 0;
+    padding: 12px 14px 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .repeat__summary {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .repeat__note {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .repeat__error {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .repeat__error p { margin: 0; font-size: 13px; }
+
+  .repeat__error .banner__title { color: var(--text-primary); }
+
+  .repeat__error .banner__text { color: var(--text-secondary); }
+
+  /* --- Successo (specchio di SuccessPop) --------------------------- */
+
+  .success {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+    border-radius: var(--radius-control);
+    background: color-mix(in srgb, var(--success) 10%, transparent);
+  }
+
+  .success__icon {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--success);
+    color: var(--bg-base);
+  }
+
+  .success__title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .success__text {
+    margin: 2px 0 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  /* --- Chip ricorrenza --------------------------------------------- */
+
+  .chip-repeat {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    align-self: flex-start;
+    padding: 2px 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-chip);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  .chip-repeat svg { flex: 0 0 auto; }
+
+  .chip-repeat--detail { margin-top: 8px; }
+
+  /* --- Card lobby (blocco di lobby.html) --------------------------- */
+
+  .btn { text-decoration: none; }
+
+  .lobby-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .lobby-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    text-decoration: none;
+    transition:
+      background-color var(--motion-fast) var(--ease-standard),
+      border-color var(--motion-fast) var(--ease-standard);
+  }
+
+  .lobby-card:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-elevated);
+  }
+
+  .lobby-card:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .lobby-card__top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .lobby-card__text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .lobby-card__name {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .lobby-card__meta {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .lobby-card__top .badge {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  .lobby-card__bottom {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .lobby-card__fact {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lobby-card__you {
+    margin-left: auto;
+    padding: 2px 8px;
+    border-radius: var(--radius-chip);
+    background: var(--accent-subtle);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* --- Card serie -------------------------------------------------- */
+
+  .series-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .series-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .series-card__top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .series-card__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .series-card__name {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .series-card__meta {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .series-card__rule {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .series-card__rule .icon { flex: 0 0 auto; color: var(--text-secondary); }
+
+  .series-card__rule .badge { margin-left: auto; }
+
+  .series-card__next {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .series-card__note {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .series-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+  }
+
+  .series-card__error {
+    margin: 0;
+    color: var(--danger-dark);
+    font-size: 13px;
+  }
+
+  .link-arrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .link-arrow:hover { text-decoration: underline; }
+
+  .link-arrow:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  .link-danger {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--danger);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .link-danger:hover { text-decoration: underline; }
+
+  .link-danger:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  .series-toggle {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    margin: -8px -10px 0 0;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .series-toggle .switch { pointer-events: none; }
+
+  .series-toggle[aria-checked="true"] .switch {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+
+  .series-toggle[aria-checked="true"] .switch::after {
+    transform: translateX(20px);
+    background: var(--accent-foreground);
+  }
+
+  .series-toggle:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .series-toggle[disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .series-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control);
+    background: var(--bg-elevated);
+  }
+
+  .series-confirm:focus { outline: none; }
+
+  .series-confirm__text {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .series-confirm .btn { width: 100%; }
+
+  .section-label {
+    margin: 8px 0 0;
+    color: var(--text-muted);
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .empty--page {
+    justify-content: center;
+    min-height: 320px;
+    flex: 1;
+  }
+
+  .empty .btn {
+    width: 100%;
+    max-width: 240px;
+    margin-top: 8px;
+  }
+
+  .empty__title {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 20px;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  .empty .body { max-width: 260px; }
+
+  /* --- Dettaglio occorrenza ---------------------------------------- */
+
+  .detail { gap: 16px; }
+
+  .detail__sport {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .when {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .when__time {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: var(--text-display-lg);
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .when__meta {
+    margin: 3px 0 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .avatars {
+    display: flex;
+    flex: 0 0 auto;
+  }
+
+  .avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .avatar + .avatar { margin-left: -10px; }
+
+  .players__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .players__count {
+    margin: 0 0 0 2px;
+    font-family: var(--font-syne);
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .players__unit {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .players__names {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .actionbar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 16px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-base);
+  }
+</style>
+</head>
+<body>
+
+<!--
+  Drop-In — prototipo statico dell'appuntamento ricorrente (ticket #92).
+
+  PIPELINE: crea lobby → (opzione) serie → gestione in "Le mie serie".
+  SUPERFICI: 1) opzione "Ripeti ogni settimana" nel drawer di creazione;
+  2) terzo tab "Serie" della pagina Lobby; 3) chip "Ricorrente · giovedì
+  20:00" su card e dettaglio di un'occorrenza.
+  PROSSIMO PASSO UNICO: "Crea lobby" nel drawer; "Apri la partita" nella
+  riga serie; "Unisciti" nel dettaglio.
+  REGOLE: generazione silenziosa (nessuna notifica nuova), occorrenze con
+  zero conferme (la serie non iscrive nessuno), nessuno stato binario del
+  campo. Testi definitivi: l'implementazione non li reinventa.
+
+  10 stati dalla toolbar. Nessun import dall'app, nessuna fetch, nessun
+  dato reale: campi, orari e conferme sono inventati ma plausibili (Roma).
+-->
+
+<header class="proto-head">
+  <h1 class="proto-head__title">Appuntamento ricorrente</h1>
+  <p class="proto-head__meta">Opzione ripetibile, le mie serie, chip sulle partite · 10 stati · 360px</p>
+</header>
+
+<div class="proto-group" data-state-group data-initial="crea">
+<nav class="proto-toolbar" aria-label="Stati del prototipo">
+  <span class="proto-toolbar__label">Stati</span>
+  <button class="proto-switch" type="button" data-show="crea">Crea</button>
+  <button class="proto-switch" type="button" data-show="crea-on">Ripetibile</button>
+  <button class="proto-switch" type="button" data-show="crea-attesa">Creazione</button>
+  <button class="proto-switch" type="button" data-show="crea-errore">Errore serie</button>
+  <button class="proto-switch" type="button" data-show="crea-fatto">Fatto</button>
+  <button class="proto-switch" type="button" data-show="serie">Serie</button>
+  <button class="proto-switch" type="button" data-show="serie-cancella">Cancella serie</button>
+  <button class="proto-switch" type="button" data-show="serie-orfana">Orfana</button>
+  <button class="proto-switch" type="button" data-show="serie-vuota">Vuota</button>
+  <button class="proto-switch" type="button" data-show="dettaglio">Dettaglio</button>
+</nav>
+
+<main class="phone phone--tall">
+
+  <!-- ============================================================ -->
+  <!-- 1. Crea lobby — opzione spenta (chi crea una partita sola)    -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="crea" aria-label="Crea lobby, opzione ripetibile spenta">
+    <header class="appbar">
+      <h2 class="appbar__title">Campo del Pineto</h2>
+    </header>
+    <div class="content content--scroll">
+      <div>
+        <p class="label">Basket</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Via della Pineta Sacchetti · Roma</p>
+      </div>
+      <p class="muted">Le lobby si creano dal campo: gli altri si uniscono da qui.</p>
+    </div>
+
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="crea-title">
+      <div class="sheet__scrim" data-scrim></div>
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <div class="sheet__head">
+          <h2 class="sheet__title" id="crea-title" tabindex="-1">Crea lobby</h2>
+          <button class="sheet__close" type="button" aria-label="Chiudi">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+
+        <form class="form" novalidate>
+          <div>
+            <span class="label">Campo</span>
+            <p class="field__value">Campo del Pineto</p>
+          </div>
+
+          <div class="field">
+            <span class="label" id="crea-orario-label">Orario inizio</span>
+            <div role="group" aria-labelledby="crea-orario-label">
+              <div class="picker__days" role="group" aria-label="Giorno">
+                <button class="picker__day" type="button" aria-pressed="false">Oggi</button>
+                <button class="picker__day" type="button" aria-pressed="true">Domani</button>
+                <button class="picker__day" type="button" aria-pressed="false">ven 20 nov</button>
+                <button class="picker__day" type="button" aria-pressed="false">sab 21 nov</button>
+                <button class="picker__day" type="button" aria-pressed="false">dom 22 nov</button>
+              </div>
+              <div class="picker__slots" role="group" aria-label="Ora">
+                <button class="picker__slot" type="button" aria-pressed="false">19:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false">19:30</button>
+                <button class="picker__slot" type="button" aria-pressed="true">20:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false">20:30</button>
+                <button class="picker__slot" type="button" aria-pressed="false">21:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false">21:30</button>
+                <button class="picker__slot" type="button" aria-pressed="false">22:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false">22:30</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="repeat" data-on="false">
+            <button class="repeat__head" type="button" role="switch" aria-checked="false"
+                    aria-describedby="crea-repeat-hint-off">
+              <span class="repeat__text">
+                <span class="repeat__title">Ripeti ogni settimana</span>
+                <span class="repeat__hint" id="crea-repeat-hint-off">
+                  Una partita sola. Accendi per un appuntamento fisso.
+                </span>
+              </span>
+              <span class="switch" aria-hidden="true"></span>
+            </button>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="crea-sport">Sport</label>
+            <select class="select" id="crea-sport">
+              <option>Basket</option>
+              <option>Calcio</option>
+              <option>Calcio a 5</option>
+              <option>Pallavolo</option>
+              <option>Padel</option>
+              <option>Tennis</option>
+              <option>Non specificato</option>
+            </select>
+            <p class="field__hint">Preselezionato dal campo: cambialo se serve.</p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="crea-durata">Durata (minuti)</label>
+            <input class="input" id="crea-durata" type="number" inputmode="numeric" value="90">
+            <p class="field__hint">Chiusura iscrizioni alle 21:30.</p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="crea-max">Numero massimo giocatori</label>
+            <input class="input" id="crea-max" type="number" inputmode="numeric" value="10">
+          </div>
+
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button">Crea lobby</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 2. Crea lobby — opzione accesa                                -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="crea-on" aria-label="Crea lobby, opzione ripetibile accesa">
+    <header class="appbar">
+      <h2 class="appbar__title">Campo del Pineto</h2>
+    </header>
+    <div class="content content--scroll">
+      <div>
+        <p class="label">Basket</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Via della Pineta Sacchetti · Roma</p>
+      </div>
+      <p class="muted">Le lobby si creano dal campo: gli altri si uniscono da qui.</p>
+    </div>
+
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="crea-on-title">
+      <div class="sheet__scrim" data-scrim></div>
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <div class="sheet__head">
+          <h2 class="sheet__title" id="crea-on-title" tabindex="-1">Crea lobby</h2>
+          <button class="sheet__close" type="button" aria-label="Chiudi">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+
+        <form class="form" novalidate>
+          <div>
+            <span class="label">Campo</span>
+            <p class="field__value">Campo del Pineto</p>
+          </div>
+
+          <div class="field">
+            <span class="label" id="crea-on-orario-label">Orario inizio</span>
+            <div role="group" aria-labelledby="crea-on-orario-label">
+              <div class="picker__days" role="group" aria-label="Giorno">
+                <button class="picker__day" type="button" aria-pressed="false">Oggi</button>
+                <button class="picker__day" type="button" aria-pressed="true">Domani</button>
+                <button class="picker__day" type="button" aria-pressed="false">ven 20 nov</button>
+                <button class="picker__day" type="button" aria-pressed="false">sab 21 nov</button>
+                <button class="picker__day" type="button" aria-pressed="false">dom 22 nov</button>
+              </div>
+              <div class="picker__slots" role="group" aria-label="Ora">
+                <button class="picker__slot" type="button" aria-pressed="false">19:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false">19:30</button>
+                <button class="picker__slot" type="button" aria-pressed="true">20:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false">20:30</button>
+                <button class="picker__slot" type="button" aria-pressed="false">21:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false">21:30</button>
+                <button class="picker__slot" type="button" aria-pressed="false">22:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false">22:30</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="repeat" data-on="true">
+            <button class="repeat__head" type="button" role="switch" aria-checked="true"
+                    aria-describedby="crea-on-repeat-hint crea-on-repeat-summary">
+              <span class="repeat__text">
+                <span class="repeat__title">Ripeti ogni settimana</span>
+                <span class="repeat__hint" id="crea-on-repeat-hint">
+                  Appuntamento fisso: le partite si creano da sole.
+                </span>
+              </span>
+              <span class="switch" aria-hidden="true"></span>
+            </button>
+            <div class="repeat__body">
+              <p class="repeat__summary" id="crea-on-repeat-summary">
+                Ogni giovedì alle 20:00, al Campo del Pineto.
+              </p>
+              <p class="repeat__note">
+                Sport, durata e posti valgono per tutte le partite. Le prossime due settimane
+                si creano da sole, ognuno conferma la sua e non arriva nessuna notifica in più.
+              </p>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="crea-on-sport">Sport</label>
+            <select class="select" id="crea-on-sport">
+              <option>Basket</option>
+              <option>Calcio</option>
+              <option>Calcio a 5</option>
+              <option>Pallavolo</option>
+              <option>Padel</option>
+              <option>Tennis</option>
+              <option>Non specificato</option>
+            </select>
+            <p class="field__hint">Preselezionato dal campo: cambialo se serve.</p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="crea-on-durata">Durata (minuti)</label>
+            <input class="input" id="crea-on-durata" type="number" inputmode="numeric" value="90">
+            <p class="field__hint">Chiusura iscrizioni alle 21:30.</p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="crea-on-max">Numero massimo giocatori</label>
+            <input class="input" id="crea-on-max" type="number" inputmode="numeric" value="10">
+          </div>
+
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button">Crea lobby</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 3. Creazione in corso                                        -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="crea-attesa" aria-label="Creazione della serie in corso">
+    <header class="appbar">
+      <h2 class="appbar__title">Campo del Pineto</h2>
+    </header>
+    <div class="content content--scroll">
+      <div>
+        <p class="label">Basket</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Via della Pineta Sacchetti · Roma</p>
+      </div>
+    </div>
+
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="crea-attesa-title">
+      <div class="sheet__scrim" data-scrim></div>
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <div class="sheet__head">
+          <h2 class="sheet__title" id="crea-attesa-title" tabindex="-1">Crea lobby</h2>
+          <button class="sheet__close" type="button" aria-label="Chiudi" disabled>
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+
+        <form class="form" novalidate aria-busy="true">
+          <div>
+            <span class="label">Campo</span>
+            <p class="field__value">Campo del Pineto</p>
+          </div>
+
+          <div class="field">
+            <span class="label" id="crea-attesa-orario-label">Orario inizio</span>
+            <div role="group" aria-labelledby="crea-attesa-orario-label">
+              <div class="picker__days" role="group" aria-label="Giorno">
+                <button class="picker__day" type="button" aria-pressed="false" disabled>Oggi</button>
+                <button class="picker__day" type="button" aria-pressed="true" disabled>Domani</button>
+                <button class="picker__day" type="button" aria-pressed="false" disabled>ven 20 nov</button>
+                <button class="picker__day" type="button" aria-pressed="false" disabled>sab 21 nov</button>
+                <button class="picker__day" type="button" aria-pressed="false" disabled>dom 22 nov</button>
+              </div>
+              <div class="picker__slots" role="group" aria-label="Ora">
+                <button class="picker__slot" type="button" aria-pressed="false" disabled>19:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false" disabled>19:30</button>
+                <button class="picker__slot" type="button" aria-pressed="true" disabled>20:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false" disabled>20:30</button>
+                <button class="picker__slot" type="button" aria-pressed="false" disabled>21:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false" disabled>21:30</button>
+                <button class="picker__slot" type="button" aria-pressed="false" disabled>22:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false" disabled>22:30</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="repeat" data-on="true">
+            <button class="repeat__head" type="button" role="switch" aria-checked="true" disabled
+                    aria-describedby="crea-attesa-repeat-summary">
+              <span class="repeat__text">
+                <span class="repeat__title">Ripeti ogni settimana</span>
+                <span class="repeat__hint">Appuntamento fisso: le partite si creano da sole.</span>
+              </span>
+              <span class="switch" aria-hidden="true"></span>
+            </button>
+            <div class="repeat__body">
+              <p class="repeat__summary" id="crea-attesa-repeat-summary">
+                Ogni giovedì alle 20:00, al Campo del Pineto.
+              </p>
+            </div>
+          </div>
+
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" disabled>Creazione…</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 4. Errore della serie                                        -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="crea-errore" aria-label="Errore durante la creazione della serie">
+    <header class="appbar">
+      <h2 class="appbar__title">Campo del Pineto</h2>
+    </header>
+    <div class="content content--scroll">
+      <div>
+        <p class="label">Basket</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Via della Pineta Sacchetti · Roma</p>
+      </div>
+    </div>
+
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="crea-errore-title">
+      <div class="sheet__scrim" data-scrim></div>
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <div class="sheet__head">
+          <h2 class="sheet__title" id="crea-errore-title" tabindex="-1">Crea lobby</h2>
+          <button class="sheet__close" type="button" aria-label="Chiudi">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+
+        <form class="form" novalidate>
+          <div>
+            <span class="label">Campo</span>
+            <p class="field__value">Campo del Pineto</p>
+          </div>
+
+          <div class="field">
+            <span class="label" id="crea-errore-orario-label">Orario inizio</span>
+            <div role="group" aria-labelledby="crea-errore-orario-label">
+              <div class="picker__days" role="group" aria-label="Giorno">
+                <button class="picker__day" type="button" aria-pressed="false">Oggi</button>
+                <button class="picker__day" type="button" aria-pressed="true">Domani</button>
+                <button class="picker__day" type="button" aria-pressed="false">ven 20 nov</button>
+                <button class="picker__day" type="button" aria-pressed="false">sab 21 nov</button>
+                <button class="picker__day" type="button" aria-pressed="false">dom 22 nov</button>
+              </div>
+              <div class="picker__slots" role="group" aria-label="Ora">
+                <button class="picker__slot" type="button" aria-pressed="false">19:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false">19:30</button>
+                <button class="picker__slot" type="button" aria-pressed="true">20:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false">20:30</button>
+                <button class="picker__slot" type="button" aria-pressed="false">21:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false">21:30</button>
+                <button class="picker__slot" type="button" aria-pressed="false">22:00</button>
+                <button class="picker__slot" type="button" aria-pressed="false">22:30</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="repeat" data-on="true">
+            <button class="repeat__head" type="button" role="switch" aria-checked="true"
+                    aria-describedby="crea-errore-repeat-summary">
+              <span class="repeat__text">
+                <span class="repeat__title">Ripeti ogni settimana</span>
+                <span class="repeat__hint">Appuntamento fisso: le partite si creano da sole.</span>
+              </span>
+              <span class="switch" aria-hidden="true"></span>
+            </button>
+            <div class="repeat__body">
+              <p class="repeat__summary" id="crea-errore-repeat-summary">
+                Ogni giovedì alle 20:00, al Campo del Pineto.
+              </p>
+            </div>
+            <div class="repeat__error banner banner--danger banner--stack" role="alert">
+              <p class="banner__title">La serie non è partita.</p>
+              <p class="banner__text">
+                Non abbiamo creato la partita. Riprova, oppure spegni «Ripeti ogni settimana» e
+                crea solo questa.
+              </p>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="crea-errore-sport">Sport</label>
+            <select class="select" id="crea-errore-sport">
+              <option>Basket</option>
+              <option>Calcio</option>
+              <option>Calcio a 5</option>
+              <option>Pallavolo</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="crea-errore-durata">Durata (minuti)</label>
+            <input class="input" id="crea-errore-durata" type="number" inputmode="numeric" value="90">
+            <p class="field__hint">Chiusura iscrizioni alle 21:30.</p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="crea-errore-max">Numero massimo giocatori</label>
+            <input class="input" id="crea-errore-max" type="number" inputmode="numeric" value="10">
+          </div>
+
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button">Crea lobby</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 5. Fatto: serie attiva                                       -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="crea-fatto" aria-label="Serie creata">
+    <header class="appbar">
+      <h2 class="appbar__title">Campo del Pineto</h2>
+    </header>
+    <div class="content content--scroll">
+      <div>
+        <p class="label">Basket</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Via della Pineta Sacchetti · Roma</p>
+      </div>
+    </div>
+
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="crea-fatto-title">
+      <div class="sheet__scrim" data-scrim></div>
+      <div class="sheet__panel">
+        <div class="handle" aria-hidden="true"></div>
+        <div class="sheet__head">
+          <h2 class="sheet__title" id="crea-fatto-title" tabindex="-1">Crea lobby</h2>
+          <button class="sheet__close" type="button" aria-label="Chiudi">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+
+        <div class="success pop" role="status">
+          <span class="success__icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                 stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"
+                 focusable="false">
+              <path d="m4 10.5 4 4 8-9"></path>
+            </svg>
+          </span>
+          <div>
+            <p class="success__title">Serie attiva il giovedì alle 20:00</p>
+            <p class="success__text">
+              Al Campo del Pineto, a partire da giovedì 19 novembre.
+              La gestisci da «Le mie serie».
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 6. Le mie serie — lista                                      -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="serie" aria-label="Le mie serie">
+    <header class="appbar">
+      <h2 class="appbar__title">Lobby</h2>
+      <p class="appbar__meta">Roma · mer 18 nov</p>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Lobby">
+      <button class="tab" type="button" role="tab" id="tab-serie-mine" aria-controls="panel-serie-mine"
+              aria-selected="false">Le tue <span class="tab__count">3</span></button>
+      <button class="tab" type="button" role="tab" id="tab-serie-near" aria-controls="panel-serie-near"
+              aria-selected="false">Vicine <span class="tab__count">3</span></button>
+      <button class="tab" type="button" role="tab" id="tab-serie" aria-controls="panel-serie"
+              aria-selected="true">Serie <span class="tab__count">6</span></button>
+    </div>
+
+    <div class="content content--tight content--scroll">
+      <div class="stack" role="tabpanel" id="panel-serie-mine" aria-labelledby="tab-serie-mine"
+           data-tabpanel hidden>
+        <ul class="lobby-list">
+          <li>
+            <a class="lobby-card" href="#" aria-label="Lobby al Campo del Pineto, giovedì 19 novembre alle 20:00, 3 su 10, ricorrente, aperta">
+              <span class="lobby-card__top">
+                <span class="lobby-card__text">
+                  <span class="lobby-card__name">Campo del Pineto</span>
+                  <span class="chip-repeat">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true" focusable="false">
+                      <path d="m17 2 4 4-4 4"></path>
+                      <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                      <path d="m7 22-4-4 4-4"></path>
+                      <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+                    </svg>
+                    Ricorrente · giovedì 20:00
+                  </span>
+                  <span class="lobby-card__meta">19 nov, 20:00 · 3/10 · 2,4 km · Basket</span>
+                </span>
+                <span class="badge badge--accent">Aperta</span>
+              </span>
+              <span class="lobby-card__bottom">
+                <span class="lobby-card__fact">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                       stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false">
+                    <circle cx="8" cy="8" r="6.25"></circle>
+                    <path d="M8 4.75V8l2.25 1.4"></path>
+                  </svg>
+                  20:00
+                </span>
+                <span class="lobby-card__fact">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                       stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false">
+                    <circle cx="6" cy="5.25" r="2.25"></circle>
+                    <path d="M2 13.25c0-2.2 1.8-4 4-4s4 1.8 4 4"></path>
+                  </svg>
+                  3/10
+                </span>
+                <span class="lobby-card__you">Sei dentro</span>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="lobby-card" href="#" aria-label="Lobby al Parco del Colle Oppio, sabato 21 novembre alle 19:30, 4 su 5, aperta">
+              <span class="lobby-card__top">
+                <span class="lobby-card__text">
+                  <span class="lobby-card__name">Parco del Colle Oppio</span>
+                  <span class="lobby-card__meta">21 nov, 19:30 · 4/5 · 1,1 km · Basket</span>
+                </span>
+                <span class="badge badge--accent">Aperta</span>
+              </span>
+              <span class="lobby-card__bottom">
+                <span class="lobby-card__fact">19:30</span>
+                <span class="lobby-card__fact">4/5</span>
+                <span class="lobby-card__you">Sei dentro</span>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="lobby-card" href="#" aria-label="Lobby al Campo della Caffarella, ieri alle 21:00, 5 su 5, chiusa">
+              <span class="lobby-card__top">
+                <span class="lobby-card__text">
+                  <span class="lobby-card__name">Campo della Caffarella</span>
+                  <span class="lobby-card__meta">Ieri · 21:00 · 5/5 · Calcio a 5</span>
+                </span>
+                <span class="badge">Chiusa</span>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="stack" role="tabpanel" id="panel-serie-near" aria-labelledby="tab-serie-near"
+           data-tabpanel hidden>
+        <ul class="lobby-list">
+          <li>
+            <a class="lobby-card" href="#" aria-label="Lobby al Parco di Traiano, oggi alle 21:30, 4 su 6, aperta, a 900 metri">
+              <span class="lobby-card__top">
+                <span class="lobby-card__text">
+                  <span class="lobby-card__name">Parco di Traiano</span>
+                  <span class="lobby-card__meta">oggi, 21:30 · 4/6 · 900 m · Calcio a 5</span>
+                </span>
+                <span class="badge badge--accent">Aperta</span>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="lobby-card" href="#" aria-label="Lobby al Parco della Cecchina, domani alle 18:00, 2 su 8, aperta, a 3,1 chilometri">
+              <span class="lobby-card__top">
+                <span class="lobby-card__text">
+                  <span class="lobby-card__name">Parco della Cecchina</span>
+                  <span class="lobby-card__meta">dom 22 nov, 18:00 · 2/8 · 3,1 km · Calcio</span>
+                </span>
+                <span class="badge badge--accent">Aperta</span>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="stack" role="tabpanel" id="panel-serie" aria-labelledby="tab-serie" data-tabpanel>
+        <ul class="series-list">
+<li class="series-card">
+            <div class="series-card__top">
+              <div class="series-card__text">
+                <p class="series-card__name">Campo del Pineto</p>
+                <p class="series-card__meta">Basket · 90 min</p>
+              </div>
+              <button class="series-toggle" type="button" role="switch" aria-checked="true"
+                      aria-label="Serie del Campo del Pineto, ogni giovedì alle 20:00">
+                <span class="switch" aria-hidden="true"></span>
+              </button>
+            </div>
+            <p class="series-card__rule">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true" focusable="false">
+                <path d="m17 2 4 4-4 4"></path>
+                <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                <path d="m7 22-4-4 4-4"></path>
+                <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              Ogni giovedì alle 20:00
+            </p>
+            <p class="series-card__next">Prossima: 19 novembre · 3/10 confermati</p>
+            <div class="series-card__actions">
+              <a class="link-arrow" href="#" data-goto="dettaglio">
+                Apri la partita <span aria-hidden="true">›</span>
+              </a>
+              <button class="link-danger" type="button" data-goto="serie-cancella"
+                      aria-label="Cancella la serie del giovedì al Campo del Pineto">Cancella serie</button>
+            </div>
+          </li>
+
+<li class="series-card">
+            <div class="series-card__top">
+              <div class="series-card__text">
+                <p class="series-card__name">Campo della Caffarella</p>
+                <p class="series-card__meta">Calcio a 5 · 60 min</p>
+              </div>
+              <button class="series-toggle" type="button" role="switch" aria-checked="false"
+                      aria-label="Serie del Campo della Caffarella, ogni domenica alle 10:00">
+                <span class="switch" aria-hidden="true"></span>
+              </button>
+            </div>
+            <p class="series-card__rule">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true" focusable="false">
+                <path d="m17 2 4 4-4 4"></path>
+                <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                <path d="m7 22-4-4 4-4"></path>
+                <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              Ogni domenica alle 10:00
+              <span class="badge">In pausa</span>
+            </p>
+            <p class="series-card__next">Prossima: 22 novembre · 2/8 confermati</p>
+            <p class="series-card__note">Nessuna nuova partita finché non la riattivi.</p>
+            <div class="series-card__actions">
+              <a class="link-arrow" href="#">
+                Apri la partita <span aria-hidden="true">›</span>
+              </a>
+              <button class="link-danger" type="button"
+                      aria-label="Cancella la serie della domenica al Campo della Caffarella">Cancella serie</button>
+            </div>
+          </li>
+
+<li class="series-card">
+            <div class="series-card__top">
+              <div class="series-card__text">
+                <p class="series-card__name">Parco di Traiano</p>
+                <p class="series-card__meta">Pallavolo · 90 min</p>
+              </div>
+              <button class="series-toggle" type="button" role="switch" aria-checked="true"
+                      aria-label="Serie del Parco di Traiano, ogni lunedì alle 21:00">
+                <span class="switch" aria-hidden="true"></span>
+              </button>
+            </div>
+            <p class="series-card__rule">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true" focusable="false">
+                <path d="m17 2 4 4-4 4"></path>
+                <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                <path d="m7 22-4-4 4-4"></path>
+                <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              Ogni lunedì alle 21:00
+            </p>
+            <p class="series-card__next">Prossima: 23 novembre · 5/10 confermati</p>
+            <p class="series-card__note">Il campo non è attivo: non creiamo nuove partite.</p>
+            <div class="series-card__actions">
+              <a class="link-arrow" href="#">
+                Apri la partita <span aria-hidden="true">›</span>
+              </a>
+              <button class="link-danger" type="button"
+                      aria-label="Cancella la serie del lunedì al Parco di Traiano">Cancella serie</button>
+            </div>
+          </li>
+
+<li class="series-card">
+            <div class="series-card__top">
+              <div class="series-card__text">
+                <p class="series-card__name">Parco del Colle Oppio</p>
+                <p class="series-card__meta">Basket · 90 min</p>
+              </div>
+              <button class="series-toggle" type="button" role="switch" aria-checked="true"
+                      aria-label="Serie del Parco del Colle Oppio, ogni martedì alle 19:30">
+                <span class="switch" aria-hidden="true"></span>
+              </button>
+            </div>
+            <p class="series-card__rule">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true" focusable="false">
+                <path d="m17 2 4 4-4 4"></path>
+                <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                <path d="m7 22-4-4 4-4"></path>
+                <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              Ogni martedì alle 19:30
+            </p>
+            <p class="series-card__next">Prossima: 24 novembre · 10/10, al completo</p>
+            <div class="series-card__actions">
+              <a class="link-arrow" href="#">
+                Apri la partita <span aria-hidden="true">›</span>
+              </a>
+              <button class="link-danger" type="button"
+                      aria-label="Cancella la serie del martedì al Parco del Colle Oppio">Cancella serie</button>
+            </div>
+          </li>
+
+<li class="series-card">
+            <div class="series-card__top">
+              <div class="series-card__text">
+                <p class="series-card__name">Parco della Cecchina</p>
+                <p class="series-card__meta">Calcio · 60 min</p>
+              </div>
+              <button class="series-toggle" type="button" role="switch" aria-checked="true"
+                      aria-label="Serie del Parco della Cecchina, ogni venerdì alle 18:00">
+                <span class="switch" aria-hidden="true"></span>
+              </button>
+            </div>
+            <p class="series-card__rule">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true" focusable="false">
+                <path d="m17 2 4 4-4 4"></path>
+                <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                <path d="m7 22-4-4 4-4"></path>
+                <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              Ogni venerdì alle 18:00
+            </p>
+            <p class="series-card__note">Nessuna partita in programma.</p>
+            <div class="series-card__actions">
+              <a class="link-arrow" href="#">
+                Apri il campo <span aria-hidden="true">›</span>
+              </a>
+              <button class="link-danger" type="button"
+                      aria-label="Cancella la serie del venerdì al Parco della Cecchina">Cancella serie</button>
+            </div>
+          </li>
+        </ul>
+
+        <h3 class="section-label">Senza organizzatore</h3>
+        <ul class="series-list">
+          <li class="series-card">
+            <div class="series-card__top">
+              <div class="series-card__text">
+                <p class="series-card__name">Parco Petroselli</p>
+                <p class="series-card__meta">Basket · 90 min</p>
+              </div>
+            </div>
+            <p class="series-card__rule">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true" focusable="false">
+                <path d="m17 2 4 4-4 4"></path>
+                <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                <path d="m7 22-4-4 4-4"></path>
+                <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              Ogni mercoledì alle 19:00
+            </p>
+            <p class="series-card__next">Prossima: 25 novembre · 2/10 confermati</p>
+            <p class="series-card__note">
+              Chi ha creato la serie non ha più un account. Puoi fermarla: le partite già
+              in programma restano.
+            </p>
+            <div class="series-card__actions">
+              <a class="link-arrow" href="#">
+                Apri la partita <span aria-hidden="true">›</span>
+              </a>
+              <button class="link-danger" type="button" data-goto="serie-orfana">Ferma la serie</button>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 7. Cancellazione serie — conferma inline                     -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="serie-cancella" aria-label="Conferma cancellazione serie">
+    <header class="appbar">
+      <h2 class="appbar__title">Lobby</h2>
+      <p class="appbar__meta">Roma · mer 18 nov</p>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Lobby">
+      <button class="tab" type="button" role="tab" id="tab-cancella-mine"
+              aria-selected="false"
+              data-goto="serie">Le tue <span class="tab__count">3</span></button>
+      <button class="tab" type="button" role="tab" id="tab-cancella-near"
+              aria-selected="false"
+              data-goto="serie">Vicine <span class="tab__count">3</span></button>
+      <button class="tab" type="button" role="tab" id="tab-cancella"
+              aria-controls="panel-cancella" aria-selected="true">Serie <span class="tab__count">6</span></button>
+    </div>
+
+    <div class="content content--tight content--scroll">
+      <div class="stack" role="tabpanel" id="panel-cancella" aria-labelledby="tab-cancella" data-tabpanel>
+        <ul class="series-list">
+          <li class="series-card">
+            <div class="series-card__top">
+              <div class="series-card__text">
+                <p class="series-card__name">Campo del Pineto</p>
+                <p class="series-card__meta">Basket · 90 min</p>
+              </div>
+              <button class="series-toggle" type="button" role="switch" aria-checked="true"
+                      aria-label="Serie del Campo del Pineto, ogni giovedì alle 20:00">
+                <span class="switch" aria-hidden="true"></span>
+              </button>
+            </div>
+            <p class="series-card__rule">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true" focusable="false">
+                <path d="m17 2 4 4-4 4"></path>
+                <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                <path d="m7 22-4-4 4-4"></path>
+                <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              Ogni giovedì alle 20:00
+            </p>
+            <p class="series-card__next">Prossima: 19 novembre · 3/10 confermati</p>
+
+            <div class="series-confirm" tabindex="-1" role="group"
+                 aria-label="Conferma cancellazione della serie">
+              <p class="series-confirm__text">
+                Cancelliamo la serie: non creeremo altre partite. Quelle già in programma
+                restano, con chi si è già confermato.
+              </p>
+              <button class="btn btn--danger" type="button" data-goto="serie">Sì, cancella la serie</button>
+              <button class="btn btn--secondary" type="button" data-goto="serie">Lascia attiva</button>
+            </div>
+          </li>
+
+          <li class="series-card">
+            <div class="series-card__top">
+              <div class="series-card__text">
+                <p class="series-card__name">Parco del Colle Oppio</p>
+                <p class="series-card__meta">Basket · 90 min</p>
+              </div>
+              <button class="series-toggle" type="button" role="switch" aria-checked="true"
+                      aria-label="Serie del Parco del Colle Oppio, ogni martedì alle 19:30">
+                <span class="switch" aria-hidden="true"></span>
+              </button>
+            </div>
+            <p class="series-card__rule">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true" focusable="false">
+                <path d="m17 2 4 4-4 4"></path>
+                <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                <path d="m7 22-4-4 4-4"></path>
+                <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              Ogni martedì alle 19:30
+            </p>
+            <p class="series-card__next">Prossima: 24 novembre · 10/10, al completo</p>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 8. Serie orfana — conferma "ferma la serie"                  -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="serie-orfana" aria-label="Serie senza organizzatore">
+    <header class="appbar">
+      <h2 class="appbar__title">Lobby</h2>
+      <p class="appbar__meta">Roma · mer 18 nov</p>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Lobby">
+      <button class="tab" type="button" role="tab" id="tab-orfana-mine"
+              aria-selected="false"
+              data-goto="serie">Le tue <span class="tab__count">3</span></button>
+      <button class="tab" type="button" role="tab" id="tab-orfana-near"
+              aria-selected="false"
+              data-goto="serie">Vicine <span class="tab__count">3</span></button>
+      <button class="tab" type="button" role="tab" id="tab-orfana"
+              aria-controls="panel-orfana" aria-selected="true">Serie <span class="tab__count">6</span></button>
+    </div>
+
+    <div class="content content--tight content--scroll">
+      <div class="stack" role="tabpanel" id="panel-orfana" aria-labelledby="tab-orfana" data-tabpanel>
+        <h3 class="section-label">Senza organizzatore</h3>
+        <ul class="series-list">
+          <li class="series-card">
+            <div class="series-card__top">
+              <div class="series-card__text">
+                <p class="series-card__name">Parco Petroselli</p>
+                <p class="series-card__meta">Basket · 90 min</p>
+              </div>
+            </div>
+            <p class="series-card__rule">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true" focusable="false">
+                <path d="m17 2 4 4-4 4"></path>
+                <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                <path d="m7 22-4-4 4-4"></path>
+                <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              Ogni mercoledì alle 19:00
+            </p>
+            <p class="series-card__next">Prossima: 25 novembre · 2/10 confermati</p>
+
+            <div class="series-confirm" tabindex="-1" role="group"
+                 aria-label="Conferma chiusura della serie">
+              <p class="series-confirm__text">
+                Fermiamo la serie: non verranno create altre partite. Quelle già in programma
+                restano.
+              </p>
+              <button class="btn btn--danger" type="button" data-goto="serie">Sì, ferma la serie</button>
+              <button class="btn btn--secondary" type="button" data-goto="serie">Lascia attiva</button>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 9. Le mie serie — vuoto                                      -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="serie-vuota" aria-label="Nessuna serie">
+    <header class="appbar">
+      <h2 class="appbar__title">Lobby</h2>
+      <p class="appbar__meta">Roma · mer 18 nov</p>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Lobby">
+      <button class="tab" type="button" role="tab" id="tab-vuota-mine"
+              aria-selected="false"
+              data-goto="serie">Le tue <span class="tab__count">1</span></button>
+      <button class="tab" type="button" role="tab" id="tab-vuota-near"
+              aria-selected="false"
+              data-goto="serie">Vicine <span class="tab__count">3</span></button>
+      <button class="tab" type="button" role="tab" id="tab-vuota"
+              aria-controls="panel-vuota" aria-selected="true">Serie <span class="tab__count">0</span></button>
+    </div>
+
+    <div class="content content--tight content--scroll">
+      <div class="empty empty--page" role="tabpanel" id="panel-vuota"
+           aria-labelledby="tab-vuota" data-tabpanel>
+        <span class="empty__icon" aria-hidden="true">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <path d="m17 2 4 4-4 4"></path>
+            <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+            <path d="m7 22-4-4 4-4"></path>
+            <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+          </svg>
+        </span>
+        <p class="empty__title">Nessuna serie</p>
+        <p class="body">
+          Quando crei una lobby puoi renderla ripetibile: diventa il tuo appuntamento
+          fisso al campo.
+        </p>
+        <a class="btn btn--primary" href="nav-map-lobby.html">Trova un campo</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 10. Dettaglio dell'occorrenza — chip ricorrenza              -->
+  <!-- ============================================================ -->
+  <section class="screen" data-state="dettaglio" aria-label="Dettaglio di un'occorrenza ricorrente">
+    <header class="appbar">
+      <button class="appbar__back" type="button" data-goto="serie" aria-label="Torna alle lobby">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false">
+          <path d="m12 4-6 6 6 6"></path>
+        </svg>
+      </button>
+      <h2 class="appbar__title">Campo del Pineto</h2>
+    </header>
+
+    <div class="content content--scroll detail">
+      <div>
+        <p class="label">Giovedì 19 novembre</p>
+        <h2 class="display-sm">Campo del Pineto</h2>
+        <p class="detail__sport">Basket · Via della Pineta Sacchetti · Roma</p>
+        <span class="chip-repeat chip-repeat--detail">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               aria-hidden="true" focusable="false">
+            <path d="m17 2 4 4-4 4"></path>
+            <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+            <path d="m7 22-4-4 4-4"></path>
+            <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+          </svg>
+          Ricorrente · giovedì 20:00
+        </span>
+      </div>
+
+      <div class="when">
+        <div>
+          <p class="when__time">20:00</p>
+          <p class="when__meta">Si chiude alle 21:30</p>
+        </div>
+        <span class="badge badge--accent">Aperta</span>
+      </div>
+
+      <div class="card">
+        <div class="players__row">
+          <div class="avatars" aria-hidden="true">
+            <span class="avatar">LM</span>
+            <span class="avatar">GR</span>
+            <span class="avatar">FC</span>
+          </div>
+          <p class="players__count">3/10</p>
+          <p class="players__unit">giocatori</p>
+        </div>
+        <p class="players__names">Luca, Giulia, Federico</p>
+        <p class="muted">7 posti liberi · si conferma la singola partita</p>
+      </div>
+
+      <div class="card">
+        <p class="label">Il tuo karma</p>
+        <p class="h3">92 <span class="players__unit">· se non ti presenti perdi 3 punti</span></p>
+      </div>
+    </div>
+
+    <div class="actionbar">
+      <button class="btn btn--primary btn--block" type="button">Unisciti</button>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<p class="note">
+  Prototipo statico, non una route dell'app. I 10 stati si cambiano dalla toolbar.
+  La generazione delle partite è silenziosa: nessuna notifica nuova, e ogni
+  occorrenza si conferma da zero. Nessun dato reale.
+</p>
+
+<script src="proto.js"></script>
+<script>
+  (function () {
+    "use strict";
+
+    var phone = document.querySelector(".phone");
+
+    /* I link "#" sono segnaposto: non devono saltare in cima. */
+    document.querySelectorAll('a[href="#"]').forEach(function (link) {
+      link.addEventListener("click", function (event) {
+        event.preventDefault();
+      });
+    });
+
+    /* --- Cambio stato da un controllo dentro la schermata ----------- */
+    document.querySelectorAll("[data-goto]").forEach(function (el) {
+      el.addEventListener("click", function (event) {
+        if (el.tagName === "A") event.preventDefault();
+        var target = el.getAttribute("data-goto");
+        var sw = document.querySelector('.proto-toolbar [data-show="' + target + '"]');
+        if (sw) sw.click();
+      });
+    });
+
+    /* --- Tab della lista (scope: la schermata che le contiene) ------ */
+    document.querySelectorAll('[role="tablist"]').forEach(function (list) {
+      var screen = list.closest(".screen");
+      var tabs = Array.prototype.slice.call(list.querySelectorAll('[role="tab"]'));
+
+      function activate(tab) {
+        tabs.forEach(function (t) {
+          t.setAttribute("aria-selected", String(t === tab));
+          t.tabIndex = t === tab ? 0 : -1;
+        });
+        var panelId = tab.getAttribute("aria-controls");
+        screen.querySelectorAll("[data-tabpanel]").forEach(function (panel) {
+          panel.hidden = panel.id !== panelId;
+        });
+      }
+
+      tabs.forEach(function (tab, index) {
+        tab.tabIndex = tab.getAttribute("aria-selected") === "true" ? 0 : -1;
+        tab.addEventListener("click", function () {
+          if (tab.hasAttribute("data-goto")) return;
+          activate(tab);
+        });
+        tab.addEventListener("keydown", function (event) {
+          var dir = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+          if (!dir) return;
+          event.preventDefault();
+          var next = tabs[(index + dir + tabs.length) % tabs.length];
+          next.focus();
+          if (!next.hasAttribute("data-goto")) activate(next);
+        });
+      });
+    });
+
+    /* --- Drawer: chiudi con scrim, Esc e × -------------------------- */
+    function closeSheet(sheet) {
+      if (!sheet) return;
+      sheet.hidden = true;
+      var title = sheet.closest(".screen").querySelector(".appbar__title");
+      if (title) {
+        title.setAttribute("tabindex", "-1");
+        title.focus({ preventScroll: true });
+      }
+    }
+
+    document.querySelectorAll(".sheet__close").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        closeSheet(btn.closest(".sheet"));
+      });
+    });
+
+    document.querySelectorAll("[data-scrim]").forEach(function (scrim) {
+      scrim.addEventListener("click", function () {
+        closeSheet(scrim.closest(".sheet"));
+      });
+    });
+
+    document.addEventListener("keydown", function (event) {
+      var state = phone.querySelector("[data-state]:not([hidden])");
+      var sheet = state && state.querySelector(".sheet:not([hidden])");
+      if (!sheet) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeSheet(sheet);
+        return;
+      }
+
+      /* Focus trap del drawer aperto (il componente vero usa Base UI). */
+      if (event.key !== "Tab") return;
+      var items = Array.prototype.slice
+        .call(
+          sheet.querySelectorAll(
+            'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), [tabindex="0"]'
+          )
+        )
+        .filter(function (el) {
+          return el.offsetParent !== null;
+        });
+      if (items.length === 0) return;
+
+      var first = items[0];
+      var last = items[items.length - 1];
+      if (items.indexOf(document.activeElement) === -1) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+
+    /* Cambiando stato, il drawer torna visibile (ogni stato è una
+       fotografia della schermata, non una sessione). */
+    document.querySelectorAll(".proto-toolbar .proto-switch").forEach(function (button) {
+      button.addEventListener("click", function () {
+        phone.querySelectorAll(".sheet").forEach(function (sheet) {
+          sheet.hidden = false;
+        });
+      });
+    });
+
+    /* Focus sul titolo del drawer quando compare. */
+    var observer = new MutationObserver(function () {
+      var state = phone.querySelector("[data-state]:not([hidden])");
+      if (!state) return;
+      var sheet = state.querySelector(".sheet:not([hidden])");
+      if (!sheet) return;
+      if (!sheet.contains(document.activeElement)) {
+        var title = sheet.querySelector(".sheet__title");
+        if (title) title.focus({ preventScroll: true });
+      }
+    });
+
+    if (phone) {
+      observer.observe(phone, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["hidden"]
+      });
+    }
+  })();
+</script>
+</body>
+</html>

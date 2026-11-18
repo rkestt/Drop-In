@@ -26,7 +26,7 @@ npx playwright screenshot --viewport-size="360,780" \
 
 | File | Schermata | Ticket proto | Stato |
 |---|---|---|---|
-| `index.html` | Indice di review: le 8 schermate, cosa guardare | — | — |
+| `index.html` | Indice di review: le 8 schermate del piano 1.5, la variante home e la serie, cosa guardare | — | — |
 | `onboarding.html` | Primo avvio (3 passi sopra la mappa; il codice ne ha 4, +1 step sport da #45: vedi `specs/onboarding.md`) | d9 | approvato 2026-11-10 |
 | `settings.html` | Impostazioni | d10 | approvato 2026-11-10 |
 | `profile.html` | Profilo e modifica nickname | d11 | approvato 2026-11-10 |
@@ -36,6 +36,7 @@ npx playwright screenshot --viewport-size="360,780" \
 | `report.html` | Segnala un campo | d15 | approvato 2026-11-10 |
 | `offline.html` | Offline, errore, stati vuoti | d16 | approvato 2026-11-10 |
 | `nav-map-lobby.html` | Home come mappa full-bleed + foglio "Partite vicine" a 2 snap: striscia orizzontale e piena (variante della home, non una schermata nuova) | #89 | approvato 2026-11-17 (B · 2 snap · card V4 · barra nelle righe) |
+| `serie.html` | Appuntamento ricorrente: opzione "Ripeti ogni settimana" nel drawer di creazione, "Le mie serie", chip "Ricorrente · giovedì 20:00" su card e dettaglio | #92 | in review |
 
 `nav-map-lobby.html` è una **variante** della home, non una schermata nuova: confronta la
 banda statica di oggi (vista "Oggi") con il foglio trascinabile (opzione B di #89, due snap:
