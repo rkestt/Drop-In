@@ -24,3 +24,28 @@ export function isBanActive(
   const ts = new Date(bannedUntil).getTime();
   return Number.isFinite(ts) && ts > now;
 }
+
+/**
+ * Etichetta unica per chi ha cancellato l'account (#94). `profiles` sparisce
+ * con la cascata, quindi i riferimenti altrui (partecipanti, autori di
+ * recensioni) non hanno più una riga da cui leggere il nickname.
+ */
+export const DELETED_PLAYER_LABEL = "Giocatore eliminato";
+
+/**
+ * Nickname di un'altra persona, risolto dalla mappa `profiles`.
+ *
+ * Riga assente = profilo eliminato (o mai creato): il fallback è un testo
+ * unico, mai `undefined`/vuoto. Riga presente con `nickname` nullo resta
+ * `null`: l'utente esiste ma non ha ancora scelto un nickname, e ogni
+ * schermata tiene il proprio fallback per quel caso ("Anonimo", "Utente
+ * Drop-In"). Le policy leggono i profili di tutti, quindi non c'è un caso
+ * "riga nascosta" che possa sembrare assente.
+ */
+export function resolveNickname(
+  nicknames: ReadonlyMap<string, string | null>,
+  userId: string
+): string | null {
+  if (!nicknames.has(userId)) return DELETED_PLAYER_LABEL;
+  return nicknames.get(userId) ?? null;
+}

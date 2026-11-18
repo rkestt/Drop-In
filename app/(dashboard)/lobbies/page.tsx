@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { loginRedirectUrl } from "@/lib/auth/routes";
 import { LobbyTabs } from "@/components/lobby/lobby-tabs";
+import { resolveNickname } from "@/lib/profile/utils";
 import type { LobbySummary } from "@/components/lobby/types";
 
 export const dynamic = "force-dynamic";
@@ -102,7 +103,7 @@ export default async function LobbiesPage({
       participants_count: ids.length,
       participants: ids.map((uid) => ({
         user_id: uid,
-        nickname: nicknameByUser.get(uid) ?? null,
+        nickname: resolveNickname(nicknameByUser, uid),
       })),
       is_joined: ids.includes(userId),
     };

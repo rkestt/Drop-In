@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ReviewStars } from "@/components/court/review-stars";
 import { formatAppDateFull } from "@/lib/datetime";
+import { resolveNickname } from "@/lib/profile/utils";
 import { REVIEW_PAGE_SIZE, type ReviewItem } from "@/lib/reviews/format";
 import { createClient } from "@/lib/supabase/client";
 
@@ -78,7 +79,7 @@ export function ReviewList({
       const items: ReviewItem[] = rows.map((row) => ({
         id: row.id,
         user_id: row.user_id,
-        nickname: nicknames.get(row.user_id) ?? null,
+        nickname: resolveNickname(nicknames, row.user_id),
         rating: row.rating,
         body: row.body,
         created_at: row.created_at,

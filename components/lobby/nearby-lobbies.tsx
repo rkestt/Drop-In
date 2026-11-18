@@ -13,6 +13,7 @@ import {
   VICINE_HORIZON_HOURS,
 } from "@/lib/lobbies/nearby";
 import { sportEmptyPhrase, sportMatches } from "@/lib/sport/sports";
+import { resolveNickname } from "@/lib/profile/utils";
 import { useSport } from "@/lib/sport/sport-context";
 import { MapPin } from "lucide-react";
 import type { LobbySummary } from "./types";
@@ -136,7 +137,7 @@ export function NearbyLobbies({
             if (!sportMatches(l.courts.sport, pSportRef.current)) continue;
             const participants = (l.lobby_participants ?? []).map((p) => ({
               user_id: p.user_id,
-              nickname: nicknameMap.get(p.user_id) ?? null,
+              nickname: resolveNickname(nicknameMap, p.user_id),
             }));
             lobbies.push({
               id: l.id,

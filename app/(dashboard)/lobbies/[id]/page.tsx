@@ -5,6 +5,7 @@ import { formatAppDateTime } from "@/lib/datetime";
 import { notFound, redirect } from "next/navigation";
 import { loginRedirectUrl } from "@/lib/auth/routes";
 import { LobbyDetail } from "@/components/lobby/lobby-detail";
+import { resolveNickname } from "@/lib/profile/utils";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -200,7 +201,7 @@ export default async function LobbyDetailPage({
         }
         participants={memberIds.map((uid) => ({
           user_id: uid,
-          nickname: nicknames.get(uid) ?? null,
+          nickname: resolveNickname(nicknames, uid),
         }))}
         userId={user.id}
         joinedInitial={memberIds.includes(user.id)}

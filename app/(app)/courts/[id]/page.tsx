@@ -16,6 +16,7 @@ import {
   formatReportExpiry,
 } from "@/lib/reports/active";
 import { formatAppDateTime, formatAppTime } from "@/lib/datetime";
+import { resolveNickname } from "@/lib/profile/utils";
 import { lobbyPhase, lobbyPhaseLabel } from "@/lib/lobby/phase";
 import { LoginPrompt } from "@/components/auth/login-prompt";
 import { ShareButton } from "@/components/share/share-button";
@@ -286,7 +287,7 @@ export default async function CourtPage({
       reviewItems = rows.map((row) => ({
         id: row.id,
         user_id: row.user_id,
-        nickname: nicknames.get(row.user_id) ?? null,
+        nickname: resolveNickname(nicknames, row.user_id),
         rating: row.rating,
         body: row.body,
         created_at: row.created_at,

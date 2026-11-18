@@ -5,6 +5,7 @@ import { NotificationsSection } from "@/components/settings/notifications-sectio
 import { LocationSection } from "@/components/settings/location-section";
 import { SportSection } from "@/components/settings/sport-section";
 import { AccountSection } from "@/components/settings/account-section";
+import { DataSection } from "@/components/settings/data-section";
 import { ModerationSection } from "@/components/settings/moderation-section";
 import { InfoSection } from "@/components/settings/info-section";
 import { LegalLinks } from "@/components/legal/legal-links";
@@ -50,6 +51,7 @@ export default async function SettingsPage() {
         userId={user.id}
         nickname={profile?.nickname ?? null}
       />
+      <DataSection />
       {profile?.is_moderator === true && <ModerationSection />}
       <LegalLinks />
       <InfoSection />
