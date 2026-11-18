@@ -6,13 +6,13 @@
 
 ## Stato
 
-Il database ha 10.130 campi su Roma, ma: **6.364 non hanno sport** (63%), **9.572 sono chiamati "Spazio aperto"** e solo 51 hanno un indirizzo. `beachvolleyball` è nei dati e non nell'app. Ostia è fuori dal bbox. Non è un difetto dello script: in OpenStreetMap quei campi non hanno nome.
+Il database ha 10.130 campi su Roma, ma: **6.364 non hanno sport** (63%) e solo 51 hanno un indirizzo. `beachvolleyball` era nei dati e non nell'app (sbloccato 2026-11-18, `be1437a` + `049`). Ostia è fuori dal bbox. I 9.572 nomi generici "Spazio aperto" sono stati rinominati dal backfill #106 (2026-11-18, etichetta da tipo di impianto + flag `is_auto_name`). Non è un difetto dello script: in OpenStreetMap quei campi non hanno nome.
 
 ## Voci
 
 | Voce | Ticket | Stato |
 | --- | --- | --- |
-| Sbloccare gli slug di sport che i dati già contengono | — | da aprire |
+| Sbloccare gli slug di sport che i dati già contengono | — | fatto 2026-11-18 (`be1437a`, `049_normalize_beach_volleyball.sql`: 17 campi normalizzati; slug canonico in `lib/sport/sports.ts`, `lib/validation/schemas.ts`, `SPORT_LABELS`; estrattore canonifica nel prossimo import; filtro autonomo "Beach volley", 8 chip) |
 | Audit `sport` limitato al bbox del polo | #63 | aperto, scope ridotto |
 | Note di campo (agibilità leggera) | #90 | aperto |
 | Nominare i campi del polo | #106 | fatto 2026-11-18 (`050`/`051`, estrattore, badge + proposta + tab moderazione) |

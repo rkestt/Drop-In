@@ -18,10 +18,10 @@ Follower, feed, messaggi diretti, chat fuori dalla lobby, traduzioni, analytics 
 ## Le voci
 
 ### 1. I campi del polo di partenza
-Il bbox dei 10.130 campi è lat 41.749–41.981, lon 12.300–12.656: **Ostia è fuori** (41.73 / 12.28), quindi a Pietro Rosa la mappa è vuota. Inoltre `beachvolleyball` e altri slug presenti nei dati non sono accettati dalla whitelist di `nearby_courts` (mig. 011) e non esistono in `lib/sport/sports.ts`: 17 campi di beach volley sono invisibili.
+Il bbox dei 10.130 campi è lat 41.749–41.981, lon 12.300–12.656: **Ostia è fuori** (41.73 / 12.28), quindi a Pietro Rosa la mappa è vuota. I 17 campi di beach volley invisibili per whitelist (`beachvolleyball` non canonico in `nearby_courts` mig. 011 e assente da `lib/sport/sports.ts`) sono stati sbloccati il 2026-11-18 (`be1437a`: slug canonico, `049_normalize_beach_volleyball.sql`, filtro autonomo "Beach volley").
 
-*Lavoro*: rilancio di `scripts/extract_osm.py` sul bbox del polo, reseed, sblocco degli slug mancanti.
-*Fatto quando*: aprendo l'app su Ostia si vedono i campi, e il filtro "pallavolo"/"beach volley" li trova.
+*Lavoro*: rilancio di `scripts/extract_osm.py` sul bbox del polo, reseed.
+*Fatto quando*: aprendo l'app su Ostia si vedono i campi; il filtro "beach volley" trova già i 17 campi normalizzati.
 
 In più, **curatela manuale**: il pacchetto dati OSM contiene campi che non sono agibili. Va previsto un tempo ricorrente per rivedere le aggiunte future e correggere quelle sbagliate, non un intervento una tantum.
 
@@ -38,9 +38,11 @@ Un campo può esistere in mappa e non essere utilizzabile: canestro rotto, cance
 *Lavoro*: audit **limitato al bbox del polo**, non ai 10.130.
 *Fatto quando*: nel polo, ogni campo visibile ha uno sport che il filtro riconosce.
 
-**Il problema che viene prima dell'audit**: **9.572 Campi su 10.130 si chiamano letteralmente "Spazio aperto"**, solo 526 hanno un nome distinto e 51 hanno un indirizzo. Non è un difetto dello script (`scripts/extract_osm.py` legge `name` e `addr:street`), è che in OSM quei campi non hanno nome. Conseguenza: nessuno può riconoscere un Campo, né dire "ci vediamo al tal posto", né curarne l'agibilità senza prima identificarlo. Il database è anonimo, e un database anonimo non è un asset.
+**Il problema che viene prima dell'audit**: **9.572 campi su 10.130 si chiamavano letteralmente "Spazio aperto"** (backfill #106 del 2026-11-18: etichetta da tipo di impianto + flag `is_auto_name`, zero "Spazio aperto" rimasti), solo 526 avevano un nome distinto e 51 hanno un indirizzo. Non è un difetto dello script (`scripts/extract_osm.py` legge `name` e `addr:street`), è che in OSM quei campi non hanno nome. Conseguenza: nessuno può riconoscere un Campo, né dire "ci vediamo al tal posto", né curarne l'agibilità senza prima identificarlo. Il database è anonimo, e un database anonimo non è un asset.
 
-*Opzioni decise (2026-11-18, ticket #106, non ancora implementato)*: nome generico con flag di generazione automatica; l'utente interessato propone un nome che passa da coda di moderazione (Andrea o altri moderatori); serve UI per proporre e per rivedere. Dettaglio in `docs/roadmaps/dati-territorio.md`.
+*Opzioni decise e implementate (2026-11-18, ticket #106 chiuso)*: nome generico con flag di generazione automatica; l'utente interessato propone un nome che passa da coda di moderazione (Andrea o altri moderatori); UI per proporre e per rivedere. Dettaglio in `docs/roadmaps/dati-territorio.md`.
+
+*Stato (2026-11-18)*: **fatta** in `050` (`courts.is_auto_name`, backfill dei 9.572 nomi generici con l'etichetta del tipo di impianto, flag esposto da `nearby_courts`/`courts_in_viewport`) + `051` (tabella proposte + quattro RPC `propose_court_name`/`withdraw_name_proposal`/`approve_name_proposal` con override/`reject_name_proposal` con nota obbligatoria, chiusura d'ufficio delle pending a campo chiuso, RLS), ticket #106 chiuso. Estrattore genera i nomi dal `venue_type` e gestisce il flag nell'upsert; client con badge "Nome automatico" + "Proponi il nome vero" su scheda e preview sheet (mai nelle righe di ricerca), form proposta, sezione "Nomi che hai proposti", terza tab "Nomi" nel pannello di moderazione; spec `docs/design/specs/nomi-campo.md` + prototipo `docs/design/prototypes/nomi-campo.html`; backfill verificato (9.572 automatici, 558 nomi veri, zero "Spazio aperto"). Resta fuori: audit `sport` sul polo (#63), Ostia e reseed del polo (voce 1). Nota di upkeep: l'import ora non reintroduce il nome generico sbagliato (flag gestito nell'upsert). Limite noto: correggere un campo che ha già un nome vero non ha una CTA, decisione a sé.
 
 ### 3. Appuntamento ricorrente
 Una lobby oggi è una partita singola (`court_id`, `start_time`, `max_players`, `status`). Chi organizza deve rifarla e riannunciarla ogni settimana.
@@ -156,10 +158,10 @@ Le cose che non si possono aggiungere dopo vengono prima.
 
 | Voce | Ticket |
 | --- | --- |
-| 1 · campi del polo, slug sport | nuovo, da aprire |
+| 1 · campi del polo (Ostia, reseed) | nuovo, da aprire — slug già fatto 2026-11-18 (`be1437a`, `049`) |
 | 1b · Note di campo | #90 |
 | 2 · audit sport nel polo | #63 (scope ridotto, commentato) |
-| 2 · Nomi dei campi del polo | #106 (deciso 2026-11-18, non ancora implementato) |
+| 2 · Nomi dei campi del polo | #106 (chiuso 2026-11-18) |
 | 3 · Appuntamento ricorrente | #92 (chiuso 2026-11-18) |
 | 4 · Occorrenze e karma | #91 (chiuso 2026-11-18, sbloccava #92) |
 | 5 · Ricorrenza abituale | da aprire quando ci sono i dati |
