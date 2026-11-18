@@ -12,16 +12,17 @@ const NOW = new Date("2026-11-18T10:00:00Z");
 
 function lobby(over: Partial<OwnedLobbyRow> & { id: string }): OwnedLobbyRow {
   return {
-    start_time: "2026-11-18T12:00:00Z",
+    start_time: "2026-11-18T09:00:00Z",
+    ends_at: "2026-11-18T11:00:00Z",
     status: "open",
     ...over,
   };
 }
 
 describe("findBlockingLobbies", () => {
-  it("blocca la futura open con un altro iscritto", () => {
+  it("blocca la futura con un altro iscritto", () => {
     const blocking = findBlockingLobbies(
-      [lobby({ id: "l1" })],
+      [lobby({ id: "l1", start_time: "2026-11-18T12:00:00Z", ends_at: "2026-11-18T13:00:00Z" })],
       [{ lobby_id: "l1", user_id: OTHER }],
       ME,
       NOW
@@ -29,9 +30,19 @@ describe("findBlockingLobbies", () => {
     expect(blocking.map((l) => l.id)).toEqual(["l1"]);
   });
 
-  it("lascia passare la passata anche con altri iscritti", () => {
+  it("blocca l'iniziata ieri e ancora in corso con un altro iscritto", () => {
     const blocking = findBlockingLobbies(
-      [lobby({ id: "l1", start_time: "2026-11-18T08:00:00Z" })],
+      [lobby({ id: "l1", start_time: "2026-11-17T10:00:00Z", ends_at: "2026-11-18T10:00:01Z" })],
+      [{ lobby_id: "l1", user_id: OTHER }],
+      ME,
+      NOW
+    );
+    expect(blocking.map((l) => l.id)).toEqual(["l1"]);
+  });
+
+  it("lascia passare l'iniziata e finita anche con altri iscritti", () => {
+    const blocking = findBlockingLobbies(
+      [lobby({ id: "l1", start_time: "2026-11-18T08:00:00Z", ends_at: "2026-11-18T09:00:00Z" })],
       [{ lobby_id: "l1", user_id: OTHER }],
       ME,
       NOW
@@ -39,7 +50,7 @@ describe("findBlockingLobbies", () => {
     expect(blocking).toEqual([]);
   });
 
-  it("lascia passare la futura senza iscritti", () => {
+  it("lascia passare la non finita senza iscritti", () => {
     const blocking = findBlockingLobbies(
       [lobby({ id: "l1" })],
       [] as ParticipantRow[],
@@ -49,7 +60,7 @@ describe("findBlockingLobbies", () => {
     expect(blocking).toEqual([]);
   });
 
-  it("lascia passare la futura dove sono iscritto solo io", () => {
+  it("lascia passare la non finita dove sono iscritto solo io", () => {
     const blocking = findBlockingLobbies(
       [lobby({ id: "l1" })],
       [{ lobby_id: "l1", user_id: ME }],
@@ -59,7 +70,7 @@ describe("findBlockingLobbies", () => {
     expect(blocking).toEqual([]);
   });
 
-  it("lascia passare non-open future anche con altri iscritti", () => {
+  it("lascia passare non-open anche non finite con altri iscritti", () => {
     for (const status of ["in_progress", "closed", null]) {
       const blocking = findBlockingLobbies(
         [lobby({ id: "l1", status })],
@@ -71,21 +82,48 @@ describe("findBlockingLobbies", () => {
     }
   });
 
+  it("ripiega su start_time se ends_at illeggibile", () => {
+    const blocking = findBlockingLobbies(
+      [lobby({ id: "l1", start_time: "2026-11-18T12:00:00Z", ends_at: "non-una-data" })],
+      [{ lobby_id: "l1", user_id: OTHER }],
+      ME,
+      NOW
+    );
+    expect(blocking.map((l) => l.id)).toEqual(["l1"]);
+  });
+
+  it("lascia passare se start_time ed ends_at sono entrambi illeggibili", () => {
+    for (const row of [
+      lobby({ id: "l1", start_time: "xx", ends_at: "yy" }),
+      lobby({ id: "l2", start_time: "xx", ends_at: null }),
+    ]) {
+      const blocking = findBlockingLobbies(
+        [row],
+        [{ lobby_id: row.id, user_id: OTHER }],
+        ME,
+        NOW
+      );
+      expect(blocking, `riga ${row.id}`).toEqual([]);
+    }
+  });
+
   it("blocca solo le lobby giuste in un mix", () => {
     const blocking = findBlockingLobbies(
       [
-        lobby({ id: "futura-con-altri" }),
-        lobby({ id: "passata", start_time: "2026-11-18T08:00:00Z" }),
-        lobby({ id: "futura-sola" }),
+        lobby({ id: "futura-con-altri", start_time: "2026-11-18T12:00:00Z", ends_at: "2026-11-18T13:00:00Z" }),
+        lobby({ id: "in-corso-con-altri", start_time: "2026-11-17T10:00:00Z", ends_at: "2026-11-18T10:00:01Z" }),
+        lobby({ id: "finita", start_time: "2026-11-18T08:00:00Z", ends_at: "2026-11-18T09:00:00Z" }),
+        lobby({ id: "futura-sola", start_time: "2026-11-18T12:00:00Z", ends_at: "2026-11-18T13:00:00Z" }),
       ],
       [
         { lobby_id: "futura-con-altri", user_id: OTHER },
-        { lobby_id: "passata", user_id: OTHER },
+        { lobby_id: "in-corso-con-altri", user_id: OTHER },
+        { lobby_id: "finita", user_id: OTHER },
       ],
       ME,
       NOW
     );
-    expect(blocking.map((l) => l.id)).toEqual(["futura-con-altri"]);
+    expect(blocking.map((l) => l.id)).toEqual(["futura-con-altri", "in-corso-con-altri"]);
   });
 });
 

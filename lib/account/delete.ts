@@ -1,10 +1,19 @@
 // Logica testabile della cancellazione account (#94, Lane B).
 //
 // `findBlockingLobbies` decide il 409 della route: blocca solo le lobby
-// future `open` create da me con almeno un altro iscritto. Passate, chiuse,
-// in corso e future senza altri iscritti passano (la cascata le gestisce:
-// le passate spariscono con me, le future senza iscritti restano congelate
-// con creator NULL dalla 041).
+// `open` non finite create da me con almeno un altro iscritto. "Non
+// finita" = `ends_at > now` (038: in corso = start <= now <= ends):
+// abbandonare una partita iniziata danneggia chi gioca. Finite, chiuse,
+// in corso senza altri iscritti passano (la cascata le gestisce o restano
+// congelate con creator NULL dalla 041). Se `ends_at` non e' leggibile
+// si ripiega su `start_time > now`; se anche quello manca, passa.
+
+export interface OwnedLobbyRow {
+  id: string;
+  start_time: string;
+  ends_at: string | null;
+  status: string | null;
+}
 //
 // `isAlreadyDeletedError` decide il replay idempotente: se `deleteUser`
 // fallisce perche' l'utente non esiste piu' (doppio invio concorrente: il
@@ -35,8 +44,16 @@ export function findBlockingLobbies(
   }
   return lobbies.filter((l) => {
     if (l.status !== "open") return false;
-    const startMs = Date.parse(l.start_time);
-    if (!Number.isFinite(startMs) || startMs <= nowMs) return false;
+    const endMs = Date.parse(l.ends_at ?? "");
+    let notFinished: boolean;
+    if (Number.isFinite(endMs)) {
+      notFinished = endMs > nowMs;
+    } else {
+      // Ripiego: `ends_at` e' generata (036) e non dovrebbe mai mancare.
+      const startMs = Date.parse(l.start_time ?? "");
+      notFinished = Number.isFinite(startMs) && startMs > nowMs;
+    }
+    if (!notFinished) return false;
     return withOthers.has(l.id);
   });
 }

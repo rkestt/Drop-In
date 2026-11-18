@@ -2798,6 +2798,26 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- 51a-bis. scrub + read_at insieme: comportamento voluto (i marcatori di
+-- recapito e read_at restano liberi al service_role come da 029/040).
+INSERT INTO public.push_notifications (user_id, title, body, data)
+VALUES ('33333333-3333-3333-3333-333333333333', 'Scrub E Read', 'corpo',
+        '{"type":"x","user_id":"22222222-2222-2222-2222-222222222222"}'::jsonb);
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims = '{"role":"service_role"}';
+UPDATE public.push_notifications
+SET data = data - 'user_id', read_at = now()
+WHERE user_id = '33333333-3333-3333-3333-333333333333' AND title = 'Scrub E Read';
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.push_notifications
+                 WHERE title = 'Scrub E Read'
+                   AND data = '{"type":"x"}'::jsonb
+                   AND read_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'scrub+read_at non riuscito (#94)';
+  END IF;
+END $$;
+
 -- 51b. service_role riscrive il titolo -> P0001 (nessuna regressione 40d).
 SET LOCAL ROLE service_role;
 SET LOCAL request.jwt.claims = '{"role":"service_role"}';

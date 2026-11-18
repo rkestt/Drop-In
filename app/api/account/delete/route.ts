@@ -50,12 +50,13 @@ export async function POST() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // 1. Pre-check: lobby future `open` create da me con altri iscritti
-  // bloccano con 409. Solo quelle: passate e future senza altri iscritti
-  // passano (cascata o creator NULL della 041).
+  // 1. Pre-check: lobby `open` non finite create da me con altri iscritti
+  // bloccano con 409 (`ends_at > now`: anche iniziate ma in corso).
+  // Solo quelle: finite e future senza altri iscritti passano
+  // (cascata o creator NULL della 041).
   const { data: owned, error: ownedError } = await supabase
     .from("lobbies")
-    .select("id, start_time, status")
+    .select("id, start_time, ends_at, status")
     .eq("creator_id", uid)
     .eq("status", "open");
   if (ownedError || !owned) {
@@ -111,9 +112,10 @@ export async function POST() {
 
   // 3. Storage prima del database: dopo `deleteUser` la cascata cancella le
   // righe utente e i file rimasti non sarebbero piu' mappabili all'account
-  // (orfani irrecuperabili). Un fallimento qui lascia invece l'account
-  // intero e la cancellazione riprovabile: il punto di non ritorno e'
-  // solo `deleteUser`.
+  // (orfani irrecuperabili). Se un passo dopo la rimozione fallisce,
+  // l'account resta funzionante ma senza avatar (re-caricabile): l'ordine
+  // inverso lascerebbe file orfani di un utente cancellato, che e' peggio.
+  // Il punto di non ritorno resta `deleteUser`.
   const { data: files, error: listError } = await admin.storage
     .from(AVATAR_BUCKET)
     .list(uid);
