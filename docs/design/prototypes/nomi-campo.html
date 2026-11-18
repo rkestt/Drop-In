@@ -1,0 +1,2843 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Nomi dei campi — prototipo ticket 106</title>
+<link rel="stylesheet" href="proto.css">
+<!--
+  Pipeline: ticket 106 — nomi dei campi (dati e territorio, voce 2).
+  Passo: quattro superfici, 23 stati: scheda campo + anteprima mappa,
+  form proposta, "Nomi che hai proposto", terza tab "Nomi" in moderazione.
+  Prossimo passo: review HITL su badge, CTA, copy e regola "nome ≠ nota".
+  Poi: Lane D del ticket (client), dopo 050/051 (DB + RPC).
+  Decisione di prodotto: commento di @oracle sul ticket 106 (vincolante).
+-->
+<style>
+  /* Solo ciò che è specifico di questa schermata. Colori, radius, motion e
+     famiglie tipografiche vengono da proto.css. */
+
+  [data-state-group] {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+
+  .icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+  }
+
+  .icon--sm {
+    width: 16px;
+    height: 16px;
+  }
+
+  .court-head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .court-addr {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+  }
+
+  .court-addr .icon {
+    color: var(--text-muted);
+  }
+
+  .row--wrap {
+    flex-wrap: wrap;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Zona identità: chip di provenienza + una riga di azione/stato      */
+  /* ---------------------------------------------------------------- */
+
+  .identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 2px;
+  }
+
+  .identity__action,
+  .identity__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: start;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .identity__action:hover {
+    color: var(--accent-hover);
+  }
+
+  .identity__action:focus-visible,
+  .identity__status:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  .identity__status {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .identity__status .icon {
+    color: var(--text-muted);
+  }
+
+  .identity__status--blocked {
+    color: var(--text-secondary);
+  }
+
+  .identity__chev {
+    color: var(--text-muted);
+  }
+
+  .identity__reason {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  /* Note di campo: blocco di sola lettura, forma volutamente diversa
+     dalla zona identità (card con titolo e righe datate). */
+  .dated-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .dated-list__item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .dated-list__text {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+  }
+
+  .dated-list__meta {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Sheet                                                             */
+  /* ---------------------------------------------------------------- */
+
+  .sheet.is-closed {
+    display: none;
+  }
+
+  .sheet__panel {
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sheet__head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .sheet__title:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 4px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  .sheet__lead {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .sheet__address {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .sheet__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .handle {
+    width: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+
+  .handle:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+    border-radius: var(--radius-control);
+  }
+
+  .btn--quiet {
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
+  .btn--quiet:hover {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+  }
+
+  .btn--link {
+    min-height: 44px;
+    padding: 0;
+    background: transparent;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .btn--link:hover {
+    background: transparent;
+    color: var(--accent-hover);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Riepilogo "adesso / proposto"                                     */
+  /* ---------------------------------------------------------------- */
+
+  .name-pair {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 6px 10px;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--bg-surface);
+  }
+
+  .name-pair dt {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1.6;
+    text-transform: uppercase;
+  }
+
+  .name-pair dd {
+    margin: 0;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .name-pair dd[data-proposed] {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .name-pair .is-empty {
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Form                                                              */
+  /* ---------------------------------------------------------------- */
+
+  .field__label {
+    margin: 0;
+  }
+
+  .field__foot {
+    display: flex;
+    justify-content: flex-end;
+    margin: 0;
+  }
+
+  .counter {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .counter--over {
+    color: var(--danger-dark);
+    font-weight: 600;
+  }
+
+  .field__error--inline {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .field__error--inline .icon {
+    width: 16px;
+    height: 16px;
+    margin-top: 1px;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Esiti                                                             */
+  /* ---------------------------------------------------------------- */
+
+  .banner__body {
+    min-width: 0;
+  }
+
+  .banner__title {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .banner__text {
+    margin: 2px 0 0;
+    font-size: 13px;
+  }
+
+  .result {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .result__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--success);
+    border-radius: 50%;
+    color: var(--success-dark);
+  }
+
+  .result__title {
+    margin: 0;
+    color: var(--text-primary);
+    font-family: var(--font-syne);
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .result__text {
+    margin: 0;
+    color: var(--text-secondary);
+  }
+
+  .result__text strong {
+    color: var(--text-primary);
+  }
+
+  .result__hint {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .notice {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .notice .icon {
+    margin-top: 1px;
+    color: var(--text-secondary);
+  }
+
+  .notice__title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .notice__text {
+    margin: 2px 0 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Loading                                                           */
+  /* ---------------------------------------------------------------- */
+
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--accent-foreground);
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: nomi-spin 700ms linear infinite;
+  }
+
+  @keyframes nomi-spin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Mappa finta dell'anteprima (solo token)                           */
+  /* ---------------------------------------------------------------- */
+
+  .map--dark {
+    position: relative;
+    flex: 1;
+    min-height: 420px;
+    background:
+      linear-gradient(90deg, var(--border) 1px, transparent 1px) 0 0 / 56px 56px,
+      linear-gradient(var(--border) 1px, transparent 1px) 0 0 / 56px 56px,
+      var(--bg-base);
+  }
+
+  .map__pin {
+    position: absolute;
+    left: 50%;
+    top: 34%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-foreground);
+    cursor: pointer;
+  }
+
+  .map__pin:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Le tue proposte                                                   */
+  /* ---------------------------------------------------------------- */
+
+  .section-title {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .section-lead {
+    margin: 4px 0 12px;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .prop-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .prop-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .prop-row__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .prop-row__name {
+    margin: 0;
+    min-width: 0;
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  .prop-row__name:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-control-sm);
+  }
+
+  .prop-row__meta {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .prop-row__reason {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .prop-row__reason strong {
+    color: var(--text-primary);
+  }
+
+  .prop-row__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .inline-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control);
+    background: var(--bg-base);
+  }
+
+  .inline-confirm__title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .inline-confirm__text {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .inline-confirm__actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .inline-confirm__actions .btn {
+    flex: 1;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Moderazione                                                       */
+  /* ---------------------------------------------------------------- */
+
+  .tablist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-chip);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .tab[aria-selected="true"] {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  .tab:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .tab__count {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .panel-lead {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .lead-icon {
+    vertical-align: -3px;
+  }
+
+  .empty__note {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .banner + .btn {
+    margin-top: 12px;
+  }
+
+  .feedback {
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--success);
+    border-radius: var(--radius-control);
+    color: var(--success-dark);
+    font-size: 13px;
+  }
+
+  .mod-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mod-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+  }
+
+  .mod-pair {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 4px 10px;
+    margin: 0;
+  }
+
+  .mod-pair dt {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1.7;
+    text-transform: uppercase;
+  }
+
+  .mod-pair dd {
+    margin: 0;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .mod-pair dd[data-proposed] {
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .mod-meta {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .mod-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .mod-actions .btn {
+    flex: 1;
+    min-width: 84px;
+    padding: 0 10px;
+  }
+
+  .editor {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control);
+    background: var(--bg-base);
+  }
+
+  .editor .field__label {
+    color: var(--text-primary);
+  }
+
+  .editor .input,
+  .editor .textarea {
+    background: var(--bg-elevated);
+  }
+
+  .editor__actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .editor__actions .btn {
+    flex: 1;
+  }
+
+  /* Contenuto che scorre: usato quando la lista è più alta del telefono. */
+  .phone--fixed {
+    height: 780px;
+    min-height: 0;
+  }
+
+  .content--scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-height: 0;
+  }
+</style>
+</head>
+<body>
+
+<header class="proto-head">
+  <h1 class="proto-head__title">Nomi dei campi</h1>
+  <p class="proto-head__meta">ticket 106 · 23 stati · quattro superfici</p>
+</header>
+
+<div data-state-group data-initial="scheda-invito">
+
+  <div class="proto-toolbar" role="group" aria-label="Stati della scheda campo">
+    <span class="proto-toolbar__label">Scheda</span>
+    <button class="proto-switch" type="button" data-show="scheda-ospite" aria-pressed="false">Ospite</button>
+    <button class="proto-switch" type="button" data-show="scheda-invito" aria-pressed="false">Invito</button>
+    <button class="proto-switch" type="button" data-show="scheda-attesa" aria-pressed="false">In attesa</button>
+    <button class="proto-switch" type="button" data-show="scheda-nomevero" aria-pressed="false">Nome vero</button>
+    <button class="proto-switch" type="button" data-show="scheda-blocco" aria-pressed="false">Bloccato</button>
+  </div>
+
+  <div class="proto-toolbar" role="group" aria-label="Stati dell'anteprima dalla mappa">
+    <span class="proto-toolbar__label">Anteprima</span>
+    <button class="proto-switch" type="button" data-show="anteprima" aria-pressed="false">Foglio</button>
+    <button class="proto-switch" type="button" data-show="anteprima-attesa" aria-pressed="false">Foglio · attesa</button>
+  </div>
+
+  <div class="proto-toolbar" role="group" aria-label="Stati del form proposta">
+    <span class="proto-toolbar__label">Form</span>
+    <button class="proto-switch" type="button" data-show="form-vuoto" aria-pressed="false">Vuoto</button>
+    <button class="proto-switch" type="button" data-show="form-scritto" aria-pressed="false">Scritto</button>
+    <button class="proto-switch" type="button" data-show="form-uguale" aria-pressed="false">Nome uguale</button>
+    <button class="proto-switch" type="button" data-show="form-lungo" aria-pressed="false">Troppo lungo</button>
+    <button class="proto-switch" type="button" data-show="form-attesa" aria-pressed="false">Già in attesa</button>
+    <button class="proto-switch" type="button" data-show="form-invio" aria-pressed="false">Invio</button>
+    <button class="proto-switch" type="button" data-show="form-inviata" aria-pressed="false">Inviata</button>
+    <button class="proto-switch" type="button" data-show="form-rete" aria-pressed="false">Errore rete</button>
+  </div>
+
+  <div class="proto-toolbar" role="group" aria-label="Stati delle tue proposte">
+    <span class="proto-toolbar__label">Proposte</span>
+    <button class="proto-switch" type="button" data-show="proposte" aria-pressed="false">Elenco</button>
+    <button class="proto-switch" type="button" data-show="proposte-ritiro" aria-pressed="false">Ritiro</button>
+  </div>
+
+  <div class="proto-toolbar" role="group" aria-label="Stati della moderazione">
+    <span class="proto-toolbar__label">Moderazione</span>
+    <button class="proto-switch" type="button" data-show="mod-coda" aria-pressed="false">Coda</button>
+    <button class="proto-switch" type="button" data-show="mod-correggi" aria-pressed="false">Correggi</button>
+    <button class="proto-switch" type="button" data-show="mod-rifiuta" aria-pressed="false">Rifiuta</button>
+    <button class="proto-switch" type="button" data-show="mod-vuota" aria-pressed="false">Vuota</button>
+    <button class="proto-switch" type="button" data-show="mod-errore" aria-pressed="false">Errore</button>
+    <button class="proto-switch" type="button" data-show="mod-scroll" aria-pressed="false">Molte righe</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 1 · Scheda campo, ospite: l'invito resta, il tap porta al login  -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-ospite" hidden>
+    <div class="phone phone--tall">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <button class="identity__action" type="button" aria-describedby="ospite-hint">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Proponi il nome vero
+              <svg class="icon icon--sm identity__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+            <span class="sr-only" id="ospite-hint">Accedi per proporre un nome</span>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Esterno</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>
+            Segnala
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 2 · Scheda campo, loggato: l'invito apre il form                 -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-invito" hidden>
+    <div class="phone phone--tall">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <button class="identity__action" type="button" data-goto="form-vuoto">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Proponi il nome vero
+              <svg class="icon icon--sm identity__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Esterno</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>
+            Segnala
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 3 · Scheda campo, proposta propria già aperta                   -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-attesa" hidden>
+    <div class="phone phone--tall">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <a class="identity__status" href="#" data-goto="proposte" aria-label="Proposta in attesa: Campetto dell'Arte. Vedi le tue proposte">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              Proposta in attesa: &laquo;Campetto dell'Arte&raquo;
+              <svg class="icon icon--sm identity__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>
+            </a>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Esterno</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>
+            Segnala
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 4 · Scheda campo con nome vero: nessun badge, e le Note di      -->
+  <!--     campo (1b) restano un'altra cosa                            -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-nomevero" hidden>
+    <div class="phone phone--tall">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Campetto dell'Arte</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Esterno</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+          </div>
+          <button class="btn btn--ghost btn--sm btn--block" type="button">
+            <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>
+            Segnala
+          </button>
+          <!-- Riferimento: forma di #90, non progettata qui. Serve solo a
+               verificare che non si confonda con la zona identità. -->
+          <div class="card">
+            <p class="label">Note di campo</p>
+            <ul class="dated-list">
+              <li class="dated-list__item">
+                <p class="dated-list__text">Il canestro di destra è senza net.</p>
+                <p class="dated-list__meta">11 nov 2026 &middot; aggiunta da chi modera</p>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 5 · Scheda campo, bannato / karma sotto 50: nessun bottone morto -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="scheda-blocco" hidden>
+    <div class="phone phone--tall">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <p class="identity__status identity__status--blocked">Non puoi proporre un nome adesso.</p>
+            <p class="identity__reason">Sei bannato fino al 24 nov 2026.</p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge">Esterno</span>
+            <span class="badge">2 canestri</span>
+          </div>
+          <div class="row">
+            <button class="btn btn--secondary btn--sm grow" type="button">Check-in</button>
+            <button class="btn btn--secondary btn--sm grow" type="button">Crea lobby</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 6 · Anteprima dalla mappa: stesso chip, stesso invito            -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="anteprima" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" inert>
+        <div class="map--dark" aria-hidden="true">
+          <button class="map__pin" type="button" aria-label="Spazio verde" data-open>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="anteprima-title" id="sheet-anteprima">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="anteprima-title">Spazio verde</h2>
+            <p class="sheet__address">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge badge--accent">Basket</span>
+            <span class="badge">Esterno</span>
+          </div>
+          <p class="sheet__lead">
+            <svg class="icon icon--sm lead-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            2 lobby attive
+          </p>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <button class="identity__action" type="button" data-goto="scheda-invito">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Proponi il nome vero
+              <svg class="icon icon--sm identity__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-goto="scheda-invito">Apri dettaglio</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Chiudi</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 7 · Anteprima dalla mappa, proposta già aperta                  -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="anteprima-attesa" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" inert>
+        <div class="map--dark" aria-hidden="true">
+          <button class="map__pin" type="button" aria-label="Spazio verde" data-open>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="anteprima-title-2" id="sheet-anteprima-2">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="anteprima-title-2">Spazio verde</h2>
+            <p class="sheet__address">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="row row--wrap">
+            <span class="badge badge--accent">Basket</span>
+            <span class="badge">Esterno</span>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <a class="identity__status" href="#" data-goto="proposte" aria-label="Proposta in attesa: Campetto dell'Arte. Vedi le tue proposte">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              Proposta in attesa: &laquo;Campetto dell'Arte&raquo;
+              <svg class="icon icon--sm identity__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>
+            </a>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-goto="scheda-attesa">Apri dettaglio</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Chiudi</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 8 · Form proposta, vuoto                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-vuoto" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <button class="identity__action" type="button" data-open aria-expanded="true" aria-controls="sheet-form-vuoto">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Proponi il nome vero
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="form-title-1" id="sheet-form-vuoto">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="form-title-1">Proponi il nome</h2>
+            <p class="sheet__lead">Questo nome l'ha messo il sistema. Se sai come lo chiamano lì, scrivilo: lo rivede chi modera.</p>
+          </div>
+          <dl class="name-pair">
+            <dt>Adesso</dt>
+            <dd>Spazio verde</dd>
+            <dt>Proposto</dt>
+            <dd data-proposed><span class="is-empty" data-proposed-value>&mdash;</span></dd>
+          </dl>
+          <div class="field">
+            <label class="field__label" for="name-1">Nome del campo</label>
+            <input class="input" id="name-1" data-name-input type="text" placeholder="Es. Campetto dell'Arte" aria-describedby="name-1-count name-1-hint">
+            <p class="field__foot">
+              <span class="counter" id="name-1-count"><span aria-hidden="true" data-count-visual>0/120</span><span class="sr-only" data-count-sr>0 caratteri su 120</span></span>
+            </p>
+            <p class="field__hint" id="name-1-hint">Un nome di luogo, non una descrizione: &laquo;Campetto dell'Arte&raquo;, non &laquo;campo di basket&raquo;.</p>
+            <p class="field__error field__error--inline" data-name-error role="alert" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <span data-name-error-text></span>
+            </p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-submit>Invia proposta</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 9 · Form proposta, compilato (riepilogo vivo)                   -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-scritto" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <button class="identity__action" type="button" data-open aria-expanded="true" aria-controls="sheet-form-scritto">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Proponi il nome vero
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="form-title-2" id="sheet-form-scritto">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="form-title-2">Proponi il nome</h2>
+            <p class="sheet__lead">Questo nome l'ha messo il sistema. Se sai come lo chiamano lì, scrivilo: lo rivede chi modera.</p>
+          </div>
+          <dl class="name-pair">
+            <dt>Adesso</dt>
+            <dd>Spazio verde</dd>
+            <dt>Proposto</dt>
+            <dd data-proposed><span data-proposed-value>Campetto dell'Arte</span></dd>
+          </dl>
+          <div class="field">
+            <label class="field__label" for="name-2">Nome del campo</label>
+            <input class="input" id="name-2" data-name-input type="text" value="Campetto dell'Arte" aria-describedby="name-2-count name-2-hint">
+            <p class="field__foot">
+              <span class="counter" id="name-2-count"><span aria-hidden="true" data-count-visual>18/120</span><span class="sr-only" data-count-sr>18 caratteri su 120</span></span>
+            </p>
+            <p class="field__hint" id="name-2-hint">Un nome di luogo, non una descrizione: &laquo;Campetto dell'Arte&raquo;, non &laquo;campo di basket&raquo;.</p>
+            <p class="field__error field__error--inline" data-name-error role="alert" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <span data-name-error-text></span>
+            </p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-submit>Invia proposta</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 10 · Errore: è già il nome attuale                              -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-uguale" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <button class="identity__action" type="button" data-open aria-expanded="true" aria-controls="sheet-form-uguale">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Proponi il nome vero
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="form-title-3" id="sheet-form-uguale">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="form-title-3">Proponi il nome</h2>
+            <p class="sheet__lead">Questo nome l'ha messo il sistema. Se sai come lo chiamano lì, scrivilo: lo rivede chi modera.</p>
+          </div>
+          <dl class="name-pair">
+            <dt>Adesso</dt>
+            <dd>Spazio verde</dd>
+            <dt>Proposto</dt>
+            <dd data-proposed><span data-proposed-value>spazio verde</span></dd>
+          </dl>
+          <div class="field">
+            <label class="field__label" for="name-3">Nome del campo</label>
+            <input class="input input--error" id="name-3" data-name-input type="text" value="spazio verde" aria-invalid="true" aria-describedby="name-3-count name-3-hint name-3-error">
+            <p class="field__foot">
+              <span class="counter" id="name-3-count"><span aria-hidden="true" data-count-visual>13/120</span><span class="sr-only" data-count-sr>13 caratteri su 120</span></span>
+            </p>
+            <p class="field__hint" id="name-3-hint">Un nome di luogo, non una descrizione: &laquo;Campetto dell'Arte&raquo;, non &laquo;campo di basket&raquo;.</p>
+            <p class="field__error field__error--inline" id="name-3-error" data-name-error role="alert">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <span data-name-error-text>È già il nome di questo campo.</span>
+            </p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-submit>Invia proposta</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 11 · Errore: oltre 120 caratteri                                -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-lungo" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <button class="identity__action" type="button" data-open aria-expanded="true" aria-controls="sheet-form-lungo">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Proponi il nome vero
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="form-title-4" id="sheet-form-lungo">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="form-title-4">Proponi il nome</h2>
+            <p class="sheet__lead">Questo nome l'ha messo il sistema. Se sai come lo chiamano lì, scrivilo: lo rivede chi modera.</p>
+          </div>
+          <dl class="name-pair">
+            <dt>Adesso</dt>
+            <dd>Spazio verde</dd>
+            <dt>Proposto</dt>
+            <dd data-proposed><span data-proposed-value>Il campetto dietro la scuola di via dell'Arte, quello con il canestro senza net e il tabellone crepato dove giocano i ragazzi del quartiere</span></dd>
+          </dl>
+          <div class="field">
+            <label class="field__label" for="name-4">Nome del campo</label>
+            <input class="input input--error" id="name-4" data-name-input type="text" value="Il campetto dietro la scuola di via dell'Arte, quello con il canestro senza net e il tabellone crepato dove giocano i ragazzi del quartiere" aria-invalid="true" aria-describedby="name-4-count name-4-hint name-4-error">
+            <p class="field__foot">
+              <span class="counter counter--over" id="name-4-count"><span aria-hidden="true" data-count-visual>143/120</span><span class="sr-only" data-count-sr>143 caratteri su 120</span></span>
+            </p>
+            <p class="field__hint" id="name-4-hint">Un nome di luogo, non una descrizione: &laquo;Campetto dell'Arte&raquo;, non &laquo;campo di basket&raquo;.</p>
+            <p class="field__error field__error--inline" id="name-4-error" data-name-error role="alert">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <span data-name-error-text>Il nome può avere al massimo 120 caratteri.</span>
+            </p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-submit>Invia proposta</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 12 · Errore: una proposta propria è già aperta                  -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-attesa" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <button class="identity__action" type="button" data-open aria-expanded="true" aria-controls="sheet-form-attesa">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Proponi il nome vero
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="form-title-5" id="sheet-form-attesa">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="form-title-5">Proponi il nome</h2>
+            <p class="sheet__lead">Questo nome l'ha messo il sistema. Se sai come lo chiamano lì, scrivilo: lo rivede chi modera.</p>
+          </div>
+          <dl class="name-pair">
+            <dt>Adesso</dt>
+            <dd>Spazio verde</dd>
+            <dt>Proposto</dt>
+            <dd data-proposed><span data-proposed-value>Campetto dell'Arte</span></dd>
+          </dl>
+          <div class="field">
+            <label class="field__label" for="name-5">Nome del campo</label>
+            <input class="input input--error" id="name-5" data-name-input type="text" value="Campetto dell'Arte" aria-invalid="true" aria-describedby="name-5-count name-5-hint name-5-error">
+            <p class="field__foot">
+              <span class="counter" id="name-5-count"><span aria-hidden="true" data-count-visual>18/120</span><span class="sr-only" data-count-sr>18 caratteri su 120</span></span>
+            </p>
+            <p class="field__hint" id="name-5-hint">Un nome di luogo, non una descrizione: &laquo;Campetto dell'Arte&raquo;, non &laquo;campo di basket&raquo;.</p>
+            <p class="field__error field__error--inline" id="name-5-error" data-name-error role="alert">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <span data-name-error-text>Hai già una proposta in attesa su questo campo: la trovi in &laquo;Le tue proposte&raquo;.</span>
+            </p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-submit>Invia proposta</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 13 · Invio                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-invio" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <button class="identity__action" type="button" data-open aria-expanded="true" aria-controls="sheet-form-invio">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Proponi il nome vero
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="form-title-6" id="sheet-form-invio">
+        <div class="sheet__panel" aria-busy="true">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="form-title-6">Proponi il nome</h2>
+            <p class="sheet__lead">Questo nome l'ha messo il sistema. Se sai come lo chiamano lì, scrivilo: lo rivede chi modera.</p>
+          </div>
+          <dl class="name-pair">
+            <dt>Adesso</dt>
+            <dd>Spazio verde</dd>
+            <dt>Proposto</dt>
+            <dd data-proposed><span data-proposed-value>Campetto dell'Arte</span></dd>
+          </dl>
+          <div class="field">
+            <label class="field__label" for="name-6">Nome del campo</label>
+            <input class="input" id="name-6" data-name-input type="text" value="Campetto dell'Arte" readonly aria-describedby="name-6-count name-6-hint">
+            <p class="field__foot">
+              <span class="counter" id="name-6-count"><span aria-hidden="true" data-count-visual>18/120</span><span class="sr-only" data-count-sr>18 caratteri su 120</span></span>
+            </p>
+            <p class="field__hint" id="name-6-hint">Un nome di luogo, non una descrizione: &laquo;Campetto dell'Arte&raquo;, non &laquo;campo di basket&raquo;.</p>
+            <p class="field__error field__error--inline" data-name-error role="alert" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <span data-name-error-text></span>
+            </p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-submit disabled>
+              <span class="spinner" aria-hidden="true"></span>
+              Invio&hellip;
+            </button>
+            <button class="btn btn--quiet btn--block" type="button" data-close disabled>Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 14 · Inviata                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-inviata" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <a class="identity__status" href="#" data-goto="proposte" aria-label="Proposta in attesa: Campetto dell'Arte. Vedi le tue proposte">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              Proposta in attesa: &laquo;Campetto dell'Arte&raquo;
+              <svg class="icon icon--sm identity__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="form-title-7" id="sheet-form-inviata">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="sheet__head">
+            <h2 class="sheet__title" id="form-title-7">Proponi il nome</h2>
+          </div>
+          <div class="result" role="status" aria-live="polite">
+            <span class="result__icon" aria-hidden="true">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="m5 12 5 5L20 6"/></svg>
+            </span>
+            <p class="result__title">Proposta inviata.</p>
+            <p class="result__text">&laquo;Campetto dell'Arte&raquo; &egrave; in revisione.</p>
+            <p class="result__hint">Lo rivede chi modera. La trovi in &laquo;Le tue proposte&raquo;: da lì puoi ritirarla.</p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-goto="proposte">Le tue proposte</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Chiudi</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 15 · Errore di rete                                             -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="form-rete" hidden>
+    <div class="phone phone--tall">
+      <div class="screen" inert>
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna alla mappa">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Campo</p>
+        </header>
+        <div class="content">
+          <div class="court-head">
+            <h2 class="display-sm">Spazio verde</h2>
+            <p class="body court-addr">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              Via dell'Arte 24, Roma
+            </p>
+          </div>
+          <div class="identity">
+            <span class="badge">Nome automatico</span>
+            <button class="identity__action" type="button" data-open aria-expanded="true" aria-controls="sheet-form-rete">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Proponi il nome vero
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="form-title-8" id="sheet-form-rete">
+        <div class="sheet__panel">
+          <button class="handle" type="button" aria-label="Trascina verso il basso per chiudere" data-close></button>
+          <div class="banner banner--danger" role="alert">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <div class="banner__body">
+              <p class="banner__title">Non siamo riusciti a inviare la proposta.</p>
+              <p class="banner__text">Il nome è ancora qui.</p>
+            </div>
+          </div>
+          <dl class="name-pair">
+            <dt>Adesso</dt>
+            <dd>Spazio verde</dd>
+            <dt>Proposto</dt>
+            <dd data-proposed><span data-proposed-value>Campetto dell'Arte</span></dd>
+          </dl>
+          <div class="field">
+            <label class="field__label" for="name-7">Nome del campo</label>
+            <input class="input" id="name-7" data-name-input type="text" value="Campetto dell'Arte" aria-describedby="name-7-count name-7-hint">
+            <p class="field__foot">
+              <span class="counter" id="name-7-count"><span aria-hidden="true" data-count-visual>18/120</span><span class="sr-only" data-count-sr>18 caratteri su 120</span></span>
+            </p>
+            <p class="field__hint" id="name-7-hint">Un nome di luogo, non una descrizione: &laquo;Campetto dell'Arte&raquo;, non &laquo;campo di basket&raquo;.</p>
+            <p class="field__error field__error--inline" data-name-error role="alert" hidden>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <span data-name-error-text></span>
+            </p>
+          </div>
+          <div class="sheet__actions">
+            <button class="btn btn--primary btn--block" type="button" data-submit>Riprova</button>
+            <button class="btn btn--quiet btn--block" type="button" data-close>Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 16 · Nomi che hai proposto: i quattro esiti                     -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="proposte" hidden>
+    <div class="phone phone--fixed">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna indietro">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Aggiungi un campo</p>
+        </header>
+        <div class="content content--scroll">
+          <div>
+            <h2 class="section-title">Le tue proposte</h2>
+            <p class="section-lead">I campi che hai segnalato, in attesa o rifiutati.</p>
+            <ul class="prop-list">
+              <li class="prop-row">
+                <div class="prop-row__head">
+                  <p class="prop-row__name">Campetto di Viale Marconi</p>
+                  <span class="badge badge--accent">In revisione</span>
+                </div>
+                <p class="prop-row__meta">Basket &middot; 12 nov 2026</p>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h2 class="section-title">Nomi che hai proposto</h2>
+            <p class="section-lead">Un nome resta in revisione finché chi modera non lo approva. Se è accettato, lo vedono tutti.</p>
+            <ul class="prop-list">
+              <li class="prop-row">
+                <div class="prop-row__head">
+                  <p class="prop-row__name">Campetto dell'Arte</p>
+                  <span class="badge badge--accent">In revisione</span>
+                </div>
+                <p class="prop-row__meta">per &laquo;Spazio verde&raquo; &middot; 16 nov 2026</p>
+                <div class="prop-row__actions">
+                  <button class="btn btn--secondary btn--sm" type="button">Ritira</button>
+                </div>
+              </li>
+              <li class="prop-row">
+                <div class="prop-row__head">
+                  <p class="prop-row__name">Campo della Pineta</p>
+                  <span class="badge badge--success">Accettata</span>
+                </div>
+                <p class="prop-row__meta">Ora è il nome del campo &middot; 14 nov 2026</p>
+              </li>
+              <li class="prop-row">
+                <div class="prop-row__head">
+                  <p class="prop-row__name">Campo dietro il Palazzetto</p>
+                  <span class="badge badge--danger">Rifiutata</span>
+                </div>
+                <p class="prop-row__reason"><strong>Motivo: </strong>È il nome di un altro campo a 200 metri: per quello usa la scheda del suo campo.</p>
+                <p class="prop-row__meta">per &laquo;Parco giochi&raquo; &middot; 13 nov 2026</p>
+              </li>
+              <li class="prop-row">
+                <div class="prop-row__head">
+                  <p class="prop-row__name">Campetto del Condominio</p>
+                  <span class="badge">Ritirata</span>
+                </div>
+                <p class="prop-row__meta">Ritirata da te &middot; 9 nov 2026</p>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 17 · Ritiro di una proposta in attesa                           -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="proposte-ritiro" hidden>
+    <div class="phone phone--fixed">
+      <div class="screen">
+        <header class="appbar">
+          <button class="appbar__back" type="button" aria-label="Torna indietro">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <p class="appbar__title">Aggiungi un campo</p>
+        </header>
+        <div class="content content--scroll">
+          <div>
+            <h2 class="section-title">Nomi che hai proposto</h2>
+            <p class="section-lead">Un nome resta in revisione finché chi modera non lo approva. Se è accettato, lo vedono tutti.</p>
+            <ul class="prop-list">
+              <li class="prop-row" data-prop-row>
+                <div class="prop-row__head">
+                  <p class="prop-row__name" tabindex="-1" data-prop-name>Campetto dell'Arte</p>
+                  <span class="badge badge--accent" data-prop-badge>In revisione</span>
+                </div>
+                <p class="prop-row__meta" data-prop-meta>per &laquo;Spazio verde&raquo; &middot; 16 nov 2026</p>
+                <div class="prop-row__actions" data-prop-actions hidden>
+                  <button class="btn btn--secondary btn--sm" type="button" data-retract aria-expanded="true" aria-controls="retract-1">Ritira</button>
+                </div>
+                <div class="inline-confirm" id="retract-1" data-retract-panel>
+                  <p class="inline-confirm__title">Ritirare la proposta?</p>
+                  <p class="inline-confirm__text">Il nome del campo resta quello di adesso. Puoi proporne un altro quando vuoi.</p>
+                  <div class="inline-confirm__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-retract-cancel>Indietro</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-retract-confirm>Conferma ritiro</button>
+                  </div>
+                </div>
+              </li>
+              <li class="prop-row">
+                <div class="prop-row__head">
+                  <p class="prop-row__name">Campo della Pineta</p>
+                  <span class="badge badge--success">Accettata</span>
+                </div>
+                <p class="prop-row__meta">Ora è il nome del campo &middot; 14 nov 2026</p>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 18 · Moderazione, tab Nomi: la coda                             -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="mod-coda" hidden>
+    <div class="phone phone--fixed">
+      <div class="screen">
+        <header class="appbar">
+          <p class="appbar__title">Moderazione</p>
+        </header>
+        <div class="content content--scroll">
+          <div class="tablist" role="tablist" aria-label="Moderazione" data-tablist data-selected="2">
+            <button class="tab" type="button" role="tab" id="coda-tab-0" aria-controls="coda-panel-0" aria-selected="false" tabindex="-1">
+              Proposte <span class="tab__count">12</span>
+            </button>
+            <button class="tab" type="button" role="tab" id="coda-tab-1" aria-controls="coda-panel-1" aria-selected="false" tabindex="-1">
+              Segnalazioni <span class="tab__count">8</span>
+            </button>
+            <button class="tab" type="button" role="tab" id="coda-tab-2" aria-controls="coda-panel-2" aria-selected="true" tabindex="0">
+              Nomi <span class="tab__count">3</span>
+            </button>
+          </div>
+
+          <div role="tabpanel" id="coda-panel-0" aria-labelledby="coda-tab-0" hidden>
+            <p class="panel-lead">La coda dei campi resta com'è: qui conta la terza tab.</p>
+          </div>
+          <div role="tabpanel" id="coda-panel-1" hidden aria-labelledby="coda-tab-1">
+            <p class="panel-lead">Le segnalazioni attive restano com'erano.</p>
+          </div>
+          <div role="tabpanel" id="coda-panel-2" aria-labelledby="coda-tab-2">
+            <p class="panel-lead">Dal più vecchio. Approvare un nome lo rende pubblico subito.</p>
+            <p class="feedback" role="status" aria-live="polite" data-feedback hidden></p>
+            <ul class="mod-list" data-mod-list>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Spazio verde</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campetto dell'Arte</dd>
+                </dl>
+                <p class="mod-meta">Via dell'Arte 24 &middot; di marco_rm &middot; 2 ore fa</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="edit-1">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="reject-1">Rifiuta</button>
+                </div>
+                <div class="editor" id="edit-1" hidden>
+                  <p class="field__label" id="edit-1-label">Nome che approvi</p>
+                  <input class="input" type="text" maxlength="120" value="Campetto dell'Arte" aria-labelledby="edit-1-label" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="reject-1" hidden>
+                  <p class="field__label" id="reject-1-label">Motivo del rifiuto</p>
+                  <textarea class="textarea" rows="3" aria-labelledby="reject-1-label" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" role="alert" data-reject-error hidden>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Parco</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campo del Boschetto</dd>
+                </dl>
+                <p class="mod-meta">Viale del Boschetto &middot; di giulia_eur &middot; 1 giorno fa</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="edit-2">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="reject-2">Rifiuta</button>
+                </div>
+                <div class="editor" id="edit-2" hidden>
+                  <p class="field__label" id="edit-2-label">Nome che approvi</p>
+                  <input class="input" type="text" maxlength="120" value="Campo del Boschetto" aria-labelledby="edit-2-label" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="reject-2" hidden>
+                  <p class="field__label" id="reject-2-label">Motivo del rifiuto</p>
+                  <textarea class="textarea" rows="3" aria-labelledby="reject-2-label" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" role="alert" data-reject-error hidden>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Parco giochi</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campetto della Scuola</dd>
+                </dl>
+                <p class="mod-meta">Via dei Fiori 8 &middot; di luca_ostiense &middot; 3 giorni fa</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="edit-3">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="reject-3">Rifiuta</button>
+                </div>
+                <div class="editor" id="edit-3" hidden>
+                  <p class="field__label" id="edit-3-label">Nome che approvi</p>
+                  <input class="input" type="text" maxlength="120" value="Campetto della Scuola" aria-labelledby="edit-3-label" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="reject-3" hidden>
+                  <p class="field__label" id="reject-3-label">Motivo del rifiuto</p>
+                  <textarea class="textarea" rows="3" aria-labelledby="reject-3-label" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" role="alert" data-reject-error hidden>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 19 · Moderazione: approva con modifica                          -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="mod-correggi" hidden>
+    <div class="phone phone--fixed">
+      <div class="screen">
+        <header class="appbar">
+          <p class="appbar__title">Moderazione</p>
+        </header>
+        <div class="content content--scroll">
+          <div class="tablist" role="tablist" aria-label="Moderazione" data-tablist data-selected="2">
+            <button class="tab" type="button" role="tab" id="corr-tab-0" aria-controls="corr-panel-0" aria-selected="false" tabindex="-1">
+              Proposte <span class="tab__count">12</span>
+            </button>
+            <button class="tab" type="button" role="tab" id="corr-tab-1" aria-controls="corr-panel-1" aria-selected="false" tabindex="-1">
+              Segnalazioni <span class="tab__count">8</span>
+            </button>
+            <button class="tab" type="button" role="tab" id="corr-tab-2" aria-controls="corr-panel-2" aria-selected="true" tabindex="0">
+              Nomi <span class="tab__count">3</span>
+            </button>
+          </div>
+          <div role="tabpanel" id="corr-panel-0" aria-labelledby="corr-tab-0" hidden>
+            <p class="panel-lead">La coda dei campi resta com'è.</p>
+          </div>
+          <div role="tabpanel" id="corr-panel-1" hidden aria-labelledby="corr-tab-1">
+            <p class="panel-lead">Le segnalazioni attive restano com'erano.</p>
+          </div>
+          <div role="tabpanel" id="corr-panel-2" aria-labelledby="corr-tab-2">
+            <p class="panel-lead">Dal più vecchio. Approvare un nome lo rende pubblico subito.</p>
+            <p class="feedback" role="status" aria-live="polite" data-feedback hidden></p>
+            <ul class="mod-list" data-mod-list>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Spazio verde</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campetto dell'Arte</dd>
+                </dl>
+                <p class="mod-meta">Via dell'Arte 24 &middot; di marco_rm &middot; 2 ore fa</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="true" aria-controls="corr-edit-1">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="corr-reject-1">Rifiuta</button>
+                </div>
+                <div class="editor" id="corr-edit-1">
+                  <label class="field__label" for="corr-edit-input-1">Nome che approvi</label>
+                  <input class="input" id="corr-edit-input-1" type="text" maxlength="120" value="Campetto dell'Arte 24" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="corr-reject-1" hidden>
+                  <label class="field__label" for="corr-reject-note-1">Motivo del rifiuto</label>
+                  <textarea class="textarea" id="corr-reject-note-1" rows="3" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" role="alert" data-reject-error hidden>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Parco</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campo del Boschetto</dd>
+                </dl>
+                <p class="mod-meta">Viale del Boschetto &middot; di giulia_eur &middot; 1 giorno fa</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="corr-edit-2">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="corr-reject-2">Rifiuta</button>
+                </div>
+                <div class="editor" id="corr-edit-2" hidden>
+                  <label class="field__label" for="corr-edit-input-2">Nome che approvi</label>
+                  <input class="input" id="corr-edit-input-2" type="text" maxlength="120" value="Campo del Boschetto" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="corr-reject-2" hidden>
+                  <label class="field__label" for="corr-reject-note-2">Motivo del rifiuto</label>
+                  <textarea class="textarea" id="corr-reject-note-2" rows="3" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" role="alert" data-reject-error hidden>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 20 · Moderazione: rifiuto con nota obbligatoria                 -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="mod-rifiuta" hidden>
+    <div class="phone phone--fixed">
+      <div class="screen">
+        <header class="appbar">
+          <p class="appbar__title">Moderazione</p>
+        </header>
+        <div class="content content--scroll">
+          <div class="tablist" role="tablist" aria-label="Moderazione" data-tablist data-selected="2">
+            <button class="tab" type="button" role="tab" id="rif-tab-0" aria-controls="rif-panel-0" aria-selected="false" tabindex="-1">
+              Proposte <span class="tab__count">12</span>
+            </button>
+            <button class="tab" type="button" role="tab" id="rif-tab-1" aria-controls="rif-panel-1" aria-selected="false" tabindex="-1">
+              Segnalazioni <span class="tab__count">8</span>
+            </button>
+            <button class="tab" type="button" role="tab" id="rif-tab-2" aria-controls="rif-panel-2" aria-selected="true" tabindex="0">
+              Nomi <span class="tab__count">3</span>
+            </button>
+          </div>
+          <div role="tabpanel" id="rif-panel-0" aria-labelledby="rif-tab-0" hidden>
+            <p class="panel-lead">La coda dei campi resta com'è.</p>
+          </div>
+          <div role="tabpanel" id="rif-panel-1" hidden aria-labelledby="rif-tab-1">
+            <p class="panel-lead">Le segnalazioni attive restano com'erano.</p>
+          </div>
+          <div role="tabpanel" id="rif-panel-2" aria-labelledby="rif-tab-2">
+            <p class="panel-lead">Dal più vecchio. Approvare un nome lo rende pubblico subito.</p>
+            <p class="feedback" role="status" aria-live="polite" data-feedback hidden></p>
+            <ul class="mod-list" data-mod-list>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Spazio verde</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campetto dell'Arte</dd>
+                </dl>
+                <p class="mod-meta">Via dell'Arte 24 &middot; di marco_rm &middot; 2 ore fa</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="rif-edit-1">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="true" aria-controls="rif-reject-1">Rifiuta</button>
+                </div>
+                <div class="editor" id="rif-edit-1" hidden>
+                  <label class="field__label" for="rif-edit-input-1">Nome che approvi</label>
+                  <input class="input" id="rif-edit-input-1" type="text" maxlength="120" value="Campetto dell'Arte" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="rif-reject-1">
+                  <label class="field__label" for="rif-reject-note-1">Motivo del rifiuto</label>
+                  <textarea class="textarea input--error" id="rif-reject-note-1" rows="3" aria-invalid="true" aria-describedby="rif-reject-note-1-error" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" id="rif-reject-note-1-error" role="alert" data-reject-error>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Parco</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campo del Boschetto</dd>
+                </dl>
+                <p class="mod-meta">Viale del Boschetto &middot; di giulia_eur &middot; 1 giorno fa</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="rif-edit-2">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="rif-reject-2">Rifiuta</button>
+                </div>
+                <div class="editor" id="rif-edit-2" hidden>
+                  <label class="field__label" for="rif-edit-input-2">Nome che approvi</label>
+                  <input class="input" id="rif-edit-input-2" type="text" maxlength="120" value="Campo del Boschetto" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="rif-reject-2" hidden>
+                  <label class="field__label" for="rif-reject-note-2">Motivo del rifiuto</label>
+                  <textarea class="textarea" id="rif-reject-note-2" rows="3" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" role="alert" data-reject-error hidden>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 21 · Moderazione, tab Nomi: vuota                               -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="mod-vuota" hidden>
+    <div class="phone phone--fixed">
+      <div class="screen">
+        <header class="appbar">
+          <p class="appbar__title">Moderazione</p>
+        </header>
+        <div class="content content--scroll">
+          <div class="tablist" role="tablist" aria-label="Moderazione" data-tablist data-selected="2">
+            <button class="tab" type="button" role="tab" id="vuota-tab-0" aria-controls="vuota-panel-0" aria-selected="false" tabindex="-1">
+              Proposte <span class="tab__count">12</span>
+            </button>
+            <button class="tab" type="button" role="tab" id="vuota-tab-1" aria-controls="vuota-panel-1" aria-selected="false" tabindex="-1">
+              Segnalazioni <span class="tab__count">8</span>
+            </button>
+            <button class="tab" type="button" role="tab" id="vuota-tab-2" aria-controls="vuota-panel-2" aria-selected="true" tabindex="0">
+              Nomi <span class="tab__count">0</span>
+            </button>
+          </div>
+          <div role="tabpanel" id="vuota-panel-0" aria-labelledby="vuota-tab-0" hidden>
+            <p class="panel-lead">La coda dei campi resta com'è.</p>
+          </div>
+          <div role="tabpanel" id="vuota-panel-1" hidden aria-labelledby="vuota-tab-1">
+            <p class="panel-lead">Le segnalazioni attive restano com'erano.</p>
+          </div>
+          <div role="tabpanel" id="vuota-panel-2" aria-labelledby="vuota-tab-2">
+            <div class="card">
+              <div class="empty">
+                <svg class="empty__icon" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m5 12 5 5L20 6"/></svg>
+                <p class="muted">Nessun nome in attesa.</p>
+                <p class="empty__note">Le proposte dei giocatori arrivano qui.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 22 · Moderazione, tab Nomi: errore di caricamento               -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="mod-errore" hidden>
+    <div class="phone phone--fixed">
+      <div class="screen">
+        <header class="appbar">
+          <p class="appbar__title">Moderazione</p>
+        </header>
+        <div class="content content--scroll">
+          <div class="tablist" role="tablist" aria-label="Moderazione" data-tablist data-selected="2">
+            <button class="tab" type="button" role="tab" id="err-tab-0" aria-controls="err-panel-0" aria-selected="false" tabindex="-1">
+              Proposte <span class="tab__count">12</span>
+            </button>
+            <button class="tab" type="button" role="tab" id="err-tab-1" aria-controls="err-panel-1" aria-selected="false" tabindex="-1">
+              Segnalazioni <span class="tab__count">8</span>
+            </button>
+            <button class="tab" type="button" role="tab" id="err-tab-2" aria-controls="err-panel-2" aria-selected="true" tabindex="0">
+              Nomi
+            </button>
+          </div>
+          <div role="tabpanel" id="err-panel-0" aria-labelledby="err-tab-0" hidden>
+            <p class="panel-lead">La coda dei campi resta com'è.</p>
+          </div>
+          <div role="tabpanel" id="err-panel-1" hidden aria-labelledby="err-tab-1">
+            <p class="panel-lead">Le segnalazioni attive restano com'erano.</p>
+          </div>
+          <div role="tabpanel" id="err-panel-2" aria-labelledby="err-tab-2">
+            <div class="banner banner--danger" role="alert">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <div class="banner__body">
+                <p class="banner__title">Non riusciamo a caricare i nomi.</p>
+                <p class="banner__text">Controlla la connessione e riprova.</p>
+              </div>
+            </div>
+            <button class="btn btn--secondary btn--sm" type="button">Riprova</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- 23 · Moderazione, tab Nomi: molte righe che scorrono            -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section data-state="mod-scroll" hidden>
+    <div class="phone phone--fixed">
+      <div class="screen">
+        <header class="appbar">
+          <p class="appbar__title">Moderazione</p>
+        </header>
+        <div class="content content--scroll">
+          <div class="tablist" role="tablist" aria-label="Moderazione" data-tablist data-selected="2">
+            <button class="tab" type="button" role="tab" id="scr-tab-0" aria-controls="scr-panel-0" aria-selected="false" tabindex="-1">
+              Proposte <span class="tab__count">12</span>
+            </button>
+            <button class="tab" type="button" role="tab" id="scr-tab-1" aria-controls="scr-panel-1" aria-selected="false" tabindex="-1">
+              Segnalazioni <span class="tab__count">8</span>
+            </button>
+            <button class="tab" type="button" role="tab" id="scr-tab-2" aria-controls="scr-panel-2" aria-selected="true" tabindex="0">
+              Nomi <span class="tab__count">6</span>
+            </button>
+          </div>
+          <div role="tabpanel" id="scr-panel-0" aria-labelledby="scr-tab-0" hidden>
+            <p class="panel-lead">La coda dei campi resta com'è.</p>
+          </div>
+          <div role="tabpanel" id="scr-panel-1" hidden aria-labelledby="scr-tab-1">
+            <p class="panel-lead">Le segnalazioni attive restano com'erano.</p>
+          </div>
+          <div role="tabpanel" id="scr-panel-2" aria-labelledby="scr-tab-2">
+            <p class="panel-lead">Dal più vecchio. Approvare un nome lo rende pubblico subito.</p>
+            <p class="feedback" role="status" aria-live="polite" data-feedback hidden></p>
+            <ul class="mod-list" data-mod-list>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Spazio verde</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campetto dell'Arte</dd>
+                </dl>
+                <p class="mod-meta">Via dell'Arte 24 &middot; di marco_rm &middot; 2 ore fa</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="scr-edit-1">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="scr-reject-1">Rifiuta</button>
+                </div>
+                <div class="editor" id="scr-edit-1" hidden>
+                  <label class="field__label" for="scr-edit-input-1">Nome che approvi</label>
+                  <input class="input" id="scr-edit-input-1" type="text" maxlength="120" value="Campetto dell'Arte" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="scr-reject-1" hidden>
+                  <label class="field__label" for="scr-reject-note-1">Motivo del rifiuto</label>
+                  <textarea class="textarea" id="scr-reject-note-1" rows="3" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" role="alert" data-reject-error hidden>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Parco</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campo del Boschetto</dd>
+                </dl>
+                <p class="mod-meta">Viale del Boschetto &middot; di giulia_eur &middot; 1 giorno fa</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="scr-edit-2">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="scr-reject-2">Rifiuta</button>
+                </div>
+                <div class="editor" id="scr-edit-2" hidden>
+                  <label class="field__label" for="scr-edit-input-2">Nome che approvi</label>
+                  <input class="input" id="scr-edit-input-2" type="text" maxlength="120" value="Campo del Boschetto" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="scr-reject-2" hidden>
+                  <label class="field__label" for="scr-reject-note-2">Motivo del rifiuto</label>
+                  <textarea class="textarea" id="scr-reject-note-2" rows="3" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" role="alert" data-reject-error hidden>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Parco giochi</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campetto della Scuola</dd>
+                </dl>
+                <p class="mod-meta">Via dei Fiori 8 &middot; di luca_ostiense &middot; 3 giorni fa</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="scr-edit-3">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="scr-reject-3">Rifiuta</button>
+                </div>
+                <div class="editor" id="scr-edit-3" hidden>
+                  <label class="field__label" for="scr-edit-input-3">Nome che approvi</label>
+                  <input class="input" id="scr-edit-input-3" type="text" maxlength="120" value="Campetto della Scuola" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="scr-reject-3" hidden>
+                  <label class="field__label" for="scr-reject-note-3">Motivo del rifiuto</label>
+                  <textarea class="textarea" id="scr-reject-note-3" rows="3" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" role="alert" data-reject-error hidden>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Area ricreativa</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campetto del Condominio</dd>
+                </dl>
+                <p class="mod-meta">Via dei Pini 3 &middot; di sara_roma &middot; 4 giorni fa</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="scr-edit-4">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="scr-reject-4">Rifiuta</button>
+                </div>
+                <div class="editor" id="scr-edit-4" hidden>
+                  <label class="field__label" for="scr-edit-input-4">Nome che approvi</label>
+                  <input class="input" id="scr-edit-input-4" type="text" maxlength="120" value="Campetto del Condominio" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="scr-reject-4" hidden>
+                  <label class="field__label" for="scr-reject-note-4">Motivo del rifiuto</label>
+                  <textarea class="textarea" id="scr-reject-note-4" rows="3" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" role="alert" data-reject-error hidden>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Campo</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campo di Via Ostiense</dd>
+                </dl>
+                <p class="mod-meta">Via Ostiense 190 &middot; di davide_sanpa &middot; 6 giorni fa</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="scr-edit-5">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="scr-reject-5">Rifiuta</button>
+                </div>
+                <div class="editor" id="scr-edit-5" hidden>
+                  <label class="field__label" for="scr-edit-input-5">Nome che approvi</label>
+                  <input class="input" id="scr-edit-input-5" type="text" maxlength="120" value="Campo di Via Ostiense" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="scr-reject-5" hidden>
+                  <label class="field__label" for="scr-reject-note-5">Motivo del rifiuto</label>
+                  <textarea class="textarea" id="scr-reject-note-5" rows="3" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" role="alert" data-reject-error hidden>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+              <li class="mod-row" data-mod-row>
+                <dl class="mod-pair">
+                  <dt>Adesso</dt>
+                  <dd>Spazio aperto</dd>
+                  <dt>Proposto</dt>
+                  <dd data-proposed>Campetto di Piazza dei Navigatori</dd>
+                </dl>
+                <p class="mod-meta">Piazza dei Navigatori &middot; di un giocatore &middot; 12 nov 2026</p>
+                <div class="mod-actions">
+                  <button class="btn btn--sm" type="button" data-approve>Approva</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="scr-edit-6">Modifica</button>
+                  <button class="btn btn--secondary btn--sm" type="button" data-editor-toggle aria-expanded="false" aria-controls="scr-reject-6">Rifiuta</button>
+                </div>
+                <div class="editor" id="scr-edit-6" hidden>
+                  <label class="field__label" for="scr-edit-input-6">Nome che approvi</label>
+                  <input class="input" id="scr-edit-input-6" type="text" maxlength="120" value="Campetto di Piazza dei Navigatori" data-edit-input>
+                  <p class="field__hint">Puoi correggerlo prima di approvare.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--sm" type="button" data-approve-edited>Approva con questo nome</button>
+                  </div>
+                </div>
+                <div class="editor" id="scr-reject-6" hidden>
+                  <label class="field__label" for="scr-reject-note-6">Motivo del rifiuto</label>
+                  <textarea class="textarea" id="scr-reject-note-6" rows="3" data-reject-note></textarea>
+                  <p class="field__hint">Lo vedrà chi ha proposto: senza motivo non si rifiuta.</p>
+                  <p class="field__error" role="alert" data-reject-error hidden>Scrivi il motivo del rifiuto.</p>
+                  <div class="editor__actions">
+                    <button class="btn btn--secondary btn--sm" type="button" data-editor-close>Annulla</button>
+                    <button class="btn btn--secondary btn--sm" type="button" data-reject-confirm>Conferma rifiuto</button>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<p class="note">
+  Il chip dice da dove viene il nome, la riga accanto dice cosa puoi fare: sono
+  due cose distinte, e restano separati anche quando convivono. Le Note di
+  campo (stato «Nome vero») sono un blocco a parte, con titolo e date: la loro
+  forma è di #90, qui servono solo a verificare che non si confondano con il nome.
+  Nei form il pulsante «Invia proposta» valida e porta al frame di esito; il
+  foglio si chiude con backdrop, Esc, «Annulla» o la barra in alto.
+</p>
+
+<script src="proto.js"></script>
+<script>
+  (function () {
+    "use strict";
+
+    function all(selector, root) {
+      return Array.prototype.slice.call((root || document).querySelectorAll(selector));
+    }
+
+    function go(id) {
+      var button = document.querySelector('[data-show="' + id + '"]');
+      if (button) button.click();
+    }
+
+    // Scorciatoie di lettura: il prototipo racconta un percorso, non è l'app.
+    all("[data-goto]").forEach(function (element) {
+      element.addEventListener("click", function (event) {
+        event.preventDefault();
+        go(element.getAttribute("data-goto"));
+      });
+    });
+
+    // ---------------------------------------------------------------- //
+    // Form: riepilogo vivo, contatore, errori e invio dimostrativo      //
+    // ---------------------------------------------------------------- //
+
+    var CURRENT_NAME = "Spazio verde";
+    var MESSAGES = {
+      empty: "Scrivi il nome del campo.",
+      long: "Il nome può avere al massimo 120 caratteri.",
+      same: "È già il nome di questo campo.",
+    };
+
+    function normalize(value) {
+      return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("it");
+    }
+
+    all("[data-name-input]").forEach(function (input) {
+      var panel = input.closest(".sheet__panel");
+      var field = input.closest(".field");
+      var counter = field.querySelector(".counter");
+      var visual = counter.querySelector("[data-count-visual]");
+      var sr = counter.querySelector("[data-count-sr]");
+      var hint = field.querySelector(".field__hint");
+      var error = field.querySelector("[data-name-error]");
+      var errorText = field.querySelector("[data-name-error-text]");
+      var proposed = panel.querySelector("[data-proposed-value]");
+
+      function describe(n) {
+        return n + (n === 1 ? " carattere" : " caratteri") + " su 120";
+      }
+
+      function sync() {
+        var value = input.value;
+        var length = value.length;
+        var over = length > 120;
+        visual.textContent = length + "/120";
+        sr.textContent = describe(length);
+        counter.classList.toggle("counter--over", over);
+        if (proposed) {
+          var trimmed = value.trim();
+          proposed.textContent = trimmed === "" ? "—" : trimmed;
+          proposed.classList.toggle("is-empty", trimmed === "");
+        }
+        input.setAttribute(
+          "aria-describedby",
+          [counter.id, hint ? hint.id : null, !error.hidden ? error.id : null]
+            .filter(Boolean)
+            .join(" "),
+        );
+      }
+
+      function clearError() {
+        error.hidden = true;
+        input.classList.remove("input--error");
+        input.removeAttribute("aria-invalid");
+        sync();
+      }
+
+      function showError(message) {
+        errorText.textContent = message;
+        error.hidden = false;
+        input.classList.add("input--error");
+        input.setAttribute("aria-invalid", "true");
+        input.focus();
+        sync();
+      }
+
+      input.addEventListener("input", clearError);
+      sync();
+
+      var submit = panel.querySelector("[data-submit]");
+      if (submit) {
+        submit.addEventListener("click", function () {
+          var value = input.value;
+          if (value.trim() === "") {
+            showError(MESSAGES.empty);
+            return;
+          }
+          if (value.length > 120) {
+            showError(MESSAGES.long);
+            return;
+          }
+          if (normalize(value) === normalize(CURRENT_NAME)) {
+            showError(MESSAGES.same);
+            return;
+          }
+          go("form-inviata");
+        });
+      }
+    });
+
+    // ---------------------------------------------------------------- //
+    // Proposte: ritiro in due passi, con focus che resta al suo posto   //
+    // ---------------------------------------------------------------- //
+
+    all("[data-prop-row]").forEach(function (row) {
+      var trigger = row.querySelector("[data-retract]");
+      var panel = row.querySelector("[data-retract-panel]");
+      var cancel = row.querySelector("[data-retract-cancel]");
+      var confirm = row.querySelector("[data-retract-confirm]");
+      var actions = row.querySelector("[data-prop-actions]");
+      var badge = row.querySelector("[data-prop-badge]");
+      var meta = row.querySelector("[data-prop-meta]");
+      var name = row.querySelector("[data-prop-name]");
+      if (!trigger || !panel || !cancel || !confirm) return;
+
+      trigger.addEventListener("click", function () {
+        panel.hidden = false;
+        trigger.setAttribute("aria-expanded", "true");
+        if (actions) actions.hidden = true;
+        cancel.focus();
+      });
+
+      cancel.addEventListener("click", function () {
+        panel.hidden = true;
+        trigger.setAttribute("aria-expanded", "false");
+        if (actions) actions.hidden = false;
+        trigger.focus();
+      });
+
+      confirm.addEventListener("click", function () {
+        panel.hidden = true;
+        trigger.setAttribute("aria-expanded", "false");
+        if (actions) actions.hidden = true;
+        if (badge) {
+          badge.className = "badge";
+          badge.textContent = "Ritirata";
+        }
+        if (meta) meta.textContent = "Ritirata da te · adesso";
+        if (name) name.focus();
+      });
+    });
+
+    // ---------------------------------------------------------------- //
+    // Moderazione: tre tab per stato                                    //
+    // ---------------------------------------------------------------- //
+
+    all("[data-tablist]").forEach(function (list) {
+      var tabs = all('[role="tab"]', list);
+      if (tabs.length === 0) return;
+      var panels = tabs.map(function (tab) {
+        return document.getElementById(tab.getAttribute("aria-controls"));
+      });
+
+      function select(index) {
+        tabs.forEach(function (tab, i) {
+          var active = i === index;
+          tab.setAttribute("aria-selected", String(active));
+          tab.tabIndex = active ? 0 : -1;
+          if (panels[i]) panels[i].hidden = !active;
+        });
+      }
+
+      tabs.forEach(function (tab, i) {
+        tab.addEventListener("click", function () {
+          select(i);
+        });
+        tab.addEventListener("keydown", function (event) {
+          if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+          event.preventDefault();
+          var direction = event.key === "ArrowRight" ? 1 : -1;
+          var next = (i + direction + tabs.length) % tabs.length;
+          select(next);
+          tabs[next].focus();
+        });
+      });
+
+      var initial = Number(list.getAttribute("data-selected") || "0");
+      select(Number.isFinite(initial) ? initial : 0);
+    });
+
+    // ---------------------------------------------------------------- //
+    // Moderazione: editor inline e azioni dimostrative                  //
+    // ---------------------------------------------------------------- //
+
+    all("[data-editor-toggle]").forEach(function (trigger) {
+      trigger.addEventListener("click", function () {
+        var panel = document.getElementById(trigger.getAttribute("aria-controls"));
+        if (!panel) return;
+        var row = trigger.closest("[data-mod-row]");
+        var open = panel.hidden;
+
+        all("[data-editor-toggle]", row).forEach(function (other) {
+          var otherPanel = document.getElementById(other.getAttribute("aria-controls"));
+          if (other === trigger || !otherPanel) return;
+          otherPanel.hidden = true;
+          other.setAttribute("aria-expanded", "false");
+        });
+
+        panel.hidden = !open;
+        trigger.setAttribute("aria-expanded", String(open));
+        if (open) {
+          var first = panel.querySelector("input, textarea");
+          if (first) first.focus();
+        }
+      });
+    });
+
+    all("[data-editor-close]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var row = button.closest("[data-mod-row]");
+        var panel = button.closest(".editor");
+        if (panel) panel.hidden = true;
+        all("[data-editor-toggle]", row).forEach(function (trigger) {
+          var other = document.getElementById(trigger.getAttribute("aria-controls"));
+          if (other === panel) {
+            trigger.setAttribute("aria-expanded", "false");
+            trigger.focus();
+          }
+        });
+      });
+    });
+
+    function feedbackFor(row) {
+      var section = row.closest("[data-state]");
+      return section ? section.querySelector("[data-feedback]") : null;
+    }
+
+    function removeRow(row, text) {
+      var feedback = feedbackFor(row);
+      if (feedback) {
+        feedback.textContent = text;
+        feedback.hidden = false;
+      }
+      row.remove();
+      var list = document.querySelector("[data-state]:not([hidden]) [role=tablist] [aria-selected=true]");
+      if (list) list.focus();
+    }
+
+    all("[data-approve]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var row = button.closest("[data-mod-row]");
+        var proposed = row.querySelector("[data-proposed]");
+        var name = proposed ? proposed.textContent.trim() : "";
+        removeRow(row, "Nome approvato: «" + name + "».");
+      });
+    });
+
+    all("[data-approve-edited]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var row = button.closest("[data-mod-row]");
+        var input = row.querySelector("[data-edit-input]");
+        var value = input ? input.value.trim() : "";
+        if (value === "") {
+          if (input) input.focus();
+          return;
+        }
+        removeRow(row, "Nome approvato: «" + value + "».");
+      });
+    });
+
+    all("[data-reject-confirm]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var row = button.closest("[data-mod-row]");
+        var note = row.querySelector("[data-reject-note]");
+        var error = row.querySelector("[data-reject-error]");
+        var value = note ? note.value.trim() : "";
+        if (value === "") {
+          if (error) error.hidden = false;
+          if (note) {
+            note.classList.add("input--error");
+            note.setAttribute("aria-invalid", "true");
+            note.focus();
+          }
+          return;
+        }
+        if (error) error.hidden = true;
+        removeRow(row, "Nome rifiutato. Motivo: " + value);
+      });
+    });
+
+    all("[data-edit-input]").forEach(function (input) {
+      var row = input.closest("[data-mod-row]");
+      var button = row ? row.querySelector("[data-approve-edited]") : null;
+      if (!button) return;
+      function syncButton() {
+        button.disabled = input.value.trim() === "";
+      }
+      input.addEventListener("input", syncButton);
+      syncButton();
+    });
+
+    all("[data-reject-note]").forEach(function (note) {
+      note.addEventListener("input", function () {
+        if (note.value.trim() === "") return;
+        note.classList.remove("input--error");
+        note.removeAttribute("aria-invalid");
+        var row = note.closest("[data-mod-row]");
+        var error = row ? row.querySelector("[data-reject-error]") : null;
+        if (error) error.hidden = true;
+      });
+    });
+
+    // ---------------------------------------------------------------- //
+    // Foglio: apertura, chiusura, focus trap e restore                  //
+    // ---------------------------------------------------------------- //
+
+    all("[data-state] .phone").forEach(function (phone) {
+      var sheet = phone.querySelector(".sheet");
+      if (!sheet) return;
+      var screen = phone.querySelector(".screen");
+      var panel = sheet.querySelector(".sheet__panel");
+      var trigger = phone.querySelector("[data-open]");
+      var title = sheet.querySelector(".sheet__title");
+      if (!panel || !title) return;
+
+      function focusables() {
+        return all(
+          'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+          panel,
+        ).filter(function (element) {
+          return element.offsetParent !== null;
+        });
+      }
+
+      function restoreTarget() {
+        if (trigger) return trigger;
+        var back = phone.querySelector(".appbar__back");
+        return back;
+      }
+
+      function openSheet() {
+        if (!sheet.classList.contains("is-closed")) return;
+        sheet.classList.remove("is-closed");
+        if (screen) screen.setAttribute("inert", "");
+        if (trigger) trigger.setAttribute("aria-expanded", "true");
+        title.setAttribute("tabindex", "-1");
+        title.focus({ preventScroll: true });
+      }
+
+      function closeSheet() {
+        if (sheet.classList.contains("is-closed")) return;
+        sheet.classList.add("is-closed");
+        if (screen) screen.removeAttribute("inert");
+        if (trigger) trigger.setAttribute("aria-expanded", "false");
+        var target = restoreTarget();
+        if (target) target.focus({ preventScroll: true });
+      }
+
+      if (trigger) trigger.addEventListener("click", openSheet);
+      all("[data-close]", sheet).forEach(function (button) {
+        button.addEventListener("click", closeSheet);
+      });
+      sheet.addEventListener("click", function (event) {
+        if (event.target === sheet) closeSheet();
+      });
+      sheet.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeSheet();
+          return;
+        }
+        if (event.key !== "Tab") return;
+        var items = focusables();
+        if (items.length === 0) return;
+        var first = items[0];
+        var last = items[items.length - 1];
+        var active = document.activeElement;
+        if (!panel.contains(active)) {
+          event.preventDefault();
+          (first || title).focus();
+          return;
+        }
+        if (event.shiftKey) {
+          if (active === first || active === title) {
+            event.preventDefault();
+            last.focus();
+          }
+        } else if (active === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      });
+    });
+  })();
+</script>
+</body>
+</html>

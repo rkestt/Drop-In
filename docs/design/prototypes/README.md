@@ -37,6 +37,7 @@ npx playwright screenshot --viewport-size="360,780" \
 | `offline.html` | Offline, errore, stati vuoti | d16 | approvato 2026-11-10 |
 | `nav-map-lobby.html` | Home come mappa full-bleed + foglio "Partite vicine" a 2 snap: striscia orizzontale e piena (variante della home, non una schermata nuova) | #89 | approvato 2026-11-17 (B · 2 snap · card V4 · barra nelle righe) |
 | `serie.html` | Appuntamento ricorrente: opzione "Ripeti ogni settimana" nel drawer di creazione, "Le mie serie", chip "Ricorrente · giovedì 20:00" su card e dettaglio | #92 | in review |
+| `nomi-campo.html` | Nomi dei campi: badge "Nome automatico" su scheda e anteprima, form proposta, "Nomi che hai proposto", terza tab "Nomi" in moderazione | #106 | in review |
 
 `nav-map-lobby.html` è una **variante** della home, non una schermata nuova: confronta la
 banda statica di oggi (vista "Oggi") con il foglio trascinabile (opzione B di #89, due snap:
