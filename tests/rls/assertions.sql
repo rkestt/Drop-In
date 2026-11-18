@@ -2420,4 +2420,202 @@ BEGIN
   END IF;
 END $$;
 
+-- ================= 48. #91/039: il -3 non colpisce chi era in campo =================
+-- (a) check-in prima della riconferma -> orfano all'INSERT, agganciato dal
+-- backfill alla riconferma, nessun -3 alla chiusura.
+-- (b) checkout manuale prima della chiusura -> nessun -3 (predicato di presenza).
+-- (c) join con reconfirmed_at preimpostato -> 42501; join normale ancora ok.
+-- Fixture dedicate (postgres, bypassa RLS): il karma si misura dopo il
+-- check-in (+1 di 39f) e prima della chiusura, conta solo il delta.
+DO $$
+DECLARE
+  v_court UUID;
+  v_lobby UUID;
+BEGIN
+  -- (a) lobby tra 45min: dentro la finestra di riconferma (fino a -30min) e
+  -- con checked_in_at=NOW() dentro [start-2h, ends_at].
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES ('Backfill Court', 41.907, 12.507, ST_SetSRID(ST_MakePoint(12.507,41.907),4326)::geography, 'community',
+          '33333333-3333-3333-3333-333333333333','approved','active')
+  RETURNING id INTO v_court;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status)
+  VALUES (v_court, '33333333-3333-3333-3333-333333333333', now() + interval '45 minutes', 10, 'open')
+  RETURNING id INTO v_lobby;
+  INSERT INTO public.lobby_participants (lobby_id, user_id)
+  VALUES (v_lobby, '33333333-3333-3333-3333-333333333333');
+
+  -- (b) lobby iniziata 30min fa, dura 120min: ends_at tra 90min.
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES ('Checkout Court', 41.908, 12.508, ST_SetSRID(ST_MakePoint(12.508,41.908),4326)::geography, 'community',
+          '33333333-3333-3333-3333-333333333333','approved','active')
+  RETURNING id INTO v_court;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, duration_minutes, max_players, status)
+  VALUES (v_court, '33333333-3333-3333-3333-333333333333', now() - interval '30 minutes', 120, 10, 'open')
+  RETURNING id INTO v_lobby;
+  INSERT INTO public.lobby_participants (lobby_id, user_id, reconfirmed_at)
+  VALUES (v_lobby, '33333333-3333-3333-3333-333333333333', now() - interval '1 hour');
+
+  -- (c) lobby di B per il buco INSERT: B e' il creatore, cosi' il suo join
+  -- non spara notify_participant_joined (solo join non-creatore, e
+  -- authenticated non ha INSERT su push_notifications per la 035).
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES ('Join Policy Court', 41.909, 12.509, ST_SetSRID(ST_MakePoint(12.509,41.909),4326)::geography, 'community',
+          '22222222-2222-2222-2222-222222222222','approved','active')
+  RETURNING id INTO v_court;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status)
+  VALUES (v_court, '22222222-2222-2222-2222-222222222222', now() + interval '2 hours', 10, 'open')
+  RETURNING id INTO v_lobby;
+END $$;
+
+-- 48a-1. check-in di C prima della riconferma: resta orfano (assign solo all'INSERT).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+INSERT INTO public.check_ins (user_id, court_id, lat, lng)
+VALUES ('33333333-3333-3333-3333-333333333333',
+        (SELECT id FROM public.courts WHERE name = 'Backfill Court'), 41.907, 12.507);
+RESET ROLE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.check_ins ci JOIN public.courts c ON c.id = ci.court_id
+             WHERE c.name = 'Backfill Court' AND ci.lobby_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'check-in pre-riconferma agganciato senza riconferma';
+  END IF;
+END $$;
+
+-- 48a-2. C riconferma in finestra -> backfill aggancia il check-in.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+UPDATE public.lobby_participants SET reconfirmed_at = now()
+WHERE lobby_id = (SELECT id FROM public.lobbies
+                  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Backfill Court'))
+  AND user_id = '33333333-3333-3333-3333-333333333333';
+RESET ROLE;
+DO $$
+DECLARE
+  v_before INTEGER;
+  v_after INTEGER;
+  v_lobby UUID;
+  v_n BIGINT;
+BEGIN
+  SELECT id INTO v_lobby FROM public.lobbies
+  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Backfill Court');
+  IF NOT EXISTS (SELECT 1 FROM public.check_ins WHERE lobby_id = v_lobby) THEN
+    RAISE EXCEPTION 'backfill alla riconferma: check-in ancora orfano';
+  END IF;
+  SELECT karma_score INTO v_before FROM public.profiles
+  WHERE user_id = '33333333-3333-3333-3333-333333333333';
+  UPDATE public.lobbies SET status = 'closed' WHERE id = v_lobby;
+  SELECT karma_score INTO v_after FROM public.profiles
+  WHERE user_id = '33333333-3333-3333-3333-333333333333';
+  IF v_after <> v_before THEN
+    RAISE EXCEPTION 'karma dopo chiusura con presenza: % -> % (atteso invariato)', v_before, v_after;
+  END IF;
+  SELECT count(*) INTO v_n FROM public.push_notifications
+  WHERE user_id = '33333333-3333-3333-3333-333333333333'
+    AND data->>'type' = 'karma_loss'
+    AND (data->>'lobby_id')::uuid = v_lobby;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'karma_loss notifica nonostante la presenza: %', v_n;
+  END IF;
+END $$;
+
+-- 48b-1. check-in di C sulla lobby gia' iniziata: agganciato all'INSERT.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+INSERT INTO public.check_ins (user_id, court_id, lat, lng)
+VALUES ('33333333-3333-3333-3333-333333333333',
+        (SELECT id FROM public.courts WHERE name = 'Checkout Court'), 41.908, 12.508);
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.check_ins ci JOIN public.courts c ON c.id = ci.court_id
+                 JOIN public.lobbies l ON l.id = ci.lobby_id
+                 JOIN public.courts cc ON cc.id = l.court_id
+                 WHERE c.name = 'Checkout Court' AND cc.name = 'Checkout Court') THEN
+    RAISE EXCEPTION 'check-in su lobby riconfermata non agganciato all''INSERT';
+  END IF;
+END $$;
+
+-- 48b-2. checkout manuale prima della chiusura -> nessun -3.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+UPDATE public.check_ins SET status = 'checked_out', checked_out_at = now()
+WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Checkout Court')
+  AND user_id = '33333333-3333-3333-3333-333333333333';
+RESET ROLE;
+DO $$
+DECLARE
+  v_before INTEGER;
+  v_after INTEGER;
+  v_lobby UUID;
+  v_n BIGINT;
+BEGIN
+  SELECT id INTO v_lobby FROM public.lobbies
+  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Checkout Court');
+  SELECT karma_score INTO v_before FROM public.profiles
+  WHERE user_id = '33333333-3333-3333-3333-333333333333';
+  UPDATE public.lobbies SET status = 'closed' WHERE id = v_lobby;
+  SELECT karma_score INTO v_after FROM public.profiles
+  WHERE user_id = '33333333-3333-3333-3333-333333333333';
+  IF v_after <> v_before THEN
+    RAISE EXCEPTION 'karma dopo checkout manuale: % -> % (atteso invariato)', v_before, v_after;
+  END IF;
+  SELECT count(*) INTO v_n FROM public.push_notifications
+  WHERE user_id = '33333333-3333-3333-3333-333333333333'
+    AND data->>'type' = 'karma_loss'
+    AND (data->>'lobby_id')::uuid = v_lobby;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'karma_loss notifica dopo checkout manuale: %', v_n;
+  END IF;
+END $$;
+
+-- 48c. B entra con reconfirmed_at preimpostato -> 42501, nessuna riga.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+DO $$
+DECLARE
+  v_lobby UUID;
+BEGIN
+  SELECT id INTO v_lobby FROM public.lobbies
+  WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Join Policy Court');
+  BEGIN
+    INSERT INTO public.lobby_participants (lobby_id, user_id, reconfirmed_at)
+    VALUES (v_lobby, '22222222-2222-2222-2222-222222222222', now());
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'join con reconfirmed_at: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'join con reconfirmed_at preimpostato riuscito (buco INSERT)';
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.lobby_participants
+             WHERE user_id = '22222222-2222-2222-2222-222222222222'
+               AND lobby_id IN (SELECT id FROM public.lobbies
+                                WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Join Policy Court'))
+               AND reconfirmed_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'riga con reconfirmed_at preimpostato presente nonostante il diniego';
+  END IF;
+END $$;
+
+-- 48c-bis. positivo: il join normale passa ancora (la policy non over-blocca).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+INSERT INTO public.lobby_participants (lobby_id, user_id)
+VALUES ((SELECT id FROM public.lobbies
+         WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Join Policy Court')),
+        '22222222-2222-2222-2222-222222222222');
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.lobby_participants
+                 WHERE user_id = '22222222-2222-2222-2222-222222222222'
+                   AND lobby_id IN (SELECT id FROM public.lobbies
+                                    WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Join Policy Court'))
+                   AND reconfirmed_at IS NULL) THEN
+    RAISE EXCEPTION 'join normale bloccato dalla policy 039';
+  END IF;
+END $$;
+DELETE FROM public.lobby_participants
+WHERE user_id = '22222222-2222-2222-2222-222222222222'
+  AND lobby_id IN (SELECT id FROM public.lobbies
+                   WHERE court_id = (SELECT id FROM public.courts WHERE name = 'Join Policy Court'));
+
 ROLLBACK;
