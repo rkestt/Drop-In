@@ -122,11 +122,17 @@ export default async function LobbyDetailPage({
     ends_at: string | null;
     max_players: number;
     status: string | null;
+    series_id: string | null;
+    lobby_series: { weekday: number; time_of_day: string } | null;
   } | null = null;
   try {
     const { data, error: lobbyError } = await supabase
       .from("lobbies")
-      .select("id, court_id, start_time, ends_at, max_players, status")
+      // #92: join alla regola per il chip "Ricorrente · …" (stesso select,
+      // nessuna query in più). Serie cancellata → series_id NULL → niente chip.
+      .select(
+        "id, court_id, start_time, ends_at, max_players, status, series_id, lobby_series(weekday, time_of_day)",
+      )
       .eq("id", id)
       .single();
     // PGRST116 = riga assente → 404 vero; altro errore → messaggio + riprova.
@@ -191,6 +197,16 @@ export default async function LobbyDetailPage({
           // generati sono conservativi (string | null).
           ends_at: lobby.ends_at ?? lobby.start_time,
         }}
+        // #92: serie illeggibile (vecchio dato, riga non visibile) → chip
+        // ridotto a "Ricorrente" senza giorno e ora, mai card rotta.
+        series={
+          lobby.series_id
+            ? {
+                weekday: lobby.lobby_series?.weekday ?? null,
+                timeOfDay: lobby.lobby_series?.time_of_day ?? null,
+              }
+            : null
+        }
         court={
           court ?? {
             id: lobby.court_id,

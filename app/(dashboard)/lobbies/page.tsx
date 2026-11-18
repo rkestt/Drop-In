@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { loginRedirectUrl } from "@/lib/auth/routes";
 import { LobbyTabs } from "@/components/lobby/lobby-tabs";
 import { resolveNickname } from "@/lib/profile/utils";
+import { listMySeries, listOrphanSeries } from "@/lib/series/client";
+import type { SeriesWithNextOccurrence } from "@/lib/series/types";
+import type { SeriesListItem } from "@/components/series/types";
 import type { LobbySummary } from "@/components/lobby/types";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +47,10 @@ export default async function LobbiesPage({
 
   let mineQuery = supabase
     .from("lobbies")
-    .select("id, court_id, start_time, sport, duration_minutes, ends_at, max_players, status, courts(name, sport, photo_path)")
+    // #92: provenienza serie per il chip (un join, nessuna query in più).
+    .select(
+      "id, court_id, start_time, sport, duration_minutes, ends_at, max_players, status, series_id, courts(name, sport, photo_path), lobby_series(weekday, time_of_day)",
+    )
     .order("start_time", { ascending: true });
   if (joinedIds.length > 0) {
     mineQuery = mineQuery.or(
@@ -88,6 +94,12 @@ export default async function LobbiesPage({
       sport?: string;
       photo_path?: string | null;
     } | null;
+    // #92: join illeggibile (vecchio dato) con series_id presente → chip
+    // ridotto a "Ricorrente", mai card rotta.
+    const seriesEmbed = l.lobby_series as {
+      weekday?: number;
+      time_of_day?: string;
+    } | null;
     return {
       id: l.id as string,
       court_id: l.court_id as string,
@@ -106,12 +118,55 @@ export default async function LobbiesPage({
         nickname: resolveNickname(nicknameByUser, uid),
       })),
       is_joined: ids.includes(userId),
+      series: (l.series_id as string | null)
+        ? {
+            weekday:
+              typeof seriesEmbed?.weekday === "number"
+                ? seriesEmbed.weekday
+                : null,
+            timeOfDay: seriesEmbed?.time_of_day ?? null,
+          }
+        : null,
     };
+  });
+
+  // #92 superficie 2: "Le mie serie" + orfane, con i nomi dei campi risolti
+  // qui (una query, non una per riga). La lista resta del server: il client
+  // (SeriesList) fa solo toggle/cancella ottimistici + refresh.
+  const [{ items: mySeries, error: mySeriesError }, { items: orphanSeries, error: orphanError }] =
+    await Promise.all([listMySeries(supabase), listOrphanSeries(supabase)]);
+  const allSeries: SeriesWithNextOccurrence[] = [...mySeries, ...orphanSeries];
+  let courtById = new Map<string, { name?: string; status?: string | null }>();
+  if (allSeries.length > 0) {
+    const { data: courtsData } = await supabase
+      .from("courts")
+      .select("id, name, status")
+      .in(
+        "id",
+        [...new Set(allSeries.map((s) => s.court_id))],
+      );
+    courtById = new Map(
+      ((courtsData ?? []) as { id: string; name?: string; status?: string | null }[]).map(
+        (c) => [c.id, { name: c.name, status: c.status }],
+      ),
+    );
+  }
+  const toListItem = (s: SeriesWithNextOccurrence): SeriesListItem => ({
+    ...s,
+    courtName: courtById.get(s.court_id)?.name ?? "Campo",
+    // `coalesce(c.status, 'active')` come il RPC `nearby_courts` (009).
+    courtActive: (courtById.get(s.court_id)?.status ?? "active") === "active",
   });
 
   return (
     <main id="contenuto" tabIndex={-1} className="mx-auto w-full max-w-[720px] flex-1 p-6">
-      <LobbyTabs mine={mine} userId={userId} />
+      <LobbyTabs
+        mine={mine}
+        userId={userId}
+        series={mySeries.map(toListItem)}
+        orphans={orphanSeries.map(toListItem)}
+        seriesError={mySeriesError || orphanError}
+      />
     </main>
   );
 }

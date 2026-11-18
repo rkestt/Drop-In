@@ -17,6 +17,7 @@ import { mapJoinError, mapLeaveError } from "@/lib/lobbies/join-errors";
 import { lobbyPhase, type LobbyPhase } from "@/lib/lobby/phase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RecurringChip } from "./recurring-chip";
 import { JoinLobbyDrawer } from "./join-lobby-drawer";
 import { CreateLobbyButton } from "./create-lobby-button";
 import { ShareButton } from "@/components/share/share-button";
@@ -61,6 +62,7 @@ export function LobbyDetail({
   userKarma,
   bannedUntil,
   courtApproved,
+  series = null,
 }: {
   lobby: LobbyDetailData;
   court: LobbyCourtData;
@@ -71,6 +73,14 @@ export function LobbyDetail({
   bannedUntil: string | null;
   /** #76: false = campo non approvato (o illeggibile): join chiuso. */
   courtApproved: boolean;
+  /**
+   * Occorrenza di serie (#92): regola per il chip di provenienza.
+   * `null` = lobby singola, niente chip.
+   */
+  series?: {
+    weekday: number | null;
+    timeOfDay: string | null;
+  } | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -364,6 +374,13 @@ export function LobbyDetail({
         <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
           {[court.sport, court.address].filter(Boolean).join(" · ")}
         </p>
+        {/* #92: chip di provenienza sotto `sport · indirizzo`, sopra la
+            card dell'ora. Niente link: informa e basta. */}
+        {series ? (
+          <div className="mt-2 flex">
+            <RecurringChip weekday={series.weekday} timeOfDay={series.timeOfDay} />
+          </div>
+        ) : null}
       </div>
 
       <div className="flex items-center justify-between gap-3 rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-4">

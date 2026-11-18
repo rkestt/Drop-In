@@ -26,4 +26,13 @@ export interface LobbySummary {
   is_joined: boolean;
   /** Solo "Vicine": metri dal RPC `nearby_courts`, altrimenti null. */
   distance_m?: number | null;
+  /**
+   * Occorrenza di serie (#92): la regola per il chip "Ricorrente · …".
+   * Presente (anche con campi `null`) quando `series_id` non è null — serie
+   * cancellata → `series_id` NULL → niente chip. Assente = lobby singola.
+   */
+  series?: {
+    weekday: number | null;
+    timeOfDay: string | null;
+  } | null;
 }

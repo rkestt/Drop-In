@@ -73,7 +73,7 @@ export function NearbyLobbies({
           const { data: lobbiesData, error: lobbiesError } = await supabase
             .from("lobbies")
             .select(
-              "id, court_id, start_time, sport, duration_minutes, ends_at, max_players, status, courts(id, name, sport, lat, lng, photo_path), lobby_participants(user_id)"
+              "id, court_id, start_time, sport, duration_minutes, ends_at, max_players, status, series_id, courts(id, name, sport, lat, lng, photo_path), lobby_series(weekday, time_of_day), lobby_participants(user_id)"
             )
             .eq("status", "open")
             // #91: orizzonte 36h, prima del LIMIT (come `open_lobbies`).
@@ -93,6 +93,8 @@ export function NearbyLobbies({
             ends_at: string;
             max_players: number;
             status: string;
+            series_id: string | null;
+            lobby_series: { weekday: number; time_of_day: string } | null;
             courts: {
               id: string;
               name: string;
@@ -155,6 +157,14 @@ export function NearbyLobbies({
               participants,
               is_joined: participants.some((p) => p.user_id === userId),
               distance_m: d,
+              // #92: come in "Le tue": series_id presente ma join illeggibile
+              // → chip ridotto a "Ricorrente".
+              series: l.series_id
+                ? {
+                    weekday: l.lobby_series?.weekday ?? null,
+                    timeOfDay: l.lobby_series?.time_of_day ?? null,
+                  }
+                : null,
             });
           }
           lobbies.sort((a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity));

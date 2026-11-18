@@ -6,12 +6,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LobbyCard } from "./lobby-card";
 import { NearbyLobbies } from "./nearby-lobbies";
+import { SeriesList } from "@/components/series/series-list";
+import type { SeriesListItem } from "@/components/series/types";
 import { SportSelector } from "@/components/court/sport-selector";
 import { CalendarX } from "lucide-react";
 import type { LobbySummary } from "./types";
 
-type TabId = "mine" | "nearby";
-const TAB_IDS: TabId[] = ["mine", "nearby"];
+type TabId = "mine" | "nearby" | "serie";
+const TAB_IDS: TabId[] = ["mine", "nearby", "serie"];
 
 /**
  * Lista lobby (prototipo d12): tab "Le tue"/"Vicine" con `aria-selected` e
@@ -21,12 +23,23 @@ const TAB_IDS: TabId[] = ["mine", "nearby"];
 export function LobbyTabs({
   mine,
   userId,
+  series,
+  orphans,
+  seriesError,
 }: {
   mine: LobbySummary[];
   userId: string;
+  /** #92: righe proprie + orfane, risolte dal server (nomi campo inclusi). */
+  series: SeriesListItem[];
+  orphans: SeriesListItem[];
+  seriesError: boolean;
 }) {
   const searchParams = useSearchParams();
-  const readTab = (): TabId => (searchParams.get("tab") === "nearby" ? "nearby" : "mine");
+  const readTab = (): TabId => {
+    const tab = searchParams.get("tab");
+    // `?tab=` resta la via profonda al tab (default "Le tue", come prima).
+    return tab === "nearby" ? "nearby" : tab === "serie" ? "serie" : "mine";
+  };
   const [tab, setTab] = useState<TabId>(readTab);
   const [nearbyCount, setNearbyCount] = useState<number | null>(null);
   const router = useRouter();
@@ -119,6 +132,25 @@ export function LobbyTabs({
             <span className="tabular-nums"> {nearbyCount}</span>
           )}
         </button>
+        <button
+          ref={(el) => {
+            tabRefs.current[2] = el;
+          }}
+          type="button"
+          role="tab"
+          id="tab-serie"
+          aria-controls="panel-serie"
+          aria-selected={tab === "serie"}
+          tabIndex={tab === "serie" ? 0 : -1}
+          onClick={() => setTab("serie")}
+          className={`min-h-11 rounded-chip px-4 text-sm font-medium transition-colors ${
+            tab === "serie"
+              ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+              : "bg-[var(--bg-surface)] text-[var(--text-secondary)]"
+          }`}
+        >
+          Serie <span className="tabular-nums">{series.length + orphans.length}</span>
+        </button>
       </div>
 
       <div
@@ -178,6 +210,17 @@ export function LobbyTabs({
             </div>
             <NearbyLobbies userId={userId} onCount={setNearbyCount} />
           </>
+        )}
+      </div>
+
+      <div
+        role="tabpanel"
+        id="panel-serie"
+        aria-labelledby="tab-serie"
+        hidden={tab !== "serie"}
+      >
+        {tab === "serie" && (
+          <SeriesList mine={series} orphans={orphans} loadError={seriesError} />
         )}
       </div>
     </>

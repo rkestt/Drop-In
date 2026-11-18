@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { CourtPhotoThumb } from "@/components/court/court-photo-thumb";
+import { RecurringChip } from "./recurring-chip";
 import { NextHighlight } from "@/components/motion/next-highlight";
 import { Users, Clock } from "lucide-react";
 import { formatDistanceM } from "@/lib/lobbies/nearby";
@@ -49,6 +50,8 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
     : isFull
       ? "al completo"
       : lobbyPhaseLabel(phase).toLowerCase();
+  // "ricorrente" in coda quando l'occorrenza viene da una serie (#92).
+  const recurringLabel = lobby.series ? "ricorrente" : undefined;
   // Nome accessibile completo: campo, sport, orario, posti, distanza, stato.
   // Lo sport usa l'etichetta UI ("Sport non specificato" quando NULL, #71).
   const ariaLabel = [
@@ -57,6 +60,7 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
     `ore ${formatAppDateTime(lobby.start_time)}`,
     `${lobby.participants_count} su ${lobby.max_players}`,
     lobby.distance_m != null ? `a ${formatDistanceM(lobby.distance_m)}` : undefined,
+    recurringLabel,
     stateLabel,
   ]
     .filter(Boolean)
@@ -77,6 +81,16 @@ export function LobbyCard({ lobby }: { lobby: LobbySummary }) {
           <span className="block truncate font-semibold text-[var(--text-primary)]">
             {lobby.court_name}
           </span>
+          {/* #92: chip di provenienza su riga propria, sopra la meta. La card
+              non ricorrente resta identica, senza spazio vuoto. */}
+          {lobby.series ? (
+            <span className="mt-1 flex">
+              <RecurringChip
+                weekday={lobby.series.weekday}
+                timeOfDay={lobby.series.timeOfDay}
+              />
+            </span>
+          ) : null}
           <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[var(--text-secondary)]">
             <span className="inline-flex items-center gap-1 whitespace-nowrap">
               <Clock className="h-3.5 w-3.5" aria-hidden="true" />

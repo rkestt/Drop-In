@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,10 +14,15 @@ import {
 } from "@/lib/validation/schemas";
 import { createClient } from "@/lib/supabase/client";
 import {
+  APP_TIME_ZONE,
+  appDateKey,
   formatAppCloseTime,
+  formatAppDate,
   formatAppDateTime,
   formatAppTime,
 } from "@/lib/datetime";
+import { createSeries } from "@/lib/series/client";
+import { seriesWeekdayLabel } from "@/lib/series/next-occurrence";
 import {
   DEFAULT_LOBBY_DURATION_MINUTES,
   SPORTS,
@@ -52,6 +57,35 @@ const LOBBY_SPORTS = SPORTS.filter((option) => option.value !== "multi");
 function lobbySportLabel(sport: string | null): string {
   if (sport === null) return "Sport non specificato";
   return LOBBY_SPORTS.find((option) => option.value === sport)?.label ?? sport;
+}
+
+/**
+ * Giorno ISO 1–7 di un ISO nel fuso dell'app (#92: la regola della serie è
+ * quella dell'orario scelto). Niente `getDay()` locale: la chiave giorno
+ * passa da `appDateKey` (fuso Roma) e il weekday dal giorno UTC.
+ */
+function romeIsoWeekday(iso: string): number | null {
+  const ms = new Date(iso).getTime();
+  if (!Number.isFinite(ms)) return null;
+  const parts = appDateKey(iso)
+    .split("-")
+    .map(Number);
+  const [y, m, d] = parts;
+  if (!y || !m || !d) return null;
+  return ((new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7) + 1;
+}
+
+/** `HH:MM` di un ISO nel fuso dell'app (`null` se non parsabile). */
+function romeTimeHHMM(iso: string): string | null {
+  const ms = new Date(iso).getTime();
+  if (!Number.isFinite(ms)) return null;
+  const text = new Intl.DateTimeFormat("en-GB", {
+    timeZone: APP_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(ms));
+  return /^(\d{2}):(\d{2})$/.test(text) ? text : null;
 }
 
 /**
@@ -142,6 +176,22 @@ export function CreateLobbyDrawer({
   const [created, setCreated] = useState(false);
   const [createdPlayers, setCreatedPlayers] = useState(10);
   const [overlap, setOverlap] = useState<OverlapCheck | null>(null);
+  // #92: "Ripeti ogni settimana". Spento = flusso di oggi invariato; acceso
+  // = si crea solo la Serie (mai una lobby dal client), la prima occorrenza
+  // la materializza il server.
+  const [repeatWeekly, setRepeatWeekly] = useState(false);
+  // #92 stato 5: la serie non è partita. Copy fissa da spec, niente dettaglio
+  // tecnico (il messaggio italiano resta nel result per i log).
+  const [seriesFailed, setSeriesFailed] = useState(false);
+  // #92: esito della serie per la copy di successo data-driven.
+  const [createdSeries, setCreatedSeries] = useState<{
+    weekday: number;
+    timeOfDay: string;
+    nextOccurrence: string | null;
+  } | null>(null);
+  const repeatHeadId = useId();
+  const repeatHintId = `${repeatHeadId}-hint`;
+  const repeatSummaryId = `${repeatHeadId}-summary`;
   // Guardia anti-doppio-invio (il disabled non copre due submit ravvicinati).
   const submittingRef = useRef(false);
   const closeTimer = useRef<number | null>(null);
@@ -153,6 +203,19 @@ export function CreateLobbyDrawer({
   const startTimeValue = watch("startTime");
   const durationValue = watch("durationMinutes");
   const sportValue = watch("sport");
+
+  // #92: regola derivata dall'orario scelto (weekday ISO + HH:MM a Roma).
+  // Nessun secondo picker: due fonti per lo stesso dato divergerebbero.
+  const repeatWeekday =
+    typeof startTimeValue === "string" && startTimeValue !== ""
+      ? romeIsoWeekday(startTimeValue)
+      : null;
+  const repeatTime =
+    typeof startTimeValue === "string" && startTimeValue !== ""
+      ? romeTimeHHMM(startTimeValue)
+      : null;
+  const repeatDayLabel =
+    repeatWeekday !== null ? seriesWeekdayLabel(repeatWeekday) : null;
 
   // Un avviso doppioni calcolato su valori diversi da quelli attuali è
   // rumore: sparisce appena si tocca un campo, e il submit rifà il controllo.
@@ -189,12 +252,20 @@ export function CreateLobbyDrawer({
           durationMinutes: defaultDurationForSport(initialSport ?? null),
           sport: initialSport,
         });
+        // #92: come il resto del form, l'opzione riparte dallo stato 1.
+        setRepeatWeekly(false);
+        setSeriesFailed(false);
+        setCreatedSeries(null);
       }
     } else {
       queueMicrotask(() => {
         setError(null);
         setCreated(false);
+        setCreatedSeries(null);
         setOverlap(null);
+        // #92: l'opzione riparte spenta a ogni apertura (stato 1 di spec).
+        setRepeatWeekly(false);
+        setSeriesFailed(false);
       });
     }
     prevOpen.current = open;
@@ -336,6 +407,48 @@ export function CreateLobbyDrawer({
         values.durationMinutes ?? DEFAULT_LOBBY_DURATION_MINUTES;
       const lobbySport = values.sport ?? null;
 
+      // #92: opzione accesa = si crea la Serie, non la lobby. Niente avviso
+      // doppioni: una serie sopra una lobby singola è un esito normale,
+      // decide il generatore (skip dello slot), non l'utente.
+      if (repeatWeekly) {
+        setSeriesFailed(false);
+        // La regola è quella dell'orario scelto; senza orario il submit è
+        // già bloccato dalla validazione di `startTime` (stato 3 di spec).
+        const weekday = romeIsoWeekday(values.startTime);
+        const timeOfDay = romeTimeHHMM(values.startTime);
+        if (weekday === null || timeOfDay === null) {
+          throw new Error("Scegli l'orario: sarà quello che si ripete.");
+        }
+        const result = await createSeries(supabase, {
+          courtId,
+          weekday,
+          timeOfDay,
+          // `undefined` = non specificato (lo schema serie non accetta null).
+          sport: values.sport,
+          durationMinutes: values.durationMinutes,
+          maxPlayers: values.maxPlayers,
+        });
+        if (result.error || !result.series) {
+          // Nessuna lobby creata, il form resta: stato 5 di spec.
+          setSeriesFailed(true);
+          return;
+        }
+        // Successo data-driven: la copy cita la prossima occorrenza solo se
+        // il server l'ha materializzata (altrimenti copre il cron).
+        setOverlap(null);
+        setCreatedSeries({
+          weekday: result.series.weekday,
+          timeOfDay: result.series.time_of_day,
+          nextOccurrence: result.series.nextOccurrence,
+        });
+        setCreated(true);
+        closeTimer.current = window.setTimeout(() => {
+          onClose();
+          router.refresh();
+        }, 1400);
+        return;
+      }
+
       if (!consent) {
         const existing = await findExistingLobby(
           values.startTime,
@@ -410,10 +523,23 @@ export function CreateLobbyDrawer({
           sul contenitore e senza salti di layout. */}
       <StepTransition stepKey={created ? "done" : "form"}>
         {created ? (
-          <SuccessPop
-            title="Lobby creata"
-            description={`${courtName} · fino a ${createdPlayers} giocatori. La trovi in "Lobby attive" con lo stato "Sei dentro".`}
-          />
+          createdSeries ? (
+            // #92: successo data-driven. La data si cita solo se il server
+            // l'ha materializzata davvero (nextOccurrence dalle righe reali).
+            <SuccessPop
+              title={`Serie attiva il ${seriesWeekdayLabel(createdSeries.weekday) ?? ""} alle ${createdSeries.timeOfDay.slice(0, 5)}`}
+              description={
+                createdSeries.nextOccurrence
+                  ? `Al ${courtName}, a partire da ${formatAppDate(createdSeries.nextOccurrence)}. La gestisci da «Le mie serie».`
+                  : `Al ${courtName}. La gestisci da «Le mie serie»: le prossime partite si creano da sole.`
+              }
+            />
+          ) : (
+            <SuccessPop
+              title="Lobby creata"
+              description={`${courtName} · fino a ${createdPlayers} giocatori. La trovi in "Lobby attive" con lo stato "Sei dentro".`}
+            />
+          )
         ) : (
           <div className="space-y-4">
             <div>
@@ -433,7 +559,12 @@ export function CreateLobbyDrawer({
               </div>
             )}
 
-            <form onSubmit={handleSubmit(onValidCreate, focusFirstError)} className="space-y-3" noValidate>
+            <form
+              onSubmit={handleSubmit(onValidCreate, focusFirstError)}
+              className="space-y-3"
+              noValidate
+              aria-busy={loading || undefined}
+            >
               <Controller
                 control={control}
                 name="startTime"
@@ -444,9 +575,100 @@ export function CreateLobbyDrawer({
                     focusRef={field.ref}
                     invalid={Boolean(fieldState.error)}
                     error={fieldState.error?.message}
+                    disabled={loading}
                   />
                 )}
               />
+
+              {/* #92 superficie 1: interruttore subito sotto il picker
+                  (la regola è funzione dell'orario). Riga intera tappabile,
+                  corpo istantaneo (niente animazioni dentro un form). */}
+              <div
+                className={`overflow-hidden rounded-card border bg-[var(--bg-surface)] ${
+                  repeatWeekly
+                    ? "border-[var(--accent)]"
+                    : "border-[var(--border)]"
+                }`}
+              >
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={repeatWeekly}
+                  aria-describedby={
+                    repeatWeekly ? `${repeatHintId} ${repeatSummaryId}` : repeatHintId
+                  }
+                  disabled={loading}
+                  onClick={() => {
+                    // Con l'opzione accesa l'avviso doppioni non esiste:
+                    // si azzera per non mostrare "Crea comunque" alla serie.
+                    setOverlap(null);
+                    setSeriesFailed(false);
+                    setRepeatWeekly((v) => !v);
+                  }}
+                  className="flex min-h-[56px] w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-start transition-colors hover:bg-[var(--bg-elevated)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span
+                      id={repeatHeadId}
+                      className="text-base font-semibold text-[var(--text-primary)]"
+                    >
+                      Ripeti ogni settimana
+                    </span>
+                    <span
+                      id={repeatHintId}
+                      className="text-[13px] text-[var(--text-muted)]"
+                    >
+                      {repeatWeekly
+                        ? "Appuntamento fisso: le partite si creano da sole."
+                        : "Una partita sola. Accendi per un appuntamento fisso."}
+                    </span>
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className={`flex h-7 w-12 flex-none items-center rounded-chip border px-0.5 motion-safe:transition-colors ${
+                      repeatWeekly
+                        ? "justify-end border-[var(--accent)] bg-[var(--accent)]"
+                        : "justify-start border-[var(--text-muted)]/40 bg-[var(--bg-base)]"
+                    }`}
+                  >
+                    <span
+                      className={`block h-5 w-5 rounded-chip ${
+                        repeatWeekly
+                          ? "bg-[var(--accent-foreground)]"
+                          : "bg-[var(--text-muted)]"
+                      }`}
+                    />
+                  </span>
+                </button>
+                {repeatWeekly &&
+                  (seriesFailed ? (
+                    <div
+                      className="border-t border-[var(--border)] bg-[var(--danger)]/10 p-3"
+                      role="alert"
+                    >
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">
+                        La serie non è partita.
+                      </p>
+                      <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                        Non abbiamo creato la partita. Riprova, oppure spegni
+                        «Ripeti ogni settimana» e crea solo questa.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 border-t border-[var(--border)] p-3">
+                      <p id={repeatSummaryId} className="text-sm font-semibold text-[var(--text-primary)]">
+                        {repeatDayLabel !== null && repeatTime !== null
+                          ? `Ogni ${repeatDayLabel} alle ${repeatTime}, al ${courtName}.`
+                          : "Scegli l'orario: sarà quello che si ripete."}
+                      </p>
+                      <p className="text-[13px] text-[var(--text-muted)]">
+                        Sport, durata e posti valgono per tutte le partite. Le
+                        prossime due settimane si creano da sole, ognuno
+                        conferma la sua e non arriva nessuna notifica in più.
+                      </p>
+                    </div>
+                  ))}
+              </div>
 
               <div>
                 <label
