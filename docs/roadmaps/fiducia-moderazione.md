@@ -12,12 +12,14 @@ Non esiste nessun modo di valutare una persona. Le **recensioni dei campi sono g
 
 | Voce | Ticket | Stato |
 | --- | --- | --- |
-| Valutazioni con co-presenza, reputazione per sport, chat effimera, link Instagram | #93 | aperto |
+| Valutazioni con co-presenza, reputazione per sport, chat effimera, link Instagram | #93 | aperto, dopo la beta |
 | Moderazione del testo pubblico (recensioni, Note, chat) e anti-spam | #84 | aperto, da allargare |
 | Linee guida della community e segnalazione abusi | — | da aprire |
 | Claim e ownership di un campo | — | non deciso |
 
 ## Decisioni chiuse
+
+- **Dopo la beta (deciso 2026-11-18)**: valutazioni e reputazione hanno senso quando i giocatori si sono già incontrati più volte in un polo, non su venti persone che si conoscono di persona. Schedulazione allineata in `docs/plans/spring.md` (voce 6 dopo la voce 10).
 
 - **Valutazione** solo post-partita e solo tra chi ha giocato; la co-presenza la calcola il sistema, non gli utenti. Il bombing non è moderazione, è autorizzazione.
 - **Reputazione** per sport, distinta dal Karma.

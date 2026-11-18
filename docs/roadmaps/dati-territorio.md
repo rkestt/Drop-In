@@ -15,7 +15,7 @@ Il database ha 10.130 campi su Roma, ma: **6.364 non hanno sport** (63%), **9.57
 | Sbloccare gli slug di sport che i dati già contengono | — | da aprire |
 | Audit `sport` limitato al bbox del polo | #63 | aperto, scope ridotto |
 | Note di campo (agibilità leggera) | #90 | aperto |
-| Nominare i campi del polo | — | **da decidere** |
+| Nominare i campi del polo | #106 | deciso 2026-11-18, non ancora implementato |
 | Estrazione OSM del secondo polo (Ostia) | — | rinviato |
 | Curatela ricorrente delle aggiunte future | — | attività, non ticket |
 
@@ -24,10 +24,11 @@ Il database ha 10.130 campi su Roma, ma: **6.364 non hanno sport** (63%), **9.57
 - Il polo di partenza è **Roma70 a EUR**, già dentro il bbox: nessuna estrazione nuova per partire.
 - L'agibilità si esprime con **Note datate**, mai con uno stato binario, e il campo non viene mai nascosto né bloccato.
 - L'audit dei campi si fa sul polo, non su Roma intera.
+- **Nomi dei campi (deciso 2026-11-18, #106, non ancora implementato)**: nome generico con flag di generazione automatica; l'utente interessato propone un nome che passa da coda di moderazione (Andrea o altri moderatori); serve UI per proporre e per rivedere.
 
 ## Decisioni aperte
 
-- **Come si dà un nome ai campi**: nomi dagli utenti con moderazione, incrocio con il censimento comunale degli impianti, o nomina manuale da satellite sul solo polo. È il vero collo di bottiglia dell'asset.
+Nessuna.
 
 ## Dipendenze
 

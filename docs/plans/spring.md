@@ -40,7 +40,7 @@ Un campo può esistere in mappa e non essere utilizzabile: canestro rotto, cance
 
 **Il problema che viene prima dell'audit**: **9.572 Campi su 10.130 si chiamano letteralmente "Spazio aperto"**, solo 526 hanno un nome distinto e 51 hanno un indirizzo. Non è un difetto dello script (`scripts/extract_osm.py` legge `name` e `addr:street`), è che in OSM quei campi non hanno nome. Conseguenza: nessuno può riconoscere un Campo, né dire "ci vediamo al tal posto", né curarne l'agibilità senza prima identificarlo. Il database è anonimo, e un database anonimo non è un asset.
 
-*Opzioni*: far nominare i Campi agli utenti con moderazione (economico, ma richiede utenti); incrociare con il censimento comunale degli impianti; oppure nominarli a mano per satellite sul solo polo. Da decidere quando si apre il ticket dei dati.
+*Opzioni decise (2026-11-18, ticket #106, non ancora implementato)*: nome generico con flag di generazione automatica; l'utente interessato propone un nome che passa da coda di moderazione (Andrea o altri moderatori); serve UI per proporre e per rivedere. Dettaglio in `docs/roadmaps/dati-territorio.md`.
 
 ### 3. Appuntamento ricorrente
 Una lobby oggi è una partita singola (`court_id`, `start_time`, `max_players`, `status`). Chi organizza deve rifarla e riannunciarla ogni settimana.
@@ -77,6 +77,7 @@ Stima dedotta dallo storico dei check-in su campo + giorno + ora. Mostrata come 
 Non è un requisito per aprire: si costruisce quando ci sono i dati per alimentarla, altrimenti non c'è niente da mostrare.
 
 ### 6. Fiducia: valutazioni e chat
+*Schedulazione (decisa 2026-11-18)*: **dopo la voce 10 (beta)** — vedi `docs/roadmaps/fiducia-moderazione.md`.
 - **Chat effimera dentro la lobby**, muore 24 ore dopo la partita.
 - **Valutazione** solo post-partita e solo tra chi ha giocato: la co-presenza è calcolata dal sistema, senza conferme esplicite degli utenti. Chi non c'era non può votare, quindi il bombing su una singola persona non è un problema di moderazione ma di autorizzazione.
 - **Reputazione** mostrata per sport, distinta dal Karma.
@@ -133,8 +134,8 @@ Le cose che non si possono aggiungere dopo vengono prima.
 1. **8a** (codice GDPR) e **9** (backup verificato) — prima che entri chiunque.
 2. **1** e **2** (dati del polo) — la mappa deve esistere prima che si possa giocarci.
 3. **4** (semantica delle occorrenze) e **12** (finestra e doppioni) insieme: sono entrambe correzioni del core loop, e vanno prima del generatore. Dipendono dalla raccomandazione di @oracle.
-4. **3** (generatore), poi **6** (fiducia), poi **7** (push).
-5. **10** (beta) e **8b** in parallelo. **13** (crescita) non è una fase: corre da subito.
+4. **3** (generatore), poi **7** (push).
+5. **10** (beta) e **8b** in parallelo, poi **6** (fiducia, dopo la beta). **13** (crescita) non è una fase: corre da subito.
 6. **5** (ricorrenza abituale) solo dopo quattro settimane di dati reali.
 
 ## Rischi
@@ -149,7 +150,7 @@ Le cose che non si possono aggiungere dopo vengono prima.
 
 ## Decisioni aperte
 
-- **Navigazione mappa/lobby**: issue #89. La scelta (pannello trascinabile vs due tab) si prende alla review del prototipo, come impone `docs/design/1.5.md`; non blocca nulla.
+- **Navigazione mappa/lobby**: issue #89 — deciso 2026-11-18: implementazione dopo #90 (Note di campo), prima di #95 (beta/tester), insieme alla rifinitura della home per la beta. Dettaglio in `docs/roadmaps/interfaccia.md`.
 
 ## Ticket
 
@@ -158,10 +159,11 @@ Le cose che non si possono aggiungere dopo vengono prima.
 | 1 · campi del polo, slug sport | nuovo, da aprire |
 | 1b · Note di campo | #90 |
 | 2 · audit sport nel polo | #63 (scope ridotto, commentato) |
+| 2 · Nomi dei campi del polo | #106 (deciso 2026-11-18, non ancora implementato) |
 | 3 · Appuntamento ricorrente | #92 (chiuso 2026-11-18) |
 | 4 · Occorrenze e karma | #91 (chiuso 2026-11-18, sbloccava #92) |
 | 5 · Ricorrenza abituale | da aprire quando ci sono i dati |
-| 6 · Fiducia: valutazioni e chat | #93 |
+| 6 · Fiducia: valutazioni e chat | #93 (dopo la beta, voce 10) |
 | 7 · Push e audit notifiche | #87 (commentato) |
 | 8a · GDPR nel codice | #94 (metà codice di #83) |
 | 8b · Testi legali | #83 |
