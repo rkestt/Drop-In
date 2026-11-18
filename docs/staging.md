@@ -92,13 +92,13 @@ Con `023`→`029` ha confermato che girano sul dataset reale (10.131 corti) e ch
 dopo il rollback lo schema è identico. Non sostituisce il backup: non copre i
 dati e non dice nulla su cosa succede se il push si interrompe a metà.
 
-**Blocco noto (2026-11-12):** il backup pre-push non si riesce a produrre da questa
-macchina — `supabase db dump` (CLI 3.1.0 e `@latest`) usa `pg_dump` 15.19 contro
-un server 17.11 e aborta con *"server version mismatch"* (anche `pg_dump`
-locale è 15). Il dry-run invece funziona e non richiede password. Per il push
-servono o il client PostgreSQL 17 installato, o `docker run postgres:17
-pg_dump` con la password del database. Senza backup il push **non** va fatto
-(niente PITR sul piano Free).
+**Blocco noto (2026-11-12, risolto 2026-11-16):** il backup pre-push non si
+riusciva a produrre da questa macchina — `supabase db dump` (CLI 3.1.0 e
+`@latest`) usa `pg_dump` 15.19 contro un server 17.11 e aborta con
+*"server version mismatch"*. Risolto con `scripts/backup-db.sh`, che usa
+`pg_dump` 17 via Docker (`postgres:17`, server locale verificato 17.11) —
+vedi "8. Backup e restore" sotto. Resta vero che senza backup il push
+**non** va fatto (niente PITR sul piano Free).
 
 `--read-only` obbligatorio per i SELECT in agent mode; le mutation vogliono `--yes`.
 
@@ -147,7 +147,61 @@ npx vercel alias set <deployment-url> drop-in-stage.vercel.app
 
 Per rilanciare la build del branch senza modifiche: `git commit --allow-empty -m "chore: rebuild stage" && git push origin HEAD:stage`.
 
-### 7. Pulizia oggetti orfani
+### 7. Backup e restore (drill provato in locale 2026-11-18)
+
+Script: `scripts/backup-db.sh` (dump `pg_dump` custom format, checksum
+`.sha256`, retention `--keep`, guardia sul ref prod senza default che punti
+a produzione) e `scripts/restore-db.sh` (checksum, `--yes` obbligatorio,
+host locali di default, **produzione vietata**). Entrambi accettano
+`--dry-run` (stampa senza scrivere/toccare). Scorciatoie:
+`npm run db:backup -- --dsn ...`, `npm run db:restore -- --file ... --dsn ... --yes`.
+
+```bash
+# Dump di staging (la password DB sta nella Dashboard, mai nel repo)
+./scripts/backup-db.sh --dsn "postgresql://postgres:<PW>@db.ygnjqqgnxdmgpeeidkbn.supabase.co:5432/postgres" --label staging
+
+# Dump di prod (solo con la flag esplicita)
+./scripts/backup-db.sh --dsn "postgresql://postgres:<PW>@db.jeuqmmiebzeqtdctmtzj.supabase.co:5432/postgres" --label prod --i-know-this-is-prod
+
+# Restore SOLO su database scratch o staging (mai prod da questo script)
+./scripts/restore-db.sh --file backups/staging-<timestamp>.dump --dsn "postgresql://postgres:<PW>@db.ygnjqqgnxdmgpeeidkbn.supabase.co:5432/postgres" --yes --allow-remote
+```
+
+Dove sta il dump: `backups/` (gitignored) per i manuali — copiarlo
+**fuori dalla macchina** subito, altrimenti non è un backup; il workflow
+`.github/workflows/backup.yml` (lunedì 02:23 UTC) carica quello di staging
+come artifact GitHub (90 giorni). Procedura completa di promotion/rollback:
+`docs/ci.md`.
+
+Numeri (misurati, non stimati): dump locale 10.130 courts in **1 s / 1,2 MB**;
+restore in scratch DB in **~2 s**. La durata su remoto non è misurata (DB
+staging/prod più grandi + rete): va cronometrata al primo restore su staging.
+
+| | Valore |
+|---|---|
+| RPO (caso peggiore, solo automatico settimanale) | ≤ 7 giorni |
+| RPO (con backup manuale pre-push, obbligatorio) | ≈ minuti |
+| RTO (restore locale misurato + verifiche) | < 1 min |
+| RTO (staging/prod, da misurare dall'umano) | dichiarato < 1 h finché non misurato |
+
+Drill 2026-11-18 (dump locale → `CREATE DATABASE restore_rehearsal` →
+restore → confronto → drop): tutti i conteggi identici alla sorgente
+(courts 10.130, profiles 5, lobbies 0, lobby_series 0,
+court_name_proposals 2, check_ins 0, migrazioni 51/51) e
+`nearby_courts(41.9028, 12.4964, 15000, 200)` = 200 righe in entrambi.
+Warning `pg_restore` attesi e benigni (estensioni non presenti nello
+scratch: `cron`/`pg_cron`, `spatial_ref_sys`, `vault.secrets`, constraint
+ereditati `messages_*` di realtime): riguardano schemi interni Supabase,
+mai tabelle app.
+
+**Checklist per l'umano** (passi non eseguibili da qui, senza credenziali remote):
+
+1. Eseguire il restore su **staging** (comando sopra) e cronometrare dump + restore + verifiche.
+2. Dichiarare che l'app si riapre: `npm run smoke -- https://drop-in-stage.vercel.app --with-health` + giro manuale (mappa, login, lobby).
+3. Aggiornare la riga RTO staging/prod qui sopra con i minuti reali.
+4. Solo allora il backup di #85 è "provato" anche in remoto; il drill locale resta la prova ripetibile (`npm run test:all` non lo copre).
+
+### 8. Pulizia oggetti orfani
 
 Il bucket pubblico `court-photos` accumula orfani: upload riuscito + `submit_court`
 fallita, oppure court cancellata (FK a NULL). Le submission scartate

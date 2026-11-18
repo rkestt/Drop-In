@@ -4,6 +4,7 @@
 # Uso:
 #   scripts/restore-db.sh --file backups/staging-20261116T033000Z.dump \
 #     --dsn postgres://postgres:postgres@127.0.0.1:54322/postgres --yes
+#   scripts/restore-db.sh --file backups/x.dump --dsn ... --dry-run  (elenca il contenuto, non tocca il DB)
 #
 # Guardie:
 #  - richiede --yes (nessun restore interattivo "a caso");
@@ -21,6 +22,7 @@ FILE=""
 DSN="${SUPABASE_DB_URL:-}"
 CONFIRM=0
 ALLOW_REMOTE=0
+DRY_RUN=0
 DOCKER_IMAGE="postgres:17"
 PROD_REF="jeuqmmiebzeqtdctmtzj"
 
@@ -36,6 +38,7 @@ while [[ $# -gt 0 ]]; do
     --docker-image) DOCKER_IMAGE="${2:-}"; shift 2 ;;
     --yes) CONFIRM=1; shift ;;
     --allow-remote) ALLOW_REMOTE=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage ;;
     *) echo "Argomento sconosciuto: $1" >&2; usage ;;
   esac
@@ -44,7 +47,9 @@ done
 [[ -n "$FILE" ]] || { echo "Manca --file" >&2; exit 2; }
 [[ -f "$FILE" ]] || { echo "File non trovato: $FILE" >&2; exit 2; }
 [[ -n "$DSN" ]] || { echo "Manca --dsn o SUPABASE_DB_URL" >&2; exit 2; }
-[[ "$CONFIRM" -eq 1 ]] || { echo "Refusing senza --yes (il restore sovrascrive i dati)." >&2; exit 2; }
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  [[ "$CONFIRM" -eq 1 ]] || { echo "Refusing senza --yes (il restore sovrascrive i dati)." >&2; exit 2; }
+fi
 
 if [[ "$DSN" == *"$PROD_REF"* ]]; then
   echo "Il DSN punta alla produzione: vietato da questo script (rollback prod = PITR, vedi docs/ci.md)." >&2
@@ -63,6 +68,19 @@ if [[ -f "${FILE}.sha256" ]] && command -v sha256sum >/dev/null 2>&1; then
 fi
 
 ABS_FILE="$(cd "$(dirname "$FILE")" && pwd)/$(basename "$FILE")"
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  echo "Dry-run: il database non viene toccato (target: host $HOST_PART)."
+  echo "Contenuto del dump (prime 30 voci TOC):"
+  if command -v pg_restore >/dev/null 2>&1; then
+    pg_restore --list "$ABS_FILE" 2>/dev/null | head -30
+  else
+    docker run --rm -v "$(dirname "$ABS_FILE"):/backup:ro" \
+      "$DOCKER_IMAGE" \
+      pg_restore --list "/backup/$(basename "$ABS_FILE")" 2>/dev/null | head -30
+  fi
+  exit 0
+fi
 
 LOCAL_RESTORE=""
 if command -v pg_restore >/dev/null 2>&1; then

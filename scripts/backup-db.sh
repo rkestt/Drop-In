@@ -10,6 +10,7 @@
 #   scripts/backup-db.sh --dsn "$SUPABASE_DB_URL" --label staging
 #   scripts/backup-db.sh --dsn ... --out /var/backups/dropin --keep 30
 #   scripts/backup-db.sh --dsn postgres://...:54322/postgres --label local
+#   scripts/backup-db.sh --dsn "$DSN" --label staging --dry-run  (stampa e non scrive)
 #
 # Sicurezza: il DB di produzione ha un ref noto; senza --i-know-this-is-prod
 # lo script si ferma. Nessun secret viene scritto su disco o nei log (il DSN
@@ -26,6 +27,7 @@ LABEL="db"
 DSN="${SUPABASE_DB_URL:-}"
 DOCKER_IMAGE="postgres:17"
 ALLOW_PROD=0
+DRY_RUN=0
 
 usage() {
   sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
@@ -40,6 +42,7 @@ while [[ $# -gt 0 ]]; do
     --label) LABEL="${2:-}"; shift 2 ;;
     --docker-image) DOCKER_IMAGE="${2:-}"; shift 2 ;;
     --i-know-this-is-prod) ALLOW_PROD=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage ;;
     *) echo "Argomento sconosciuto: $1" >&2; usage ;;
   esac
@@ -57,6 +60,15 @@ mkdir -p "$OUT_DIR"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BASENAME="${LABEL}-${STAMP}.dump"
 TARGET="${OUT_DIR}/${BASENAME}"
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  echo "Dry-run: nessun file scritto."
+  echo "  label:  $LABEL"
+  echo "  target: $TARGET (pattern: ${LABEL}-<timestamp UTC>.dump)"
+  echo "  out:    $OUT_DIR (retention: ultimi $KEEP per label)"
+  echo "  prod:   $([[ "$DSN" == *"$PROD_REF"* ]] && echo "SI (flag --i-know-this-is-prod presente)" || echo "no")"
+  exit 0
+fi
 
 # pg_dump locale abbastanza recente? (>= 17)
 LOCAL_DUMP=""
