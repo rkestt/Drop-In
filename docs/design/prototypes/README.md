@@ -35,7 +35,7 @@ npx playwright screenshot --viewport-size="360,780" \
 | `notifications.html` | Centro notifiche e permesso push | d14 | approvato 2026-11-10 |
 | `report.html` | Segnala un campo | d15 | approvato 2026-11-10 |
 | `offline.html` | Offline, errore, stati vuoti | d16 | approvato 2026-11-10 |
-| `nav-map-lobby.html` | Home come mappa full-bleed + foglio "Partite vicine" a 2 snap: striscia orizzontale e piena (variante della home, non una schermata nuova) | #89 | approvato 2026-11-17 (B · 2 snap · card V4 · barra nelle righe) |
+| `nav-map-lobby.html` | Home come mappa full-bleed + foglio "Partite vicine" a 2 snap: striscia orizzontale e piena (variante della home, non una schermata nuova) | #89 | approvato 2026-11-17 (B · 2 snap · card V4 · barra nelle righe); **esteso 2026-11-19 con lo stato ricerca** (Lane 1 di #89, in review — `specs/home-ricerca.md`) |
 | `serie.html` | Appuntamento ricorrente: opzione "Ripeti ogni settimana" nel drawer di creazione, "Le mie serie", chip "Ricorrente · giovedì 20:00" su card e dettaglio | #92 | in review |
 | `nomi-campo.html` | Nomi dei campi: badge "Nome automatico" su scheda e anteprima, form proposta, "Nomi che hai proposto", terza tab "Nomi" in moderazione | #106 | in review |
 | `note-campo.html` | Note di campo: card datata sulla scheda (nessuna, una, vecchie, molte, stesso tipo), inserimento riservato a chi modera, una riga nell'anteprima dalla mappa | #90 | in review |
@@ -44,6 +44,13 @@ npx playwright screenshot --viewport-size="360,780" \
 banda statica di oggi (vista "Oggi") con il foglio trascinabile (opzione B di #89, due snap:
 striscia orizzontale delle partite e foglio pieno con l'elenco). Carica
 `proto.css` ma non `proto.js`: il suo stato è snap + vista, non scenari alternativi.
+
+Dal 2026-11-19 il file contiene anche lo **stato ricerca** (toolbar «Ricerca»: spenta, in
+corso, risultati, nessun campo, errore; più la «Tastiera» simulata da 300px). Le decisioni
+— barra sempre visibile nel chrome, un solo elenco alla volta, foglio pieno che si ferma
+sotto la barra, ritorno allo snap di prima — stanno in
+[`specs/home-ricerca.md`](../specs/home-ricerca.md). La parte approvata il 17 nov non è
+cambiata: snap 144/piena, card V4, barre nelle righe, invito di vuoto.
 
 `proto.css` e `proto.js` sono la base condivisa: **non si duplicano** dentro i
 singoli file. I due `.woff2` self-hosted di `app/fonts/` sono incorporati una volta

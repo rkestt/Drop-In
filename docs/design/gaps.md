@@ -24,6 +24,7 @@ Ogni riga è un debito esplicito: o si chiude (rimozione prevista) o resta docum
 | 2026-11-09 | `rounded-[1px]` (1 punto) | Barra di progresso da 1px, non un raggio di componente. Il check-design lo permette via allowlist | @designer | — |
 | 2026-11-09 | `rounded-[inherit]` in `components/motion/next-highlight.tsx` | Non è un raggio: il velo del ring eredita il raggio tokenizzato del figlio (Badge, card…). Il check-design lo permette via allowlist | d7 | — |
 | 2026-11-18 | `components/lobby/recurring-chip.tsx` — chip "Ricorrente · giovedì 20:00" fuori da `Badge` | `Badge` è maiuscolo 12px + `tracking-wider`: quella stringa diventa un blocco di ~180px e compete con il badge di stato della lobby. Il chip usa 12px/600 non maiuscolo, bordo `--border-strong`, testo `--text-secondary` (6,93:1 su surface): nessun token nuovo. Precedente: il chip "Sei dentro" in `lobby-card.tsx` | @designer | — |
+| 2026-11-19 | Campo di ricerca della home (#89, `specs/home-ricerca.md`) — variante «chrome sopra la mappa» di `Input` | Sopra il basemap chiaro l'input in-flow (`--bg-surface`, bordo trasparente) non si stacca e sembra un buco nella mappa. La variante usa `--bg-elevated`, bordo `--border-strong`, ombra del selettore sport, altezza 48 (input 46) e bottone × 44×44: stessa tipografia (16px) e stesso raggio (`--radius-control`) del componente. Solo classi dal chiamante, nessun componente nuovo | @designer | — |
 
 ## Template per nuove righe
 

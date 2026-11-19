@@ -14,7 +14,13 @@
 
   Cosa NON è: non è una route Next, non importa nulla da app/ o components/, non usa MapLibre
   (la mappa è un disegno statico con i colori di proto.css), non fa chiamate di rete.
-  proto.js non è caricato: gli stati qui sono snap + vista, non schermate alternative.
+  proto.js non è caricato: gli stati qui sono snap + vista + ricerca, non schermate alternative.
+
+  Estensione 2026-11-19 (Lane 1 di #89): la ricerca vive nel chrome sopra la mappa, non nel
+  foglio. Con una query attiva il foglio mostra i campi trovati al posto delle partite — un solo
+  elenco alla volta — e il foglio pieno si ferma sotto il chrome invece di coprirlo. La barra
+  non si sposta mai: né quando sale il foglio, né quando arrivano i risultati, né con la
+  tastiera aperta. Decisioni, misure e copy: docs/design/specs/home-ricerca.md.
 
   Nomi dei campi INVENTATI (vedi nota in fondo alla pagina): nel database 9.572 campi su
   10.130 si chiamano "Spazio aperto".
@@ -249,6 +255,107 @@
   .selector:focus-visible,
   .icon-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
+  /* ---------------------------------------------------------------- */
+  /* Ricerca: vive nel chrome sopra la mappa, non nel foglio           */
+  /* ---------------------------------------------------------------- */
+
+  /* Due righe: i filtri della mappa sopra, la ricerca sotto. Il foglio
+     pieno si ferma sopra questo blocco: la barra non viene mai coperta,
+     quindi non si sposta né quando il foglio sale né quando i risultati
+     prendono il posto delle partite. */
+  .map__chrome {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .map__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  /* Stessa forma dei controlli flottanti (selector, campanello). Non è
+     l'Input in-flow: quello è bg-surface senza bordo, qui il campo
+     galleggia sulla mappa chiara e deve staccarsi (bg-elevated + bordo). */
+  .map__search {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 2px 0 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-control);
+    background: var(--bg-elevated);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  }
+
+  .map__search:focus-within {
+    border-color: var(--accent);
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .map__search__icon { flex: 0 0 auto; color: var(--text-secondary); }
+
+  /* 16px: sotto iOS farebbe zoomare la pagina al focus. 46 = 48 del
+     contenitore meno i due bordi, così il bottone di cancellazione ha
+     davvero 44x44 dentro il campo. */
+  .map__search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 46px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 16px;
+  }
+
+  .map__search input::placeholder { color: var(--text-muted); }
+  .map__search input:focus { outline: none; }
+  /* Niente lente/X nativi: la cancellazione è un bottone nostro, 44px.
+     WebKit non basta `appearance: none`: senza `display:none` il bottone
+     nativo resta accanto al nostro (visto su iPhone 13). */
+  .map__search input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+  }
+  .map__search input::-webkit-search-decoration,
+  .map__search input::-webkit-search-results-button {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+  }
+
+  .map__search__clear {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: var(--radius-control-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  .map__search__clear:hover { background: var(--bg-surface); color: var(--text-primary); }
+  .map__search__clear:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
   /* Anteprima del campo toccato: la mappa resta viva sopra il foglio. */
   .place {
     position: absolute;
@@ -371,7 +478,9 @@
     top: auto;
     left: 0;
     right: 0;
-    bottom: var(--nav-h);
+    /* Con la tastiera aperta il foglio si appoggia sul suo bordo, non sulla
+       nav (che è sotto la tastiera). Il valore lo scrive il JS, misurando. */
+    bottom: var(--sheet-bottom, var(--nav-h));
     z-index: 50;
     display: flex;
     flex-direction: column;
@@ -390,7 +499,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 44px;
+    /* height, non flex-basis: è l'unica che si anima quando, in ricerca,
+       l'handle si chiude (a foglio già pieno il titolo non deve scattare). */
+    flex: 0 0 auto;
+    height: 44px;
     width: 100%;
     min-height: 44px;
     padding: 0;
@@ -400,6 +512,23 @@
     cursor: grab;
     /* il drag verticale qui è nostro: niente scroll del browser */
     touch-action: none;
+    transition: height var(--motion-base) var(--ease-standard),
+      opacity var(--motion-fast) var(--ease-standard),
+      visibility 0s linear 0s;
+  }
+
+  /* In ricerca il foglio ha una sola altezza: l'handle non deve suggerire un
+     drag che non esiste, e senza tastiera sono 44px che tornano utili. */
+  .phone:not([data-search="off"]) .sheet__handle {
+    height: 0;
+    min-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: height var(--motion-base) var(--ease-standard),
+      opacity var(--motion-fast) var(--ease-standard),
+      visibility 0s linear var(--motion-base);
   }
 
   .sheet__handle:active { cursor: grabbing; }
@@ -420,7 +549,12 @@
   .sheet__head {
     flex: 0 0 auto;
     padding: 0 20px 10px;
+    transition: padding-top var(--motion-base) var(--ease-standard);
   }
+
+  /* Senza handle il titolo non deve toccare il bordo: 14px, che salgono mentre
+     l'handle si chiude (net −30, nessuno scatto). */
+  .phone:not([data-search="off"]) .sheet__head { padding-top: 14px; }
 
   .sheet__title-row {
     display: flex;
@@ -585,6 +719,10 @@
 
   /* A striscia la data è rumore: resta a foglio pieno. */
   .phone[data-snap="rail"] .sheet__meta { display: none; }
+
+  /* Con la tastiera aperta la riga di contesto costa una riga di risultati:
+     il conteggio resta nel chip, il raggio nel campo (25 km). */
+  .phone[data-kb="1"]:not([data-search="off"]) .sheet__meta { display: none; }
 
   /* ---------------------------------------------------------------- */
   /* Card                                                              */
@@ -775,6 +913,158 @@
   .invite__row-meta { margin-left: auto; color: var(--text-muted); font-size: 13px; }
 
   /* ---------------------------------------------------------------- */
+  /* Risultati della ricerca                                           */
+  /* ---------------------------------------------------------------- */
+
+  /* Un solo elenco alla volta: con una query attiva il foglio mostra i campi
+     trovati, non le partite. Striscia, invito, piede e CTA spariscono
+     (stanno dentro #list-wrap o sono #rail), quindi non si sommano mai. */
+  .search-body { display: flex; flex-direction: column; gap: 12px; }
+
+  .court-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Riga del campo: la stessa di CourtSearchResults (foto, nome, meta),
+     senza barra e senza chevron — la barra dice i posti di una partita,
+     il chevron dice "c'è un'altra schermata": qui il campo è il punto. */
+  .court-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 80px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--motion-fast) var(--ease-standard),
+      border-color var(--motion-fast) var(--ease-standard);
+  }
+
+  .court-row:hover { border-color: var(--border-strong); background: var(--bg-elevated); }
+  .court-row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+  .court-row__photo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 56px;
+    width: 56px;
+    height: 56px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control-sm);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+  }
+
+  .court-row__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+  .court-row__name {
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .court-row__meta {
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .search-skeleton { height: 80px; }
+
+  .search-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 0 4px;
+  }
+
+  .search-empty__icon { color: var(--text-muted); }
+
+  .search-empty__title {
+    margin: 0;
+    font-family: var(--font-syne);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .search-empty__body { margin: 0; color: var(--text-secondary); font-size: 15px; }
+  .search-empty .btn { margin-top: 4px; }
+
+  /* Errore: la tinta danger del componente vero (bg danger/10, bordo
+     danger/40). In CSS puro si ottiene con color-mix, senza esadecimali. */
+  .search-error {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--danger) 10%, var(--bg-elevated));
+  }
+
+  .search-error__title { margin: 0; color: var(--danger-dark); font-size: 14px; font-weight: 600; }
+  .search-error__body { margin: 0; color: var(--text-secondary); font-size: 13px; }
+  .search-error .btn { margin-top: 6px; }
+
+  /* ---------------------------------------------------------------- */
+  /* Tastiera simulata (docs/ios.md: non emulabile)                     */
+  /* ---------------------------------------------------------------- */
+
+  /* Non è decorazione: copre nav e foglio come farebbe iOS, e serve a
+     vedere che il foglio si appoggia sul suo bordo invece di finirci sotto. */
+  .keyboard {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 70;
+    height: var(--kb-h, 0px);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 6px 8px;
+    border-top: 1px solid var(--border-strong);
+    background: var(--bg-base);
+  }
+
+  .keyboard__row { flex: 1 1 0; display: flex; gap: 6px; }
+
+  .keyboard__key {
+    flex: 1 1 0;
+    border-radius: var(--radius-control-sm);
+    background: var(--bg-surface);
+  }
+
+  .keyboard__key--space { flex: 4 1 0; }
+
+  .keyboard__label {
+    margin: 0;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+
+  .phone[data-kb="0"] .keyboard { display: none; }
+
+  /* ---------------------------------------------------------------- */
   /* Bottom nav (invariata: Mappa / Profilo)                           */
   /* ---------------------------------------------------------------- */
 
@@ -881,12 +1171,21 @@
   <button class="proto-switch" type="button" data-snap-btn="rail">Striscia</button>
   <button class="proto-switch" type="button" data-snap-btn="full">Piena</button>
   <span class="toolbar-note">|</span>
+  <span class="proto-toolbar__label">Ricerca</span>
+  <button class="proto-switch" type="button" data-search-btn="off">Spenta</button>
+  <button class="proto-switch" type="button" data-search-btn="loading">In corso</button>
+  <button class="proto-switch" type="button" data-search-btn="results">Risultati</button>
+  <button class="proto-switch" type="button" data-search-btn="empty">Nessun campo</button>
+  <button class="proto-switch" type="button" data-search-btn="error">Errore</button>
+  <span class="toolbar-note">|</span>
+  <button class="proto-switch" type="button" data-kb-btn aria-pressed="false">Tastiera</button>
   <button class="proto-switch" type="button" data-empty-btn aria-pressed="false">Nessuna partita</button>
+  <span class="toolbar-note">|</span>
   <button class="proto-switch" type="button" data-view-btn aria-pressed="false">Oggi (banda)</button>
   <button class="proto-switch" type="button" data-fullscreen aria-pressed="false">Schermo intero</button>
 </nav>
 
-<main class="phone" id="phone" data-snap="rail" data-view="dopo" data-empty="0">
+<main class="phone" id="phone" data-snap="rail" data-view="dopo" data-empty="0" data-search="off" data-kb="0">
 
   <!-- ============================ DOPO ============================ -->
   <div class="view view--map" data-panel="dopo">
@@ -914,14 +1213,28 @@
       <span class="pin pin--court pin--c2" aria-hidden="true"></span>
     </div>
 
-    <div class="map__top">
-      <button class="selector" type="button" aria-label="Sport: tutti gli sport">
-        Tutti gli sport
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-      </button>
-      <button class="icon-btn" type="button" aria-label="Notifiche">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/></svg>
-      </button>
+    <div class="map__chrome">
+      <div class="map__row">
+        <button class="selector" type="button" aria-label="Sport: tutti gli sport">
+          Tutti gli sport
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <button class="icon-btn" type="button" aria-label="Notifiche">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/></svg>
+        </button>
+      </div>
+
+      <!-- La ricerca è un ingresso della mappa: sta qui e resta qui. Il foglio
+           non la copre (piena = sotto questo blocco) e i risultati non la
+           spostano: si scrive guardando i risultati che arrivano. -->
+      <div class="map__search" role="search">
+        <svg class="map__search__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+        <label class="sr-only" for="court-search">Cerca campi per nome</label>
+        <input id="court-search" type="search" placeholder="Cerca un campo per nome…" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search">
+        <button class="map__search__clear" type="button" id="search-clear" aria-label="Cancella la ricerca" hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
     </div>
 
     <div class="place" id="place" hidden>
@@ -942,7 +1255,7 @@
       <button class="sheet__handle" type="button" id="sheet-handle" aria-label="Partite vicine. Premi per aprire la lista a tutta altezza" aria-expanded="true" aria-controls="sheet-scroll" aria-describedby="sheet-hint">
         <span class="sheet__grip" aria-hidden="true"></span>
       </button>
-      <p class="sr-only" id="sheet-hint">Trascina il foglio verso l’alto o verso il basso, oppure premi Invio per cambiare altezza. Le frecce su e giù spostano di uno scatto.</p>
+      <p class="sr-only" id="sheet-hint">Trascina il foglio verso l’alto o verso il basso, oppure premi Invio per cambiare altezza. Le frecce su e giù spostano di uno scatto. Durante una ricerca il foglio ha una sola altezza: trascinalo verso il basso per chiuderla.</p>
 
       <div class="sheet__head">
         <div class="sheet__title-row">
@@ -950,7 +1263,7 @@
           <span class="sheet__count" id="sheet-count" aria-hidden="true">5</span>
           <svg class="sheet__chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg>
         </div>
-        <p class="sheet__meta">Oggi, lunedì 16 novembre · entro 5 km</p>
+        <p class="sheet__meta" id="sheet-meta">Oggi, lunedì 16 novembre · entro 5 km</p>
       </div>
 
       <div class="sheet__scroll" id="sheet-scroll" role="region" aria-label="Elenco delle partite vicine">
@@ -1108,6 +1421,65 @@
         </div>
         </div><!-- /list-wrap -->
 
+        <!-- Risultati della ricerca: prendono il posto dell'elenco, non si
+             sommano. La testa (striscia), il piede e la CTA restano fuori. -->
+        <div class="search-body" id="search-body" hidden>
+          <div class="court-list" id="search-loading" aria-hidden="true" hidden>
+            <div class="skeleton search-skeleton"></div>
+            <div class="skeleton search-skeleton"></div>
+            <div class="skeleton search-skeleton"></div>
+          </div>
+
+          <ul class="court-list" id="search-results" hidden>
+            <li>
+              <button class="court-row" type="button" aria-label="Campetto Villa Chigi, a 1,2 km, basket, parco">
+                <span class="court-row__photo" aria-hidden="true">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+                </span>
+                <span class="court-row__body">
+                  <span class="court-row__name">Campetto Villa Chigi</span>
+                  <span class="court-row__meta">a 1,2 km · Basket · Parco</span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button class="court-row" type="button" aria-label="Campo di via Vetulonia, a 2,1 km, pallavolo, spazio aperto">
+                <span class="court-row__photo" aria-hidden="true">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+                </span>
+                <span class="court-row__body">
+                  <span class="court-row__name">Campo di via Vetulonia</span>
+                  <span class="court-row__meta">a 2,1 km · Pallavolo · Spazio aperto</span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button class="court-row" type="button" aria-label="Campo di via delle Vigne Nuove, a 3,1 km, basket, spazio aperto">
+                <span class="court-row__photo" aria-hidden="true">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3.2 3 8.8 3 12 0M6 18c3.2-3 8.8-3 12 0"/></svg>
+                </span>
+                <span class="court-row__body">
+                  <span class="court-row__name">Campo di via delle Vigne Nuove</span>
+                  <span class="court-row__meta">a 3,1 km · Basket · Spazio aperto</span>
+                </span>
+              </button>
+            </li>
+          </ul>
+
+          <div class="search-empty" id="search-empty" hidden>
+            <svg class="search-empty__icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            <h3 class="search-empty__title" id="search-empty-title">Nessun campo per «campetto azzurro»</h3>
+            <p class="search-empty__body">Entro 25 km. La ricerca guarda il nome del campo, non l’indirizzo.</p>
+            <button class="btn btn--secondary btn--sm" type="button" data-search-clear>Cancella la ricerca</button>
+          </div>
+
+          <div class="search-error" id="search-error" hidden>
+            <p class="search-error__title">Ricerca non riuscita</p>
+            <p class="search-error__body">Controlla la connessione e riprova.</p>
+            <button class="btn btn--secondary btn--sm" type="button" data-search-retry>Riprova</button>
+          </div>
+        </div>
+
       </div>
     </section>
 
@@ -1246,10 +1618,21 @@
       </a>
     </nav>
   </div>
+
+  <!-- Tastiera simulata: docs/ios.md spiega perché l'emulazione non la
+       riproduce. Qui serve a misurare il foglio quando il viewport utile si
+       accorcia: si appoggia sul bordo della tastiera e non ci finisce sotto. -->
+  <div class="keyboard" id="keyboard" aria-hidden="true">
+    <div class="keyboard__row"><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span></div>
+    <div class="keyboard__row"><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span></div>
+    <div class="keyboard__row"><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span><span class="keyboard__key"></span></div>
+    <div class="keyboard__row"><span class="keyboard__key keyboard__key--space"></span><span class="keyboard__key"></span></div>
+    <p class="keyboard__label">tastiera simulata · 300px</p>
+  </div>
 </main>
 
-<p class="note">
-  <strong>Nomi inventati.</strong> «Playground Roma70», «Campetto Villa Chigi», «Campo di via
+<footer class="note">
+  <p><strong>Nomi inventati.</strong> «Playground Roma70», «Campetto Villa Chigi», «Campo di via
   Vetulonia», «Campo di via Oderisi da Gubbio», «Campo di via delle Vigne Nuove» non esistono
   come voci del database: servono a vedere la schermata con contenuto plausibile. Nel database
   9.572 campi su 10.130 si chiamano «Spazio aperto» e 6.364 non hanno sport, quindi in produzione
@@ -1258,7 +1641,19 @@
   Gli orari seguono <code>formatAppDateTime</code> / <code>formatAppTime</code>; le distanze
   <code>formatDistanceM</code>. Trascina il foglio o premi l’handle; da tastiera Invio cambia
   altezza, le frecce salgono e scendono di uno scatto, Home/End vanno agli estremi.
-</p>
+
+  <strong>Ricerca (estensione del 19 nov, Lane 1 di #89).</strong> La barra sta nel chrome
+  sopra la mappa e il foglio pieno si ferma sotto di lei (<code>piena = contenitore − nav −
+  chrome − 8</code>): la ricerca non viene mai coperta e non si sposta. Scrivi nel campo: dopo
+  350ms il foglio passa da solo a piena e mostra i campi trovati al posto delle partite — l’elenco
+  è uno solo, mai due. Svuota il campo (×, Esc o cancella) e torni alle partite <em>con lo snap
+  che avevi prima</em>, stessa lista e stesso punto di scroll. Il pulsante <strong>Tastiera</strong>
+  disegna la tastiera iOS simulata (300px): il foglio si appoggia sul suo bordo e perde la riga di
+  contesto. La ricerca del prototipo non interroga niente: qualunque testo porta agli stessi tre
+  campi, e vuoto/errore si forzano dalla toolbar. Il campo ha il bordo del chrome (bg-elevated):
+  non è l’Input in-flow dei form. Misure, stati e copy: <code>docs/design/specs/home-ricerca.md</code>.
+  </p>
+</footer>
 
 <script>
 (function () {
@@ -1270,11 +1665,17 @@
     rail: "Premi per aprire l'elenco completo",
     full: "Premi per ridurre alla striscia",
   };
+  /* Tastiera simulata: altezza plausibile di iOS (docs/ios.md spiega perché
+     non è emulabile davvero). Il foglio si misura su questa, non su 100dvh. */
+  var KB_H = 300;
 
   var phone = document.getElementById("phone");
   var sheet = document.getElementById("sheet");
   var handle = document.getElementById("sheet-handle");
   var titleRow = sheet.querySelector(".sheet__title-row");
+  var titleEl = document.getElementById("sheet-title");
+  var metaEl = document.getElementById("sheet-meta");
+  var chev = sheet.querySelector(".sheet__chev");
   var scroller = document.getElementById("sheet-scroll");
   var railEl = document.getElementById("rail");
   var railEmpty = document.getElementById("rail-empty");
@@ -1290,28 +1691,87 @@
   var panelBefore = document.querySelector('[data-panel="prima"]');
   var nav = panelAfter.querySelector(".bottom-nav");
 
+  var input = document.getElementById("court-search");
+  var clearBtn = document.getElementById("search-clear");
+  var searchBody = document.getElementById("search-body");
+  var searchLoading = document.getElementById("search-loading");
+  var searchResults = document.getElementById("search-results");
+  var searchEmpty = document.getElementById("search-empty");
+  var searchEmptyTitle = document.getElementById("search-empty-title");
+  var searchError = document.getElementById("search-error");
+  var kbButton = document.querySelector("[data-kb-btn]");
+  var emptyButton = document.querySelector("[data-empty-btn]");
+
   var heights = { rail: 180, full: 640 };
   var current = "rail";
+  var handleH = 44;
+  var naturalStrip = 0;
+  var chromeH = 0;
   var drag = null;
   var touchState = null;
   var mouseState = null;
   var suppressClick = false;
+
+  /* Stato della ricerca: "off" è il foglio delle partite, gli altri quattro
+     sono l'unico elenco visibile. La query non è un contenuto del foglio:
+     vive nel campo, in alto, e resta lì. */
+  var searchMode = "off";
+  var query = "";
+  var focused = false;
+  var snapBefore = "rail";
+  var keyboard = false;
+  var typingTimer = null;
+  var listScroll = 0;
+
+  function searching() { return searchMode !== "off"; }
 
   function navHeight() {
     var h = nav ? nav.offsetHeight : 0;
     return h || 56;
   }
 
-  /* Lo snap basso non è un numero fisso: è l'altezza dell'handle, della riga
-     titolo e della striscia. Se cambia il contenuto, cambia lui. */
+  /* Con la tastiera aperta la nav è sotto di lei: il foglio si appoggia sul
+     bordo della tastiera. In produzione il numero viene da visualViewport. */
+  function sheetBottom() {
+    return keyboard ? KB_H : navHeight();
+  }
+
+  /* Il chrome (filtri + ricerca) non viene mai coperto: il foglio pieno si
+     ferma 8px sotto di lui. Si misura, non si quota. */
+  function chromeBottom() {
+    var chrome = panelAfter.querySelector(".map__chrome");
+    if (!chrome || panelAfter.hidden) return chromeH || 112;
+    var value = Math.round(chrome.getBoundingClientRect().bottom - phone.getBoundingClientRect().top);
+    if (value > 0) chromeH = value;
+    return chromeH || 112;
+  }
+
+  /* L'handle in ricerca è chiuso: l'altezza giusta è l'ultima letta da aperto,
+     non 0. */
+  function measureHandle() {
+    var h = handle.offsetHeight;
+    if (h > 0) handleH = h;
+    if (!handleH) handleH = 44;
+  }
+
   function measure() {
-    measureStrip();
-    var available = phone.clientHeight - navHeight();
+    if (!searching()) measureStrip();
+    measureHandle();
+    // Con la tastiera il foglio si appoggia sul suo bordo; senza, torna a
+    // `var(--nav-h)`, che contiene già la safe-area (il CSS la segue da solo).
+    if (keyboard) phone.style.setProperty("--sheet-bottom", KB_H + "px");
+    else phone.style.removeProperty("--sheet-bottom");
+    var available = phone.clientHeight - sheetBottom() - chromeBottom() - 8;
     // niente slack: il foglio finisce sul bordo della testa, così sotto non
     // affiora la prima riga tagliata
-    var railH = Math.round(handle.offsetHeight + titleRow.offsetHeight + 10 + naturalStrip);
+    var railH = Math.round(handleH + titleRow.offsetHeight + 10 + naturalStrip);
     if (!railH || railH < 140) railH = 180;
-    var full = Math.max(railH + 140, available);
+    // Con tastiera o ricerca il foglio riempie solo lo spazio che resta: il
+    // chrome non viene mai coperto, nemmeno su schermi bassi. Senza tastiera
+    // resta il pavimento che evita snap invertiti.
+    var full = available;
+    if (!searching() && !keyboard) full = Math.max(available, railH + 140);
+    full = Math.max(full, Math.min(railH, available));
     heights = { rail: railH, full: full };
     applyHeight(current);
     applyStrip(current === "full" ? 1 : 0);
@@ -1321,26 +1781,23 @@
     phone.style.setProperty("--sheet-h", heights[name] + "px");
   }
 
-  function countText() {
-    var n = phone.dataset.empty === "1" ? 0 : list.querySelectorAll(".lobby-card").length;
-    return n === 1 ? "1 partita vicina." : n + " partite vicine.";
+  function lobbyCount() {
+    return phone.dataset.empty === "1" ? 0 : list.querySelectorAll(".lobby-card").length;
   }
 
-  /* Un solo contenuto: la striscia è la testa dell'elenco e a foglio pieno
-     scorre via. Niente opacità, niente doppioni: quello che sta sotto la testa
-     è già l'elenco che si vedrà. */
-  function applyContent(name) {
-    var railOn = name !== "full";
-    listWrap.inert = railOn;
-    listWrap.setAttribute("aria-hidden", railOn ? "true" : "false");
+  function searchCount() {
+    return searchResults.querySelectorAll(".court-row").length;
+  }
+
+  function countText() {
+    var n = lobbyCount();
+    return n === 1 ? "1 partita vicina." : n + " partite vicine.";
   }
 
   /* La testa si accorcia mentre il foglio sale: le card escono dal basso
      (prima il nome, per ultimo l'orario) e l'elenco sale con loro, perché è
      nello stesso flusso. Nessuna opacità, nessun doppione, nessuno scroll
      programmatico. */
-  var naturalStrip = 0;
-
   function stripEl() {
     return phone.dataset.empty === "1" ? railEmpty : railEl;
   }
@@ -1349,7 +1806,10 @@
     var el = stripEl();
     el.style.display = "";
     el.style.height = "";
-    naturalStrip = el.offsetHeight;
+    // Nascosta (ricerca o foglio pieno) non si misura: l'ultima lettura buona
+    // resta quella giusta per l'altezza a striscia.
+    var h = el.offsetHeight;
+    if (h > 0) naturalStrip = h;
   }
 
   /* A foglio pieno la testa non c'è proprio: niente 12px di padding residuo
@@ -1374,22 +1834,168 @@
     return Math.min(1, Math.max(0, (h - heights.rail) / span));
   }
 
+  /* ---------------- testa, contenuto, toolbar ---------------- */
+
+  function syncHead() {
+    if (!searching()) {
+      titleEl.textContent = "Partite vicine";
+      countEl.hidden = false;
+      countEl.textContent = phone.dataset.empty === "1" ? "0" : String(lobbyCount());
+      metaEl.hidden = false;
+      metaEl.textContent = "Oggi, lunedì 16 novembre · entro 5 km";
+      // l'SVG non riflette la proprietà .hidden: serve l'attributo
+      chev.removeAttribute("hidden");
+      return;
+    }
+    titleEl.textContent = "Campi trovati";
+    chev.setAttribute("hidden", "");
+    if (searchMode === "loading") {
+      countEl.hidden = true;
+      metaEl.hidden = false;
+      metaEl.textContent = "Cerco «" + query + "»…";
+    } else if (searchMode === "error") {
+      countEl.hidden = true;
+      metaEl.hidden = true;
+    } else {
+      countEl.hidden = false;
+      countEl.textContent = searchMode === "empty" ? "0" : String(searchCount());
+      metaEl.hidden = false;
+      metaEl.textContent = "entro 25 km";
+    }
+  }
+
+  function syncHandle() {
+    if (searching()) {
+      // L'handle è chiuso: un grip che non trascina sarebbe una bugia.
+      handle.setAttribute("aria-label", "Chiudi la ricerca e torna alle partite vicine");
+      handle.removeAttribute("aria-expanded");
+      return;
+    }
+    handle.setAttribute("aria-expanded", current === "full" ? "true" : "false");
+    handle.setAttribute("aria-label", "Partite vicine. " + NEXT_ACTION[current]);
+  }
+
+  function syncToolbar() {
+    var today = phone.dataset.view === "prima";
+    Array.prototype.forEach.call(document.querySelectorAll("[data-snap-btn]"), function (button) {
+      button.setAttribute("aria-pressed", String(button.dataset.snapBtn === current));
+      button.disabled = today || searching();
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-search-btn]"), function (button) {
+      button.setAttribute("aria-pressed", String(button.dataset.searchBtn === searchMode));
+      button.disabled = today;
+    });
+    emptyButton.disabled = today || searching();
+    kbButton.disabled = today;
+    kbButton.setAttribute("aria-pressed", String(keyboard));
+  }
+
+  /* Tutto ciò che si vede nel foglio dipende da tre cose: lo snap, la
+     modalità ricerca e lo stato "nessuna partita". Una sola funzione le
+     riconcilia, così non esistono due elenchi accesi insieme. */
+  function syncSheet() {
+    var onSearch = searching();
+    searchBody.hidden = !onSearch;
+    searchLoading.hidden = searchMode !== "loading";
+    searchResults.hidden = searchMode !== "results";
+    searchEmpty.hidden = searchMode !== "empty";
+    searchError.hidden = searchMode !== "error";
+
+    listWrap.hidden = onSearch;
+    var listInert = onSearch || current !== "full";
+    listWrap.inert = listInert;
+    listWrap.setAttribute("aria-hidden", listInert ? "true" : "false");
+
+    railEl.hidden = onSearch || phone.dataset.empty === "1";
+    railEmpty.hidden = onSearch || phone.dataset.empty !== "1";
+    applyStrip(current === "full" ? 1 : 0);
+
+    clearBtn.hidden = input.value.length === 0;
+    syncHead();
+    syncHandle();
+    syncToolbar();
+  }
+
   function setSnap(name, announce) {
     if (SNAPS.indexOf(name) < 0) return;
+    // In ricerca il foglio ha una sola altezza: ridurlo chiude la ricerca.
+    if (searching() && name !== "full") {
+      closeSearch(true);
+      return;
+    }
     current = name;
     phone.dataset.snap = name;
     applyHeight(name);
-    applyContent(name);
-    applyStrip(name === "full" ? 1 : 0);
     if (name === "full") scroller.scrollTop = 0;
-    handle.setAttribute("aria-expanded", name === "full" ? "true" : "false");
-    handle.setAttribute("aria-label", "Partite vicine. " + NEXT_ACTION[name]);
-    Array.prototype.forEach.call(document.querySelectorAll("[data-snap-btn]"), function (button) {
-      button.setAttribute("aria-pressed", String(button.dataset.snapBtn === name));
-    });
     if (place && !place.hidden && name === "full") hidePlace();
+    syncSheet();
     if (announce) {
       live.textContent = "Lista " + LABEL[name] + ". " + countText();
+    }
+  }
+
+  function announceSearch() {
+    var q = query;
+    if (searchMode === "loading") {
+      live.textContent = "Cerco «" + q + "» entro 25 km.";
+    } else if (searchMode === "results") {
+      var n = searchCount();
+      live.textContent = n + (n === 1 ? " campo per «" : " campi per «") + q + "» entro 25 km.";
+    } else if (searchMode === "empty") {
+      live.textContent = "Nessun campo per «" + q + "» entro 25 km. La ricerca guarda il nome del campo, non l’indirizzo.";
+    } else if (searchMode === "error") {
+      live.textContent = "Ricerca non riuscita per «" + q + "». Controlla la connessione e riprova.";
+    }
+  }
+
+  /* La ricerca prende il foglio: si sale a piena, si spegne l'elenco delle
+     partite e si parte dall'inizio. Non si tocca la mappa. */
+  function openSearch(mode, text) {
+    var wasOff = !searching();
+    if (wasOff && !focused) snapBefore = current;
+    if (wasOff) listScroll = scroller.scrollTop;
+    searchMode = mode;
+    phone.dataset.search = mode;
+    if (typeof text === "string") {
+      query = text.trim();
+      input.value = text;
+    }
+    searchEmptyTitle.textContent = "Nessun campo per «" + query + "»";
+    measure();
+    if (current !== "full") {
+      current = "full";
+      phone.dataset.snap = "full";
+      applyHeight("full");
+    }
+    if (place && !place.hidden) hidePlace();
+    scroller.scrollTop = 0;
+    syncSheet();
+    announceSearch();
+  }
+
+  /* Chiudere la ricerca non è cambiare schermata: si torna allo snap di
+     prima, con la stessa lista e lo stesso punto di scorrimento. */
+  function closeSearch(announce) {
+    if (!searching()) return;
+    searchMode = "off";
+    phone.dataset.search = "off";
+    query = "";
+    input.value = "";
+    if (typingTimer) { clearTimeout(typingTimer); typingTimer = null; }
+    var target = focused ? "full" : snapBefore;
+    // prima si riaccende il contenuto (la striscia va misurata da visibile),
+    // poi si torna allo snap di prima: stessa lista, stesso punto di scroll
+    syncSheet();
+    measure();
+    setSnap(target, false);
+    scroller.scrollTop = listScroll;
+    syncSheet();
+    if (!focused) {
+      // il focus non deve cadere sul body: l'handle è il controllo del nuovo stato
+      try { handle.focus({ preventScroll: true }); } catch (error) { handle.focus(); }
+    }
+    if (announce) {
+      live.textContent = "Ricerca chiusa. Partite vicine. " + countText();
     }
   }
 
@@ -1490,6 +2096,13 @@
   });
 
   handle.addEventListener("keydown", function (event) {
+    if (searching()) {
+      if (event.key === "Enter" || event.key === " " || event.key === "Escape") {
+        event.preventDefault();
+        closeSearch(true);
+      }
+      return;
+    }
     if (event.key === "ArrowUp") {
       event.preventDefault();
       setSnap(step(current, 1), true);
@@ -1507,7 +2120,8 @@
 
   /* Handoff scroll ↔ drag: il foglio si muove solo quando il contenuto non ha
      più niente da scorrere nella direzione del dito. A striscia non c'è
-     scorrimento verticale: il foglio segue sempre il dito verso l'alto. */
+     scorrimento verticale: il foglio segue sempre il dito verso l'alto.
+     In ricerca il foglio è già al massimo: tirare giù dalla cima la chiude. */
   function atTop() { return scroller.scrollTop <= 0; }
   function atBottom() {
     return scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
@@ -1515,16 +2129,21 @@
 
   function canCollapse(dy) {
     if (dy <= 0) return false;
+    if (searching()) return atTop();
     return current === "full" ? atTop() : false;
   }
 
   function canExpand(dy) {
     if (dy >= 0) return false;
+    if (searching()) return false;
     if (current === "rail") return true;
     return atBottom();
   }
 
   scroller.addEventListener("touchstart", function (event) {
+    // iOS chiude la tastiera quando si trascina la lista: senza, il foglio
+    // resterebbe "focalizzato" e non tornerebbe allo snap di prima.
+    if (document.activeElement === input) input.blur();
     if (event.touches.length !== 1) { touchState = null; return; }
     touchState = { y: event.touches[0].clientY, capturing: false };
   }, { passive: true });
@@ -1584,6 +2203,122 @@
     event.stopPropagation();
   }, true);
 
+  /* ---------------- ricerca ---------------- */
+
+  input.addEventListener("focus", function () {
+    if (!focused) {
+      focused = true;
+      if (!searching()) snapBefore = current;
+    }
+    if (current !== "full") {
+      measure();
+      setSnap("full", false);
+    }
+  });
+
+  input.addEventListener("blur", function () {
+    focused = false;
+    if (!searching()) setSnap(snapBefore, false);
+  });
+
+  /* Il prototipo non interroga niente: ogni testo porta agli stessi tre campi
+     (il debounce c'è, la fetch no). Vuoto = si torna alle partite. */
+  input.addEventListener("input", function () {
+    var raw = input.value;
+    clearBtn.hidden = raw.length === 0;
+    if (raw.trim() === "") {
+      closeSearch(false);
+      return;
+    }
+    if (typingTimer) clearTimeout(typingTimer);
+    openSearch("loading", raw);
+    typingTimer = setTimeout(function () {
+      typingTimer = null;
+      openSearch("results", raw);
+    }, 350);
+  });
+
+  input.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      input.blur();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      input.blur();
+      closeSearch(true);
+    }
+  });
+
+  clearBtn.addEventListener("click", function () {
+    input.blur();
+    closeSearch(true);
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-search-clear]"), function (button) {
+    button.addEventListener("click", function () {
+      input.blur();
+      closeSearch(true);
+    });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-search-retry]"), function (button) {
+    button.addEventListener("click", function () {
+      openSearch("loading", query);
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(function () {
+        typingTimer = null;
+        openSearch("results", query);
+      }, 600);
+    });
+  });
+
+  /* Stati dimostrativi dalla toolbar: servono a guardare il foglio nei casi
+     che a mano richiedono una rete lenta o un campo che non esiste. */
+  function showSearchState(mode) {
+    if (mode === "off") {
+      input.blur();
+      closeSearch(true);
+      return;
+    }
+    var text = mode === "empty" ? "campetto azzurro" : "villa";
+    if (typingTimer) { clearTimeout(typingTimer); typingTimer = null; }
+    openSearch(mode, text);
+    if (document.activeElement === input) input.blur();
+    syncSheet();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-search-btn]"), function (button) {
+    button.addEventListener("click", function () {
+      if (phone.dataset.view !== "dopo") return;
+      showSearchState(button.dataset.searchBtn);
+    });
+  });
+
+  function setKeyboard(on) {
+    keyboard = on;
+    phone.dataset.kb = on ? "1" : "0";
+    phone.style.setProperty("--kb-h", on ? KB_H + "px" : "0px");
+    if (on) {
+      if (!focused) {
+        focused = true;
+        if (!searching()) snapBefore = current;
+      }
+      measure();
+      setSnap("full", false);
+      try { input.focus({ preventScroll: true }); } catch (error) { input.focus(); }
+    } else {
+      try { input.blur(); } catch (error) { /* noop */ }
+      measure();
+      if (!searching()) setSnap(snapBefore, false);
+    }
+    syncSheet();
+  }
+
+  kbButton.addEventListener("click", function () {
+    if (phone.dataset.view !== "dopo") return;
+    setKeyboard(!keyboard);
+  });
+
   /* ---------------- mappa ---------------- */
 
   function hidePlace() {
@@ -1618,8 +2353,11 @@
     });
   });
 
-  var emptyButton = document.querySelector("[data-empty-btn]");
   emptyButton.addEventListener("click", function () {
+    if (searching()) {
+      input.blur();
+      closeSearch(false);
+    }
     var empty = phone.dataset.empty !== "1";
     phone.dataset.empty = empty ? "1" : "0";
     emptyButton.setAttribute("aria-pressed", String(empty));
@@ -1636,28 +2374,30 @@
   function applyEmpty(empty) {
     list.hidden = empty;
     invite.hidden = !empty;
-    railEl.hidden = empty;
-    railEmpty.hidden = !empty;
-    countEl.textContent = empty ? "0" : String(list.querySelectorAll(".lobby-card").length);
     var foot = document.querySelector(".sheet__foot");
     var declare = document.querySelector(".sheet__declare");
     if (foot) foot.hidden = empty;
     if (declare) declare.hidden = empty;
+    syncSheet();
     measure();
   }
 
   var viewButton = document.querySelector("[data-view-btn]");
   viewButton.addEventListener("click", function () {
     var today = phone.dataset.view !== "prima";
+    if (today) {
+      setKeyboard(false);
+      if (searching()) {
+        input.blur();
+        closeSearch(false);
+      }
+    }
     phone.dataset.view = today ? "prima" : "dopo";
     viewButton.setAttribute("aria-pressed", String(today));
     viewButton.textContent = today ? "Torna al foglio" : "Oggi (banda)";
     panelAfter.hidden = today;
     panelBefore.hidden = !today;
-    Array.prototype.forEach.call(document.querySelectorAll("[data-snap-btn]"), function (button) {
-      button.disabled = today;
-    });
-    emptyButton.disabled = today;
+    syncToolbar();
     if (!today) {
       requestAnimationFrame(measure);
       requestAnimationFrame(function () { setSnap(current, false); });
@@ -1689,16 +2429,30 @@
   /* Aggancio per l'automazione di verifica: stato leggibile senza ispezionare il DOM. */
   window.__proto = {
     state: function () {
+      var sr = sheet.getBoundingClientRect();
       return {
         snap: current,
         view: phone.dataset.view,
         empty: phone.dataset.empty,
+        search: searchMode,
+        query: query,
+        keyboard: keyboard,
+        focused: focused,
+        snapBefore: snapBefore,
         heights: heights,
-        sheetHeight: Math.round(sheet.getBoundingClientRect().height),
+        naturalStrip: naturalStrip,
+        handleH: handleH,
+        titleH: titleRow.offsetHeight,
+        chromeBottom: chromeBottom(),
+        sheetTop: Math.round(sr.top),
+        sheetBottom: Math.round(sr.bottom),
+        sheetHeight: Math.round(sr.height),
         phone: { w: phone.offsetWidth, h: phone.offsetHeight },
       };
     },
     set: function (snap) { setSnap(snap, false); },
+    search: function (mode) { showSearchState(mode); },
+    keyboard: function (on) { setKeyboard(!!on); },
   };
 })();
 </script>

@@ -47,3 +47,20 @@ Gli sheet sono pannelli scorrevoli dal basso. L’implementazione di riferimento
   </div>
 </Drawer>
 ```
+
+## Sheet non modale (foglio "Partite vicine" della home)
+
+Il foglio della home (#89, `specs/home-ricerca.md`) **non è** il drawer qui sopra e non
+usa `Drawer`: è un pannello ancorato che convive con la mappa.
+
+| | Drawer (questo pattern) | Foglio della home |
+|---|---|---|
+| Semantica | `role="dialog"` + `aria-modal="true"` | `role="region"` + `aria-labelledby` |
+| Backdrop | sì (`--overlay`) | no: la mappa sopra resta visibile e cliccabile |
+| Focus | trap + restore al trigger | nessun trap, nessuno scroll lock |
+| Chiusura | backdrop, Esc, «Chiudi» | altezza (handle/drag); in ricerca, × nel campo o Esc |
+| Altezze | una, fino al bordo | misurate a runtime: striscia e piena |
+
+Regola: se il pannello deve poter restare aperto **mentre si usa ciò che sta dietro**,
+non è un drawer — è un foglio non modale, e va specificato a parte.
+
