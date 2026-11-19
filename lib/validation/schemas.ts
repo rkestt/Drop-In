@@ -302,3 +302,29 @@ export const updateSeriesSchema = seriesSchema.partial().refine(
 );
 
 export type UpdateSeriesValues = z.infer<typeof updateSeriesSchema>;
+
+/**
+ * Nuova password (ticket 109, recupero + invito): minimo 8 caratteri,
+ * conferma uguale. Regole sole dello schema, mai `minlength` duplicato
+ * nell'HTML (convenzione in testa al file). Il minimo resta sopra quello
+ * di Supabase (default 6): un rifiuto server arriva comunque mappato in
+ * italiano dal mapper dedicato, mai raw.
+ */
+export const NEW_PASSWORD_MIN = 8;
+
+export const newPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(
+        NEW_PASSWORD_MIN,
+        `La password deve avere almeno ${NEW_PASSWORD_MIN} caratteri.`
+      ),
+    confirm: z.string().min(1, "Ripeti la password."),
+  })
+  .refine((d) => d.password === d.confirm, {
+    message: "Le password non coincidono.",
+    path: ["confirm"],
+  });
+
+export type NewPasswordValues = z.infer<typeof newPasswordSchema>;

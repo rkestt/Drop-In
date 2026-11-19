@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { resolveLoginDestination } from "@/lib/auth/routes";
+import {
+  NEW_PASSWORD_PATH,
+  isRateLimitError,
+  newPasswordResetRedirect,
+} from "@/components/auth/new-password";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Drawer } from "@/components/ui/drawer";
@@ -69,6 +74,44 @@ export function LoginModal({ open, onClose, next }: LoginModalProps) {
     }
   };
 
+  // La pagina nuova-password senza sessione rimbalza qui con
+  // next=/auth/nuova-password (link scaduto, già usato o digitato a mano):
+  // il form password non si mostra mai senza sessione, da qui si chiede
+  // un link nuovo con "Password dimenticata?". Confronto sul path: il
+  // banner resta anche con una query appesa al next.
+  const expiredRecoveryLink =
+    destination?.split(/[?#]/, 1)[0] === NEW_PASSWORD_PATH;
+
+  const handleForgotPassword = async () => {
+    const trimmed = email.trim();
+    if (trimmed === "") {
+      setError("Inserisci la tua email per ricevere il link.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+        redirectTo: newPasswordResetRedirect(window.location.origin),
+      });
+      if (error) throw error;
+      setMessage(
+        "Controlla la tua email: ti abbiamo mandato il link per impostare la password."
+      );
+    } catch (err) {
+      // Mai il raw di Supabase in UI: solo frasi fisse italiane.
+      setError(
+        isRateLimitError(err)
+          ? "Troppi tentativi: attendi un minuto e riprova."
+          : "Non è stato possibile inviare l'email. Riprova."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoogleAuth = async () => {
     setLoading(true);
     setError(null);
@@ -102,6 +145,12 @@ export function LoginModal({ open, onClose, next }: LoginModalProps) {
         {message && (
           <div className="p-3 rounded-lg bg-[var(--success)]/10 text-[var(--success)] text-sm animate-scale-in" role="status" aria-live="polite">
             {message}
+          </div>
+        )}
+        {expiredRecoveryLink && !message && (
+          <div className="p-3 rounded-lg bg-[var(--warning)]/10 text-[var(--text-primary)] text-sm animate-scale-in" role="status" aria-live="polite">
+            Link scaduto o già usato. Inserisci la tua email qui sotto per
+            riceverne uno nuovo.
           </div>
         )}
 
@@ -155,6 +204,18 @@ export function LoginModal({ open, onClose, next }: LoginModalProps) {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Caricamento..." : isSignUp ? "Registrati" : "Accedi"}
           </Button>
+          {!isSignUp && (
+            <p className="text-center text-sm">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={loading}
+                className="text-[var(--accent)] font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 rounded px-1 disabled:opacity-50"
+              >
+                Password dimenticata?
+              </button>
+            </p>
+          )}
         </form>
 
         <div className="relative my-4">

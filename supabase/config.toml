@@ -37,6 +37,18 @@ enabled = true
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
+# Recupero/invito password (#109): due flussi, stessa schermata finale
+# `/auth/nuova-password` (il `next` inciso nel redirectTo):
+# - recupero via `resetPasswordForEmail`: flusso code/PKCE, redirectTo =
+#   `<site_url>/api/auth/callback?next=/auth/nuova-password` (la API route
+#   scambia il `code` e imposta la sessione);
+# - invito via Admin API / `generateLink`: verify torna con la sessione nel
+#   fragment (`#access_token=...`, invisibile al server), redirectTo =
+#   `<site_url>/auth/callback?next=/auth/nuova-password` (pagina client
+#   che imposta la sessione e rimbalza al `next`).
+# Entrambi restano same-origin sotto site_url (sottopercorsi con query
+# ammessi): niente da aggiungere qui in locale; su staging/prod va
+# allowlistato l'origin remoto.
 additional_redirect_urls = ["https://localhost:3000"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
