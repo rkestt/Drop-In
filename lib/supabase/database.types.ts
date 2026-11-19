@@ -624,7 +624,7 @@ isOneToOne: false
                            },
 "open_lobbies":
 { Args: { "p_lat"?: number,"p_limit"?: number,"p_lng"?: number,"p_radius_m"?: number,"p_sport"?: string }; Returns: {
-              "court_id": string,"court_name": string,"court_sport": string,"duration_minutes": number,"ends_at": string,"id": string,"max_players": number,"participants_count": number,"sport": string,"start_time": string,"status": string
+              "court_id": string,"court_name": string,"court_sport": string,"duration_minutes": number,"ends_at": string,"id": string,"max_players": number,"participants_count": number,"series_id": string,"sport": string,"start_time": string,"status": string
             }[]
                            },
 "populate_geometry_columns":

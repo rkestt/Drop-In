@@ -4415,4 +4415,75 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ================= 61. #89 lane A: open_lobbies espone series_id =================
+-- Il foglio home deve mostrare il chip "Ricorrente" (#92) come /lobbies: la
+-- RPC aggiunge `series_id` in coda (migrazione 054, regola additiva
+-- docs/rpc.md). Fixture isolata su corte dedicata 'Series Chip Court'
+-- (approved/active come la 35, cosi' anon la vede): un'occorrenza di serie
+-- dentro le 36h, una singola dentro le 36h, un'occorrenza di serie a +10
+-- giorni. Ultimo blocco: dopo la 60 nulla segue, nessun'altra fixture
+-- dipende da questi nomi. Claim azzerati (come 58/59): gli INSERT girano
+-- come postgres e il rate-limit 034 (chiave su auth.uid) non scatta.
+SET LOCAL request.jwt.claims = '';
+DO $$
+DECLARE
+  v_court UUID;
+  v_series UUID;
+BEGIN
+  INSERT INTO public.courts (name, lat, lng, location, source, submitted_by, moderation_status, status)
+  VALUES ('Series Chip Court', 41.92, 12.52, ST_SetSRID(ST_MakePoint(12.52,41.92),4326)::geography, 'community',
+          'dddddddd-dddd-dddd-dddd-dddddddddddd','approved','active')
+  RETURNING id INTO v_court;
+  INSERT INTO public.lobby_series (court_id, creator_id, weekday, time_of_day, duration_minutes, max_players)
+  VALUES (v_court, 'dddddddd-dddd-dddd-dddd-dddddddddddd', 4, '20:00', 60, 10)
+  RETURNING id INTO v_series;
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status, duration_minutes, series_id)
+  VALUES (v_court, 'dddddddd-dddd-dddd-dddd-dddddddddddd', now() + interval '2 hours', 10, 'open', 60, v_series);
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status, series_id)
+  VALUES (v_court, 'dddddddd-dddd-dddd-dddd-dddddddddddd', now() + interval '3 hours', 10, 'open', NULL);
+  INSERT INTO public.lobbies (court_id, creator_id, start_time, max_players, status, duration_minutes, series_id)
+  VALUES (v_court, 'dddddddd-dddd-dddd-dddd-dddddddddddd', now() + interval '10 days', 10, 'open', 60, v_series);
+END $$;
+
+-- 61a. L'occorrenza di serie espone series_id non nullo, la singola NULL
+-- (coordinate sulla corte + raggio stretto: le sue righe escono per prime
+-- in KNN, il WHERE sul nome resta dentro il LIMIT).
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.open_lobbies(NULL, 100, 41.92, 12.52, 2000)
+                 WHERE court_name = 'Series Chip Court' AND series_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'open_lobbies non espone series_id sulle occorrenze (#89 lane A)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.open_lobbies(NULL, 100, 41.92, 12.52, 2000)
+                 WHERE court_name = 'Series Chip Court' AND series_id IS NULL) THEN
+    RAISE EXCEPTION 'open_lobbies: la singola non ha series_id NULL (#89 lane A)';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 61b. Stesso per authenticated (grant EXECUTE intatto dopo il DROP della 054).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"dddddddd-dddd-dddd-dddd-dddddddddddd","role":"authenticated"}';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.open_lobbies(NULL, 100, 41.92, 12.52, 2000)
+                 WHERE court_name = 'Series Chip Court' AND series_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'open_lobbies(auth): series_id illeggibile (#89 lane A)';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 61c. Filtro 36h invariato: l'occorrenza a +10 giorni non compare (raggio
+-- largo apposta: se uscisse, sarebbe solo l'orizzonte a escluderla).
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.open_lobbies(NULL, 100, 41.92, 12.52, 50000)
+             WHERE court_name = 'Series Chip Court'
+               AND start_time > NOW() + INTERVAL '36 hours') THEN
+    RAISE EXCEPTION 'open_lobbies: orizzonte 36h rotto dalla 054 (#89 lane A)';
+  END IF;
+END $$;
+RESET ROLE;
+
 ROLLBACK;
