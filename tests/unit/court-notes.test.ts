@@ -216,37 +216,56 @@ describe("fetchPreviewNote", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ({ from: stub(result, rejected) }) as any;
 
-  it("nota fresca: tipo ed età", async () => {
+  it("nota fresca: tipo ed età con `now` esplicito", async () => {
     const note = await fetchPreviewNote(
       client({ data: { kind: "closed", created_at: daysAgo(2) }, error: null }),
       "court-1",
+      NOW,
     );
     expect(note).toEqual({ kind: "Chiuso", age: "2 giorni fa" });
   });
+  it("deterministica: stessa riga, `now` diverso → età diversa", async () => {
+    const row = { kind: "closed", created_at: daysAgo(2) };
+    const then = await fetchPreviewNote(
+      client({ data: row, error: null }),
+      "court-1",
+      NOW,
+    );
+    const later = await fetchPreviewNote(
+      client({ data: row, error: null }),
+      "court-1",
+      new Date(NOW.getTime() + 24 * 60 * 60_000),
+    );
+    expect(then).toEqual({ kind: "Chiuso", age: "2 giorni fa" });
+    expect(later).toEqual({ kind: "Chiuso", age: "3 giorni fa" });
+  });
   it("null quando non c'è, è vecchia, ha un tipo ignoto o fallisce", async () => {
     expect(
-      await fetchPreviewNote(client({ data: null, error: null }), "c"),
+      await fetchPreviewNote(client({ data: null, error: null }), "c", NOW),
     ).toBeNull();
     expect(
       await fetchPreviewNote(
         client({ data: { kind: "closed", created_at: daysAgo(120) }, error: null }),
         "c",
+        NOW,
       ),
     ).toBeNull();
     expect(
       await fetchPreviewNote(
         client({ data: { kind: "wet_court", created_at: daysAgo(1) }, error: null }),
         "c",
+        NOW,
       ),
     ).toBeNull();
     expect(
       await fetchPreviewNote(
         client({ data: null, error: { message: "boom" } }),
         "c",
+        NOW,
       ),
     ).toBeNull();
     expect(
-      await fetchPreviewNote(client(null, new Error("rete")), "c"),
+      await fetchPreviewNote(client(null, new Error("rete")), "c", NOW),
     ).toBeNull();
   });
   it("query mirata: una sola riga, la più nuova", async () => {

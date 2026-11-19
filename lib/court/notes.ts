@@ -249,6 +249,7 @@ export interface PreviewCourtNote {
 export async function fetchPreviewNote(
   supabase: SupabaseClient<Database>,
   courtId: string,
+  now: string | Date = new Date(),
 ): Promise<PreviewCourtNote | null> {
   try {
     const { data, error } = await supabase
@@ -259,10 +260,10 @@ export async function fetchPreviewNote(
       .limit(1)
       .maybeSingle();
     if (error || !data) return null;
-    if (!isFreshNote(data.created_at)) return null;
+    if (!isFreshNote(data.created_at, now)) return null;
     const kind = noteKindLabel(data.kind);
     if (!kind) return null;
-    const age = noteAgeLabel(data.created_at);
+    const age = noteAgeLabel(data.created_at, now);
     if (!age) return null;
     return { kind, age };
   } catch {
