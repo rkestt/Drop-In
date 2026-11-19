@@ -29,6 +29,7 @@
     "prepare": "husky",
     "db:backup": "bash scripts/backup-db.sh",
     "db:restore": "bash scripts/restore-db.sh",
+    "email:smoke": "bash scripts/smoke-email.sh",
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {

@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Anteprima email di autenticazione · Drop-In</title>
+    <style>
+      @font-face {
+        font-family: "Syne";
+        src: url("../../../app/fonts/Syne-variable.woff2") format("woff2");
+        font-weight: 400 800;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Source Sans 3";
+        src: url("../../../app/fonts/SourceSans3-variable.woff2") format("woff2");
+        font-weight: 400 700;
+        font-display: swap;
+      }
+      :root {
+        --bg-base: #141414;
+        --bg-surface: #1f1f1f;
+        --text-primary: #f0f0f0;
+        --text-secondary: #a8a8a8;
+        --text-muted: #949494;
+        --accent: #24ae56;
+        --border: #333333;
+        --border-strong: #4a4a4a;
+        --radius-card: 12px;
+        --radius-control: 10px;
+        --font-syne: "Syne", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --font-source-sans: "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      html, body { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg-base);
+        color: var(--text-primary);
+        font-family: var(--font-source-sans);
+        font-size: 16px;
+        line-height: 1.55;
+      }
+      .page {
+        width: 100%;
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 40px 24px 72px;
+      }
+      .eyebrow {
+        margin: 0 0 12px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      h1 {
+        margin: 0;
+        max-width: 18ch;
+        font-family: var(--font-syne);
+        font-size: clamp(32px, 5vw, 48px);
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+      }
+      .lead {
+        max-width: 68ch;
+        margin: 16px 0 0;
+        color: var(--text-secondary);
+        font-size: 17px;
+        line-height: 1.6;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.9em;
+        color: var(--text-primary);
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 20px;
+      }
+      .chip {
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px 20px;
+        margin-top: 36px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+      }
+      .segmented {
+        display: inline-flex;
+        padding: 3px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+        background: var(--bg-surface);
+      }
+      .segmented button {
+        min-height: 44px;
+        padding: 6px 14px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--text-secondary);
+        font: inherit;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      .segmented button[aria-pressed="true"] {
+        background: var(--bg-base);
+        color: var(--text-primary);
+        box-shadow: inset 0 0 0 1px var(--border-strong);
+      }
+      .segmented button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .hint {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+      .section {
+        margin-top: 44px;
+        padding-top: 26px;
+        border-top: 1px solid var(--border);
+      }
+      .section-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 8px 16px;
+        margin-bottom: 6px;
+      }
+      .section-num {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+      .section h2 {
+        margin: 0;
+        font-family: var(--font-syne);
+        font-size: 22px;
+        line-height: 1.2;
+      }
+      .section-head a {
+        margin-left: auto;
+        color: var(--text-secondary);
+        font-size: 13px;
+        text-underline-offset: 3px;
+      }
+      .section-head a:hover { color: var(--text-primary); }
+      .meta {
+        margin: 0 0 16px;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+      .meta strong {
+        color: var(--text-secondary);
+        font-weight: 600;
+      }
+      .stage-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: #0d0d0d;
+      }
+      .stage-wrap iframe {
+        display: block;
+        width: 600px;
+        max-width: none;
+        height: 760px;
+        margin: 0 auto;
+        border: 0;
+        background: var(--bg-base);
+      }
+      [data-mode="mobile"] .stage-wrap iframe { width: 360px; height: 980px; }
+      .foot {
+        margin-top: 48px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+      @media (max-width: 720px) {
+        .page { padding: 28px 0 56px; }
+        .eyebrow, h1, .lead, .chips, .toolbar, .section-head, .meta, .foot {
+          margin-left: 16px;
+          margin-right: 16px;
+        }
+        .lead { margin-top: 16px; }
+        .toolbar { margin-top: 28px; }
+        .section { margin-top: 36px; padding-top: 22px; }
+        .stage-wrap {
+          border-left: 0;
+          border-right: 0;
+          border-radius: 0;
+        }
+        .section-head a { margin-left: 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * { scroll-behavior: auto !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <p class="eyebrow">Drop-In · Auth email</p>
+        <h1>Cinque email, un solo carattere.</h1>
+        <p class="lead">
+          Anteprima dei template reali in <code>supabase/auth/templates/</code>.
+          Tema dark, card da 480 px, un solo pulsante primario per email.
+          Le variabili Supabase restano visibili come segnaposto: qui si guarda
+          la struttura, non il testo finale.
+        </p>
+        <div class="chips">
+          <span class="chip">5 template</span>
+          <span class="chip">card 480 px</span>
+          <span class="chip">1 CTA</span>
+          <span class="chip">nessuna immagine</span>
+          <span class="chip">nessun font esterno</span>
+        </div>
+      </header>
+
+      <div class="toolbar">
+        <div class="segmented" role="group" aria-label="Larghezza anteprima">
+          <button type="button" data-mode-btn="desktop" aria-pressed="true">600 px</button>
+          <button type="button" data-mode-btn="mobile" aria-pressed="false">360 px</button>
+        </div>
+        <p class="hint">La card resta 480 px a 600; a 360 diventa fluida con la media query.</p>
+      </div>
+
+      <main id="stages" data-mode="desktop">
+        <section class="section">
+          <div class="section-head">
+            <span class="section-num">01</span>
+            <h2>Invito</h2>
+            <a href="../../../supabase/auth/templates/invite.html" target="_blank" rel="noopener">Apri il file</a>
+          </div>
+          <p class="meta">
+            <strong>Oggetto:</strong> Invito a Drop-In ·
+            <strong>Variabili:</strong> <code>{{ .ConfirmationURL }}</code>, <code>{{ .Email }}</code>
+          </p>
+          <div class="stage-wrap">
+            <iframe src="../../../supabase/auth/templates/invite.html" title="Anteprima email di invito"></iframe>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <span class="section-num">02</span>
+            <h2>Conferma indirizzo</h2>
+            <a href="../../../supabase/auth/templates/confirmation.html" target="_blank" rel="noopener">Apri il file</a>
+          </div>
+          <p class="meta">
+            <strong>Oggetto:</strong> Conferma il tuo indirizzo email · Drop-In ·
+            <strong>Variabili:</strong> <code>{{ .ConfirmationURL }}</code>, <code>{{ .Email }}</code>, <code>{{ .Token }}</code>
+          </p>
+          <div class="stage-wrap">
+            <iframe src="../../../supabase/auth/templates/confirmation.html" title="Anteprima email di conferma indirizzo"></iframe>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <span class="section-num">03</span>
+            <h2>Recupero password</h2>
+            <a href="../../../supabase/auth/templates/recovery.html" target="_blank" rel="noopener">Apri il file</a>
+          </div>
+          <p class="meta">
+            <strong>Oggetto:</strong> Reimposta la password · Drop-In ·
+            <strong>Variabili:</strong> <code>{{ .ConfirmationURL }}</code>, <code>{{ .Email }}</code>, <code>{{ .Token }}</code>
+          </p>
+          <div class="stage-wrap">
+            <iframe src="../../../supabase/auth/templates/recovery.html" title="Anteprima email di recupero password"></iframe>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <span class="section-num">04</span>
+            <h2>Cambio indirizzo</h2>
+            <a href="../../../supabase/auth/templates/email-change.html" target="_blank" rel="noopener">Apri il file</a>
+          </div>
+          <p class="meta">
+            <strong>Oggetto:</strong> Conferma il nuovo indirizzo · Drop-In ·
+            <strong>Variabili:</strong> <code>{{ .ConfirmationURL }}</code>, <code>{{ .Email }}</code>, <code>{{ .NewEmail }}</code>
+          </p>
+          <div class="stage-wrap">
+            <iframe src="../../../supabase/auth/templates/email-change.html" title="Anteprima email di cambio indirizzo"></iframe>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <span class="section-num">05</span>
+            <h2>Magic link</h2>
+            <a href="../../../supabase/auth/templates/magic-link.html" target="_blank" rel="noopener">Apri il file</a>
+          </div>
+          <p class="meta">
+            <strong>Oggetto:</strong> Il tuo link di accesso · Drop-In ·
+            <strong>Variabili:</strong> <code>{{ .ConfirmationURL }}</code>, <code>{{ .Email }}</code>
+          </p>
+          <div class="stage-wrap">
+            <iframe src="../../../supabase/auth/templates/magic-link.html" title="Anteprima email magic link"></iframe>
+          </div>
+        </section>
+      </main>
+
+      <p class="foot">
+        I file aperti qui sono quelli veri: se cambiano in
+        <code>supabase/auth/templates/</code>, questa pagina cambia con loro.
+        La review e le scelte sono in <code>review.md</code>.
+      </p>
+    </div>
+
+    <script>
+      (function () {
+        var stages = document.getElementById("stages");
+        var frames = Array.prototype.slice.call(document.querySelectorAll(".stage-wrap iframe"));
+        var buttons = Array.prototype.slice.call(document.querySelectorAll("[data-mode-btn]"));
+        var userChose = false;
+
+        function fitFrames() {
+          frames.forEach(function (frame) {
+            try {
+              var doc = frame.contentDocument;
+              if (!doc) return;
+              var height = doc.body
+                ? doc.body.scrollHeight
+                : doc.documentElement.scrollHeight;
+              if (height > 200) frame.style.height = height + 1 + "px";
+            } catch (error) {
+              /* file:// con iframe cross-origin: resta l'altezza di fallback */
+            }
+          });
+        }
+
+        function setMode(mode) {
+          stages.setAttribute("data-mode", mode);
+          buttons.forEach(function (button) {
+            button.setAttribute("aria-pressed", String(button.getAttribute("data-mode-btn") === mode));
+          });
+          requestAnimationFrame(function () {
+            requestAnimationFrame(fitFrames);
+          });
+        }
+
+        buttons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            userChose = true;
+            setMode(button.getAttribute("data-mode-btn"));
+          });
+        });
+
+        frames.forEach(function (frame) {
+          frame.addEventListener("load", fitFrames);
+        });
+
+        var query = window.matchMedia("(max-width: 599px)");
+        function applyDefault() {
+          if (!userChose) setMode(query.matches ? "mobile" : "desktop");
+        }
+        if (query.addEventListener) query.addEventListener("change", applyDefault);
+        applyDefault();
+        window.addEventListener("load", fitFrames);
+      })();
+    </script>
+  </body>
+</html>

@@ -3,14 +3,25 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark light" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="only dark" />
+    <meta name="supported-color-schemes" content="dark" />
     <title>Conferma il nuovo indirizzo · Drop-In</title>
+    <style>
+      :root { color-scheme: only dark; supported-color-schemes: dark; }
+      html, body { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+      table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+      a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+      @media only screen and (max-width: 520px) {
+        .card { width: 100% !important; max-width: 100% !important; }
+      }
+    </style>
   </head>
-  <body style="margin:0;padding:0;background:#141414;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#141414;padding:32px 16px;">
+  <body bgcolor="#141414" style="margin:0;padding:0;background:#141414;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#141414" style="background:#141414;">
       <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#1e1e1e;border:1px solid #2e2e2e;border-radius:12px;">
+        <td align="center" style="padding:32px 16px;">
+          <table role="presentation" class="card" width="480" cellpadding="0" cellspacing="0" bgcolor="#1e1e1e" style="width:480px;max-width:480px;background:#1e1e1e;border:1px solid #2e2e2e;border-radius:12px;">
             <tr>
               <td style="padding:28px 28px 8px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
                 <p style="margin:0 0 4px 0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#24ae56;font-weight:700;">Drop-In</p>
@@ -22,13 +33,13 @@
                 <p style="margin:0 0 18px 0;">Hai chiesto di passare a <strong style="color:#f0f0f0;">{{ .NewEmail }}</strong>. Conferma qui sotto: l'indirizzo attuale ({{ .Email }}) resta valido finché non confermi.</p>
                 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 18px 0;">
                   <tr>
-                    <td style="border-radius:999px;background:#24ae56;">
-                      <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#141414;text-decoration:none;border-radius:999px;">Conferma il cambio</a>
+                    <td bgcolor="#24ae56" style="background:#24ae56;border-radius:999px;">
+                      <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:14px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:20px;font-weight:700;color:#141414;background:#24ae56;text-decoration:none;border-radius:999px;mso-line-height-rule:exactly;">Conferma il cambio</a>
                     </td>
                   </tr>
                 </table>
                 <p style="margin:0 0 8px 0;font-size:13px;color:#a3a3a3;">Se il bottone non funziona, copia questo indirizzo nel browser:</p>
-                <p style="margin:0 0 18px 0;font-size:12px;line-height:1.4;word-break:break-all;color:#24ae56;">{{ .ConfirmationURL }}</p>
+                <p style="margin:0 0 18px 0;font-size:12px;line-height:1.4;word-break:break-all;color:#24ae56;"><a href="{{ .ConfirmationURL }}" target="_blank" style="color:#24ae56;text-decoration:underline;">{{ .ConfirmationURL }}</a></p>
               </td>
             </tr>
             <tr>
