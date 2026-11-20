@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { postgrestErrorFields } from "@/lib/lobbies/join-errors";
+import { postgrestErrorFields } from "@/lib/errors/postgrest";
 
 // Helper #103: con `shouldThrowOnError: false` PostgREST restituisce un
 // oggetto semplice, non un'istanza di Error — i check `instanceof Error`
