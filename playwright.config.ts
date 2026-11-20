@@ -17,9 +17,29 @@ function loadEnvLocal(): Record<string, string> {
   return env;
 }
 
-// envLocal kept for future Supabase URL injection if needed (currently env injected via .env.local auto-load by Next)
+// envLocal kept for Supabase URL injection if needed (currently env injected via .env.local auto-load by Next)
 const envLocal = loadEnvLocal();
-void envLocal;
+
+// Chiave service-role SOLO per il Supabase locale: la route
+// POST /api/account/delete la legge dal dev server e .env.local non ce
+// l'ha, quindi su clone pulito il gate era rosso. La si inietta qui (il dev
+// server la eredita da `webServer.env`) solo quando l'app punta davvero al
+// locale: URL assente (= default del dev, proxy `/supabase` di next.config.js
+// verso 127.0.0.1:54321), oppure 127.0.0.1/localhost, oppure path relativo
+// del proxy. MAI se punta a `https://*.supabase.co` (staging/prod).
+// Perche' e' sicura: e' il JWT deterministico del secret di default dello
+// stack locale (stesso valore gia' committato in tests/e2e/helpers/auth.ts),
+// vale solo contro quel DB; senza prefisso NEXT_PUBLIC_ non finisce nel
+// build client, resta server-only del dev server dei test.
+const E2E_SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? envLocal.NEXT_PUBLIC_SUPABASE_URL ?? "";
+function isLocalSupabaseTarget(raw: string): boolean {
+  if (raw === "") return true;
+  if (/\.supabase\.co(\/|$)/.test(raw)) return false;
+  return raw.startsWith("/") || /127\.0\.0\.1|localhost/.test(raw);
+}
+const LOCAL_SERVICE_ROLE_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
 
 // Porta parametrica: default 3100. Lane parallele o run manuali mentre la
 // 3100 è occupata usano E2E_PORT=3140 (il webServer riusato segue la porta).
@@ -105,6 +125,14 @@ export default defineConfig({
     // CON LA SUA TZ — se quello gira a Europe/Rome la garanzia UTC salta.
     // Prima degli e2e sensibili al fuso (hydration.spec.ts) killare gli
     // altri dev server: `lsof -ti:3100 | xargs kill` (o E2E_PORT).
-    env: { TZ: "UTC" },
+    // La service-role locale serve alle route account anche in dev
+    // (vedi sopra): senza, POST /api/account/delete risponde 500
+    // "service role non configurato". Solo contro il locale, mai remoto.
+    env: {
+      TZ: "UTC",
+      ...(isLocalSupabaseTarget(E2E_SUPABASE_URL)
+        ? { SUPABASE_SERVICE_ROLE_KEY: LOCAL_SERVICE_ROLE_KEY }
+        : {}),
+    },
   },
 });

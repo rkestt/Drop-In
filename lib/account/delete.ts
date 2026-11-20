@@ -14,22 +14,16 @@ export interface OwnedLobbyRow {
   ends_at: string | null;
   status: string | null;
 }
-//
-// `isAlreadyDeletedError` decide il replay idempotente: se `deleteUser`
-// fallisce perche' l'utente non esiste piu' (doppio invio concorrente: il
-// secondo getUser passa prima della revoca, il secondo deleteUser no), la
-// route risponde 200 invece di 500.
-
-export interface OwnedLobbyRow {
-  id: string;
-  start_time: string;
-  status: string | null;
-}
 
 export interface ParticipantRow {
   lobby_id: string;
   user_id: string;
 }
+
+// `isAlreadyDeletedError` decide il replay idempotente: se `deleteUser`
+// fallisce perche' l'utente non esiste piu' (doppio invio concorrente: il
+// secondo getUser passa prima della revoca, il secondo deleteUser no), la
+// route risponde 200 invece di 500.
 
 export function findBlockingLobbies(
   lobbies: OwnedLobbyRow[],

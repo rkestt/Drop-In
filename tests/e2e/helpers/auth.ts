@@ -18,7 +18,7 @@ function resolveServiceRoleKey(): string {
 }
 export const SERVICE_ROLE_KEY = resolveServiceRoleKey();
 
-export type TestUser = { email: string; password: string; nickname: string };
+export type TestUser = { id: string; email: string; password: string; nickname: string };
 
 /** Crea un utente già confermato via Admin API (locale, richiede Supabase up). */
 export async function createConfirmedUser(suffix = ""): Promise<TestUser> {
@@ -30,14 +30,15 @@ export async function createConfirmedUser(suffix = ""): Promise<TestUser> {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { error } = await admin.auth.admin.createUser({
+  const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
     user_metadata: { nickname },
   });
   if (error) throw error;
-  return { email, password, nickname };
+  if (!data.user) throw new Error("createUser senza user");
+  return { id: data.user.id, email, password, nickname };
 }
 
 /**
@@ -45,7 +46,10 @@ export async function createConfirmedUser(suffix = ""): Promise<TestUser> {
  * chiuda (sessione nei cookie httpOnly). Da chiamare prima di salvare lo
  * storageState o di visitare route protette.
  */
-export async function loginViaUI(page: Page, user: TestUser): Promise<void> {
+export async function loginViaUI(
+  page: Page,
+  user: Pick<TestUser, "email" | "password" | "nickname">,
+): Promise<void> {
   // Flag pre-navigazione: senza, il drawer di primo avvio si apre sopra il
   // login e Base UI marca il login `inert` (bottoni introvabili).
   await page.addInitScript(() => {
