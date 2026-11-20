@@ -30,10 +30,11 @@ export default function TermsPage() {
 
       <LegalSection title="Account">
         <p>
-          Per le funzioni che richiedono un account servono un&apos;email valida
-          e un nickname. Sei responsabile della riservatezza delle credenziali e
-          di ciò che accade con il tuo account. Un account per persona: i
-          duplicati possono essere rimossi.
+          Per registrarti devi avere compiuto 14 anni. Per le funzioni che
+          richiedono un account servono un&apos;email valida e un nickname. Sei
+          responsabile della riservatezza delle credenziali e di ciò che accade
+          con il tuo account. Un account per persona: i duplicati possono essere
+          rimossi.
         </p>
         <p>
           Puoi cancellare l&apos;account in ogni momento scrivendo a{" "}

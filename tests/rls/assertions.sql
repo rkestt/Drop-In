@@ -4621,4 +4621,182 @@ VALUES ((SELECT id FROM public.courts WHERE name = 'Daily Quota Court'),
         now() + interval '1 hour');
 RESET ROLE;
 
+-- ================= 64. #97: profile_age, nascita separata da profiles =================
+-- `profiles` ha SELECT pubblica: la nascita vive qui, leggibile solo dal
+-- proprietario (e service_role per export/cancellazione). Assenza riga = non
+-- verificato = gate bloccante (nessun backfill degli utenti esistenti).
+-- Utenti freschi P/Q: mai conteggi globali, solo EXISTS mirati su fixture.
+SET LOCAL request.jwt.claims = '';
+INSERT INTO auth.users (id, email) VALUES
+  ('10101010-1010-1010-1010-101010101010','p97a@test.local'),
+  ('20202020-2020-2020-2020-202020202020','p97b@test.local');
+
+-- 64a. INSERT sotto i 14 anni -> 23514 (CHECK di backstop, il form nega prima).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"10101010-1010-1010-1010-101010101010","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.profile_age (user_id, birth_date)
+    VALUES ('10101010-1010-1010-1010-101010101010', CURRENT_DATE - INTERVAL '13 years');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '23514' THEN RETURN; END IF;
+    RAISE EXCEPTION 'nascita <14 anni: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'nascita sotto i 14 anni accettata (#97)';
+END $$;
+RESET ROLE;
+
+-- 64a-bis. INSERT oltre i 120 anni -> 23514.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"10101010-1010-1010-1010-101010101010","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.profile_age (user_id, birth_date)
+    VALUES ('10101010-1010-1010-1010-101010101010', CURRENT_DATE - INTERVAL '121 years');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '23514' THEN RETURN; END IF;
+    RAISE EXCEPTION 'nascita >120 anni: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'nascita oltre i 120 anni accettata (#97)';
+END $$;
+RESET ROLE;
+
+-- 64b. positivo: P scrive la propria (maggiorenne) e la rilegge.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"10101010-1010-1010-1010-101010101010","role":"authenticated"}';
+INSERT INTO public.profile_age (user_id, birth_date)
+VALUES ('10101010-1010-1010-1010-101010101010', CURRENT_DATE - INTERVAL '20 years');
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"10101010-1010-1010-1010-101010101010","role":"authenticated"}';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profile_age
+                 WHERE user_id = '10101010-1010-1010-1010-101010101010') THEN
+    RAISE EXCEPTION 'P non rilegge la propria nascita (#97)';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 64c. Q non legge la riga di P (0 righe) e non ci scrive: INSERT con user_id
+-- di P -> 42501, UPDATE sulla riga di P -> 0 righe, valore invariato.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"20202020-2020-2020-2020-202020202020","role":"authenticated"}';
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.profile_age
+             WHERE user_id = '10101010-1010-1010-1010-101010101010') THEN
+    RAISE EXCEPTION 'Q legge la nascita di P (#97)';
+  END IF;
+END $$;
+DO $$
+DECLARE
+  v_wrote BOOLEAN := FALSE;
+  v_n INTEGER;
+BEGIN
+  BEGIN
+    INSERT INTO public.profile_age (user_id, birth_date)
+    VALUES ('10101010-1010-1010-1010-101010101010', CURRENT_DATE - INTERVAL '30 years');
+    v_wrote := TRUE;
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE <> '42501' THEN
+      RAISE EXCEPTION 'insert nascita altrui: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+    END IF;
+  END;
+  IF v_wrote THEN
+    RAISE EXCEPTION 'Q ha scritto la nascita di P (#97)';
+  END IF;
+  UPDATE public.profile_age SET birth_date = CURRENT_DATE - INTERVAL '30 years'
+  WHERE user_id = '10101010-1010-1010-1010-101010101010';
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 0 THEN
+    RAISE EXCEPTION 'Q ha aggiornato % righe di P (#97)', v_n;
+  END IF;
+END $$;
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profile_age
+                 WHERE user_id = '10101010-1010-1010-1010-101010101010'
+                   AND birth_date = CURRENT_DATE - INTERVAL '20 years') THEN
+    RAISE EXCEPTION 'nascita di P alterata da Q (#97)';
+  END IF;
+END $$;
+
+-- 64d. utente senza riga (Q non ne ha scritta nessuna): 0 righe = non
+-- verificato, il gate blocca senza errori.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"20202020-2020-2020-2020-202020202020","role":"authenticated"}';
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.profile_age
+             WHERE user_id = '20202020-2020-2020-2020-202020202020') THEN
+    RAISE EXCEPTION 'Q risulta verificato senza aver dichiarato la nascita (#97)';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 64e. service_role legge (export GDPR / cancellazione).
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims = '{"role":"service_role"}';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profile_age
+                 WHERE user_id = '10101010-1010-1010-1010-101010101010') THEN
+    RAISE EXCEPTION 'service_role non legge profile_age (#97)';
+  END IF;
+END $$;
+RESET ROLE;
+
+-- 64f. anon non scrive: nessun grant (revoca 056), 42501 prima ancora della RLS.
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '';
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.profile_age (user_id, birth_date)
+    VALUES ('20202020-2020-2020-2020-202020202020', CURRENT_DATE - INTERVAL '30 years');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'insert anon su profile_age: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'anon ha scritto su profile_age (#97)';
+END $$;
+RESET ROLE;
+
+-- 64g. bordo fuso (#97 follow-up): alle 23:30Z di giugno a Roma e' gia' il
+-- giorno dopo. Chi compie 14 anni quel giorno passa la soglia di Roma; la
+-- vecchia soglia UTC (CURRENT_DATE nel container) lo rifiuterebbe. now() non
+-- si congela nella suite, quindi si inchioda l'espressione con un istante
+-- fisso, piu' un INSERT reale sulla soglia calcolata come il form.
+DO $$ BEGIN
+  -- Soglia 057 (Roma): accetta il quattordicenne di giornata.
+  IF NOT (DATE '2012-06-15'
+          <= ((TIMESTAMPTZ '2026-06-14 23:30:00+00' AT TIME ZONE 'Europe/Rome')::date
+              - INTERVAL '14 years')) THEN
+    RAISE EXCEPTION 'soglia Roma rifiuta un quattordicenne di oggi (#97)';
+  END IF;
+  -- Premessa (AT TIME ZONE 'UTC' = vecchia 056): lo rifiuterebbe — e' il bug
+  -- che la 057 chiude. Se questa passa, il caso di bordo e' vacuo.
+  IF (DATE '2012-06-15'
+      <= ((TIMESTAMPTZ '2026-06-14 23:30:00+00' AT TIME ZONE 'UTC')::date
+          - INTERVAL '14 years')) THEN
+    RAISE EXCEPTION 'premessa bordo fuso rotta (#97)';
+  END IF;
+END $$;
+
+-- ...e l'INSERT reale di un quattordicenne di giornata passa il CHECK vero.
+SET LOCAL request.jwt.claims = '';
+INSERT INTO auth.users (id, email) VALUES
+  ('30303030-3030-3030-3030-303030303030','p97c@test.local');
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"30303030-3030-3030-3030-303030303030","role":"authenticated"}';
+INSERT INTO public.profile_age (user_id, birth_date)
+VALUES ('30303030-3030-3030-3030-303030303030',
+        (((now() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '14 years'))::date);
+RESET ROLE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profile_age
+                 WHERE user_id = '30303030-3030-3030-3030-303030303030') THEN
+    RAISE EXCEPTION 'quattordicenne di giornata rifiutato dal CHECK (#97)';
+  END IF;
+END $$;
+
 ROLLBACK;

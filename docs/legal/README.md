@@ -27,6 +27,7 @@ di tre righe (import + componente).
 |---|---|---|---|
 | `auth.users` (Supabase) | email, hash password, provider OAuth | solo l'utente + admin | fino a cancellazione |
 | `profiles` | nickname, avatar, karma, ban | pubblico (nickname/avatar/karma) | fino a cancellazione |
+| `profile_age` | data di nascita (#97) | solo l'utente (+ service role per export/cancellazione) | fino a cancellazione |
 | `check_ins` | lat/lng, accuracy, orari, esito | pubblico (policy SELECT aperta) | fino a cancellazione; check-out automatico a 2 h |
 | `lobbies`, `lobby_participants` | orari, partecipazione | pubblico | fino a cancellazione (lobby chiusa resta nello storico) |
 | `court_reports` | categoria, descrizione, coordinate del campo | pubblico | **48 ore** (`REPORT_TTL_MS`), cron `archive-old-reports` |
@@ -61,7 +62,7 @@ cita SCC art. 46 con un `[DA CONFERMARE]`.
 - [ ] DPO: necessario o no (art. 37)? Motivare.
 - [ ] Email di contatto: `privacy@` e `security@` esistono davvero? Se no,
       usare un indirizzo attivo o un form.
-- [ ] Età minima: 14 anni (Italia) o 18? Coerenza con i termini.
+- [ ] Età minima: decisa 14 anni, blocco secco senza percorso di consenso genitoriale (#97); testo nelle pagine da far validare ad Andrea/legale prima della pubblicazione.
 - [ ] Foro competente per i non consumatori.
 - [ ] Regioni di trattamento Supabase/Vercel e clausole di trasferimento.
 - [ ] Testo del consenso push (in app oggi c'è solo il permesso browser).
@@ -91,6 +92,7 @@ entro 30 giorni:
 1. **Export** (da eseguire come service role, mai dal client):
    ```sql
    select * from public.profiles where user_id = :uid;
+   select * from public.profile_age where user_id = :uid;
    select * from public.check_ins where user_id = :uid;
    select * from public.court_reviews where user_id = :uid;
    select * from public.user_favorites where user_id = :uid;

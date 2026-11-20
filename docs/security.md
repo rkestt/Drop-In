@@ -68,6 +68,16 @@ Lunghezze e caratteri di controllo erano già validati in `submit_court`
 (nome ≤ 120, indirizzo ≤ 200 stampabile senza newline, `photo_path` senza
 `..`/`\`/path assoluti).
 
+## Gate età (#97)
+
+Il gate è **a livello pagina**, non a livello riga: i layout `(app)` e
+`(dashboard)` rimandano a `/verifica-eta` la sessione senza riga
+`profile_age`, ma le policy di scrittura non controllano (ancora) l'età.
+Un JWT proprio + PostgREST diretto aggira il gate: accettabile perché la
+beta è a inviti (perimetro chiuso). All'apertura pubblica l'enforcement va
+spostato nel database (condizione `profile_age` nelle policy di scrittura),
+non lasciato nel commento della migrazione `056`.
+
 ## Grant al minimo (#84, migrazione `035`)
 
 Supabase assegna `ALL` ad `anon`/`authenticated` su ogni tabella nuova di

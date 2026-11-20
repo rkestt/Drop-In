@@ -20,8 +20,14 @@ export const SERVICE_ROLE_KEY = resolveServiceRoleKey();
 
 export type TestUser = { id: string; email: string; password: string; nickname: string };
 
-/** Crea un utente già confermato via Admin API (locale, richiede Supabase up). */
-export async function createConfirmedUser(suffix = ""): Promise<TestUser> {
+/** Crea un utente già confermato via Admin API (locale, richiede Supabase up).
+ * Inserisce anche la riga `profile_age` (gate #97: senza, i layout
+ * rimandano a /verifica-eta): `birthDate` default "1990-01-01", `null` per
+ * non inserirla (la spec del gate parte senza riga). */
+export async function createConfirmedUser(
+  suffix = "",
+  opts?: { birthDate?: string | null },
+): Promise<TestUser> {
   const stamp = `${Date.now()}${suffix}`.replace(/[^a-zA-Z0-9]/g, "");
   const email = `a11y-${stamp}@dropin.test`;
   const password = "dropin-a11y-pass";
@@ -38,6 +44,24 @@ export async function createConfirmedUser(suffix = ""): Promise<TestUser> {
   });
   if (error) throw error;
   if (!data.user) throw new Error("createUser senza user");
+
+  // Gate età #97: l'utente entra subito (i layout lasciano passare solo con
+  // la riga). Fallisce forte: utente senza riga = rosso ovunque, non un
+  // passaggio silenzioso dal gate.
+  const birthDate = opts?.birthDate === undefined ? "1990-01-01" : opts.birthDate;
+  if (birthDate !== null) {
+    const { error: ageError } = await admin
+      .from("profile_age")
+      .insert({ user_id: data.user.id, birth_date: birthDate });
+    if (ageError) {
+      try {
+        await admin.auth.admin.deleteUser(data.user.id);
+      } catch {
+        // best-effort: lo spec ha già detto la sua
+      }
+      throw ageError;
+    }
+  }
   return { id: data.user.id, email, password, nickname };
 }
 

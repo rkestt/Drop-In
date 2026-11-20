@@ -25,6 +25,7 @@ export async function GET() {
 
   const [
     profileRes,
+    ageRes,
     createdRes,
     participationsRes,
     checkInsRes,
@@ -37,6 +38,13 @@ export async function GET() {
     supabase
       .from("profiles")
       .select("nickname, avatar_url, karma_score, created_at")
+      .eq("user_id", uid)
+      .maybeSingle(),
+    // Data di nascita (#97): riga assente = non verificato, l'export non
+    // deve rompersi (maybeSingle da' data null senza errore).
+    supabase
+      .from("profile_age")
+      .select("birth_date")
       .eq("user_id", uid)
       .maybeSingle(),
     supabase
@@ -72,6 +80,7 @@ export async function GET() {
 
   const firstError = [
     profileRes,
+    ageRes,
     createdRes,
     participationsRes,
     checkInsRes,
@@ -165,6 +174,7 @@ export async function GET() {
     profilo: {
       email: user.email,
       ...(profileRes.data ?? {}),
+      data_nascita: ageRes.data?.birth_date ?? null,
     },
     lobby_create: createdLobbies.map((l) => ({
       campo: courtNames.get(l.court_id) ?? null,

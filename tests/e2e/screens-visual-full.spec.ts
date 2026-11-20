@@ -68,6 +68,12 @@ test.describe("visual-full", () => {
       .from("profiles")
       .update({ nickname: VISUAL_NICKNAME })
       .eq("user_id", row.id);
+    // Gate età #97: senza riga i layout rimandano a /verifica-eta e gli
+    // screenshot autenticati mostrerebbero il gate invece delle schermate.
+    const { error: ageError } = await admin
+      .from("profile_age")
+      .insert({ user_id: row.id, birth_date: "1990-01-01" });
+    if (ageError) throw ageError;
 
     // Campo deterministico: prima riga del seed ordinata per osm_id
     // (gli UUID cambiano a ogni `db reset`, i dati OSM no).

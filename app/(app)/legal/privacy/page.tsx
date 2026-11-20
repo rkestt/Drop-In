@@ -189,10 +189,13 @@ export default function PrivacyPage() {
 
       <LegalSection title="Età minima">
         <p>
-          [DA COMPILARE: definire l&apos;età minima]. In Italia il consenso
-          digitale autonomo parte dai 14 anni (art. 2-quinquies Codice
-          privacy); sotto quella soglia serve il consenso di chi esercita la
-          responsabilità genitoriale.
+          Drop-In è riservato a chi ha compiuto 14 anni. Alla prima
+          registrazione chiediamo la data di nascita e la conserviamo nel tuo
+          profilo (base giuridica: esecuzione del contratto, art. 6.1.b del
+          GDPR). Se dichiari meno di 14 anni l&apos;account non viene attivato,
+          la data non viene conservata e puoi chiedere la cancellazione
+          immediata dell&apos;account. Non è previsto alcun percorso di consenso
+          genitoriale: sotto i 14 anni il servizio non è utilizzabile.
         </p>
       </LegalSection>
 

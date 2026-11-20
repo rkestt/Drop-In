@@ -1,15 +1,25 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { SkipLink } from "@/components/a11y/skip-link";
 import { OutboxRunner } from "@/components/offline/outbox-runner";
 import { BootLog } from "@/components/platform/boot-log";
+import { createClient } from "@/lib/supabase/server";
+import { getCachedAgeGateStatus } from "@/lib/profile/age-gate";
 
-export default function DashboardLayout({
+// Gate età (#97), come in (app): sessione senza riga `profile_age` →
+// /verifica-eta. Senza sessione niente cambia (browse-first).
+export const dynamic = "force-dynamic";
+
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+  const { userId, verified } = await getCachedAgeGateStatus(supabase);
+  if (userId && !verified) redirect("/verifica-eta");
   return (
     <div className="flex flex-col min-h-full">
       <SkipLink />

@@ -234,6 +234,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"profile_age": {
+                  Row: {
+                    "birth_date": string,"created_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "birth_date": string,"created_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "birth_date"?: string,"created_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"profiles": {
                   Row: {
                     "avatar_url": string | null,"banned_until": string | null,"created_at": string | null,"id": string,"is_moderator": boolean,"karma_score": number | null,"nickname": string | null,"updated_at": string | null,"user_id": string
