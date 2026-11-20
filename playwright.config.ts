@@ -27,6 +27,15 @@ const E2E_PORT = Number(process.env.E2E_PORT ?? 3100);
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  // #110: outputDir univoco per processo. Ogni processo Playwright
+  // ripulisce l'intero outputDir all'avvio: con la directory condivisa
+  // due run (anche di sessioni diverse) si cancellavano a vicenda gli
+  // artifact a meta' run -> teardown ENOENT su .playwright-artifacts-*/
+  // traces/*.network e *.zip. `outputDir` per worker (TEST_PARALLEL_INDEX)
+  // NON bastava perche' la pulizia e' a livello di intera directory.
+  // Reporter `list` indifferente al path; trace: `npx playwright
+  // show-trace test-results/run-<pid>/<spec>-.../trace.zip`.
+  outputDir: `test-results/run-${process.pid}`,
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
   // Due worker, non il default (meta' dei core): con sei browser insieme il
