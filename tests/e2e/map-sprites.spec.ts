@@ -140,13 +140,14 @@ test("barrier-class POIs are visible at zoom 16 in Villa Borghese", async ({
 
   // Parco con cancelli/dissuasori mappati in OSM (lato sud-ovest, zona
   // con piu' varchi).
-  await page.evaluate(() => {
+  const VILLA_BORGHESE: [number, number] = [12.479, 41.912];
+  await page.evaluate((center: [number, number]) => {
     window.__dropinMap?.easeTo({
-      center: [12.479, 41.912],
+      center,
       zoom: 16,
       duration: 0,
     });
-  });
+  }, VILLA_BORGHESE);
 
   // Le classi barriera sono nel layer poi: poll finche' i tile non sono
   // caricati. Misura il gap: il nostro layer deve rendere barriere in
@@ -154,33 +155,85 @@ test("barrier-class POIs are visible at zoom 16 in Villa Borghese", async ({
   // rank 7-19, mentre quasi tutte le barriere di Villa Borghese hanno
   // rank >= 20). Il gate principale e' ours > stock; la soglia assoluta
   // dipende dai varchi mappati a Villa Borghese (osservato 91 a 2560x1440).
+  //
+  // Budget largo (90s): sotto carico il dev server compila a comando, i
+  // tile OpenFreeMap arrivano dopo la compilazione e un context-restore
+  // (GPU sotto pressione) ricrea la mappa ripartendo da zero. Il poll
+  // ritorna lo stato intero in un solo evaluate: un fallimento stampa
+  // quale condizione mancava (layer? tile? conteggi?) invece di "0 per 30s"
+  // — queryRenderedFeatures su layer inesistente ritorna [] senza lanciare.
   const BARRIER_CLASSES = ["gate", "bollard", "lift_gate", "cycle_barrier", "block"];
-  let ours = 0;
-  let stock = 0;
-  for (let i = 0; i < 12; i++) {
-    await page.waitForTimeout(2_500);
-    const counts = await page.evaluate((classes: string[]) => {
-      const map = window.__dropinMap;
-      if (!map) return { ours: 0, stock: 0 };
-      const own = map.queryRenderedFeatures({ layers: ["dropin-barriers"] }).length;
-      const poiLayers = ["poi_r20", "poi_r7", "poi_r1", "poi_transit"].filter(
-        (l) => !!map.getLayer(l),
-      );
-      const stockBarrier = map
-        .queryRenderedFeatures({ layers: poiLayers })
-        .filter((f) =>
-          classes.includes((f.properties as Record<string, unknown> | null)?.class as string),
-        ).length;
-      return { ours: own, stock: stockBarrier };
-    }, BARRIER_CLASSES);
-    ours = counts.ours;
-    stock = counts.stock;
-    if (ours > 20 && ours > stock) break;
-  }
-  console.log(`dropin-barriers at z16 Villa Borghese: ours=${ours} stock=${stock}`);
+  const readBarrierState = () =>
+    page.evaluate(
+      (args: { center: [number, number]; classes: string[] }) => {
+            const map = window.__dropinMap;
+            if (!map) {
+              return {
+                layer: false,
+                tilesLoaded: false,
+                ours: 0,
+                stock: 0,
+                ready: false,
+              };
+            }
+            // La mappa puo' essere stata ricreata sotto i piedi del test:
+            // su webglcontextrestored court-map.tsx ricrea a Roma z14 senza
+            // riapplicare l'easeTo, e con minzoom 16 il layer renderebbe 0
+            // per sempre. Riapplica la vista del test e riprova al giro dopo.
+            const c = map.getCenter();
+            if (
+              map.getZoom() < 16 ||
+              Math.abs(c.lng - args.center[0]) > 0.01 ||
+              Math.abs(c.lat - args.center[1]) > 0.01
+            ) {
+              map.easeTo({ center: args.center, zoom: 16, duration: 0 });
+              return {
+                layer: !!map.getLayer("dropin-barriers"),
+                tilesLoaded: false,
+                ours: 0,
+                stock: 0,
+                ready: false,
+              };
+            }
+            const layer = !!map.getLayer("dropin-barriers");
+            // areTilesLoaded e' vero anche con tile in errore: vale solo
+            // combinato ai conteggi, mai da solo.
+            const tilesLoaded = map.areTilesLoaded();
+            const ours = map.queryRenderedFeatures({
+              layers: ["dropin-barriers"],
+            }).length;
+            const poiLayers = ["poi_r20", "poi_r7", "poi_r1", "poi_transit"].filter(
+              (l) => !!map.getLayer(l),
+            );
+            const stock = map
+              .queryRenderedFeatures({ layers: poiLayers })
+              .filter((f) =>
+                args.classes.includes(
+                  (f.properties as Record<string, unknown> | null)?.class as string,
+                ),
+              ).length;
+            return {
+              layer,
+              tilesLoaded,
+              ours,
+              stock,
+              ready: layer && tilesLoaded && ours > 20 && ours > stock,
+            };
+          },
+          { center: VILLA_BORGHESE, classes: BARRIER_CLASSES },
+        );
+  await expect
+    .poll(() => readBarrierState(), { timeout: 90_000 })
+    .toMatchObject({ layer: true, ready: true });
+  // Rilettura dopo il via: i conteggi finali per log e asserzioni.
+  const state = await readBarrierState();
+  console.log(`dropin-barriers at z16 Villa Borghese: ours=${state.ours} stock=${state.stock}`);
+  // Layer assente e layer che non rende sono due rossi diversi: il primo
+  // muore qui, il secondo sui conteggi sotto.
+  expect(state.layer).toBe(true);
   // dipende dai varchi mappati a Villa Borghese; osservato 91 a 2560x1440
-  expect(ours).toBeGreaterThan(20);
-  expect(ours).toBeGreaterThan(stock);
+  expect(state.ours).toBeGreaterThan(20);
+  expect(state.ours).toBeGreaterThan(state.stock);
   const lateBarrierWarnings = timedWarnings.filter(
     (w) =>
       w.at > setupAt &&
@@ -193,17 +246,35 @@ test("barrier icons load with zero network (inline data URIs)", async ({
   page,
   context,
 }) => {
+  // Budget unico e generoso (60s, test 90s): al primo hit sotto carico il
+  // dev server compila a comando (migliaia di moduli) e tile + setup icone
+  // aspettano la compilazione. Stato letto con un solo evaluate: un
+  // fallimento stampa quale condizione mancava (canvas? uris? map? quale
+  // icona?) invece di un timeout muto.
+  test.setTimeout(90_000);
   await page.goto("/");
-  await expect(page.locator("canvas.maplibregl-canvas")).toBeVisible({
-    timeout: 15_000,
-  });
-  await page.waitForFunction(
-    () =>
-      !!window.__dropinBarrierIconUris &&
-      !!window.__dropinMap?.hasImage("gate") &&
-      !!window.__dropinMap?.hasImage("bollard"),
-    { timeout: 30_000 },
-  );
+  // Stato letto con un solo evaluate: un
+  // fallimento stampa quale condizione mancava (canvas? uris? map? quale
+  // icona?) invece di un timeout muto.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => ({
+          canvas: !!document.querySelector("canvas.maplibregl-canvas"),
+          uris: !!window.__dropinBarrierIconUris,
+          map: !!window.__dropinMap,
+          gate: !!window.__dropinMap?.hasImage("gate"),
+          bollard: !!window.__dropinMap?.hasImage("bollard"),
+        })),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({
+      canvas: true,
+      uris: true,
+      map: true,
+      gate: true,
+      bollard: true,
+    });
 
   // Da qui in poi niente rete: le icone inline devono caricarsi comunque.
   await context.setOffline(true);
