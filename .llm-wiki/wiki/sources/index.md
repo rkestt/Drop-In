@@ -6,6 +6,7 @@
 - [Drop-In: posizionamento — infrastruttura per chi organizza, e chi c'è già a Roma](drop-in-posizionamento-organizzatori-e-concorrenti.md)
 - [e2e di Drop-In: fallimenti spuri dal chunk corrotto del dev server, non dal codice](e2e-fallimenti-spuri-chunk-dev-server.md)
 - [E2E di idratazione: server in UTC e browser a Roma](e2e-hydration-server-utc-browser-roma.md)
+- [e2e: una route con service-role vuole la chiave nel dev server, non solo nel runner](e2e-service-role-key-nel-dev-server.md)
 - [ends_at come colonna generata: timestamptz + interval non è IMMUTABLE (42P17)](ends-at-generated-column-timestamptz-immutable.md)
 - [Guard trigger su una tabella con proprietario: il path del creatore va pinnato](guard-trigger-pinna-creator-id.md)
 - [Join alla lobby rotto: il trigger di notifica invoker contro il REVOKE della 035](join-rotto-trigger-notify-invoker-permessi.md)

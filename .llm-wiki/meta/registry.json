@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-11-18T12:28:08.380Z",
+  "last_updated": "2026-11-20T19:06:12.717Z",
   "pages": {
     "sources/drop-in-check-in-accuratezza-adattiva-e-permessi-ios": {
       "type": "source",
@@ -37,6 +37,15 @@
       "slug": "e2e-hydration-server-utc-browser-roma",
       "created": "2026-11-13",
       "updated": "2026-11-13"
+    },
+    "sources/e2e-service-role-key-nel-dev-server": {
+      "type": "source",
+      "title": "e2e: una route con service-role vuole la chiave nel dev server, non solo nel runner",
+      "category": "source",
+      "status": "insight",
+      "slug": "e2e-service-role-key-nel-dev-server",
+      "created": "2026-11-20",
+      "updated": "2026-11-20"
     },
     "sources/ends-at-generated-column-timestamptz-immutable": {
       "type": "source",
