@@ -50,8 +50,15 @@ import { SportSelector } from "@/components/court/sport-selector";
 import { CourtPhotoThumb } from "@/components/court/court-photo-thumb";
 import { CourtSearch } from "@/components/court/court-search";
 import { CourtSearchResults } from "@/components/court/court-search-results";
+import { LobbySheet, type LobbySheetSnap } from "@/components/home/lobby-sheet";
+import {
+  LobbyRailCard,
+  occupancyPercent,
+  occupancyTone,
+} from "@/components/home/lobby-rail-card";
+import { RecurringChip } from "@/components/lobby/recurring-chip";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { MapPin, Users, Plus } from "lucide-react";
+import { MapPin, Users, ChevronRight, Plus } from "lucide-react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { bboxInside, type BBox } from "@/lib/geo";
@@ -68,10 +75,12 @@ import { StaleBadge } from "@/components/offline/stale-badge";
 import { useSport } from "@/lib/sport/sport-context";
 import { sportEmptyPhrase, sportLabel } from "@/lib/sport/sports";
 import { safeNext } from "@/lib/auth/routes";
-import { formatAppTime } from "@/lib/datetime";
+import { formatAppTime, formatAppDate } from "@/lib/datetime";
+import { warmPreviewNotes } from "@/lib/court/notes";
 import {
   NEARBY_RADIUS_M,
   ROME_CENTER,
+  courtDistanceM,
   selectLobbiesOrigin,
 } from "@/lib/lobbies/nearby";
 import {
@@ -107,6 +116,8 @@ interface Lobby {
   participants_count: number;
   court_name?: string | null;
   court_sport?: string | null;
+  /** Serie di provenienza (054): chip "Ricorrente" ridotto, senza dettaglio. */
+  series_id?: string | null;
 }
 
 interface SearchState {
@@ -135,6 +146,22 @@ export default function HomePage() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // Foglio "Partite vicine" (#89, Lane B): snap locale (vista, non risorsa:
+  // niente URL, niente contesto), focus del campo ricerca e live region.
+  const [snap, setSnap] = useState<LobbySheetSnap>("rail");
+  const [announcement, setAnnouncement] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [sheetMetrics, setSheetMetrics] = useState({
+    railHeight: 144,
+    dragging: false,
+    keyboardOpen: false,
+  });
+  // Snap e scroll di prima della ricerca: chiudere riporta lì.
+  const snapBeforeRef = useRef<LobbySheetSnap>("rail");
+  const savedScrollRef = useRef(0);
+  const sheetListRef = useRef<HTMLDivElement | null>(null);
+  const sheetHandleRef = useRef<HTMLButtonElement | null>(null);
+  const chromeRef = useRef<HTMLDivElement | null>(null);
   // Ricerca server-side (#68): stato esplicito, ref per debounce e anti-stale.
   const [search, setSearch] = useState<SearchState>({
     phase: "idle",
@@ -374,6 +401,7 @@ export default function HomePage() {
           court_name: string | null;
           court_sport: string | null;
           participants_count: number;
+          series_id: string | null;
         }> | null) ?? []
       ).map((l) => ({
         id: l.id,
@@ -387,6 +415,7 @@ export default function HomePage() {
         participants_count: l.participants_count ?? 0,
         court_name: l.court_name ?? null,
         court_sport: l.court_sport ?? null,
+        series_id: l.series_id ?? null,
       }));
       setLobbies(formatted);
       if (formatted.length > 0) {
@@ -605,6 +634,196 @@ export default function HomePage() {
     return counts;
   }, [lobbies]);
 
+  // --- Foglio "Partite vicine" (#89, Lane B) --------------------------------
+  // Un solo elenco alla volta: ricerca attiva → solo i campi trovati (la
+  // striscia, le partite, il piede e la CTA spariscono); chiudere torna allo
+  // snap e allo scroll di prima, con il focus sull'handle.
+  const searchMode = activeQuery !== "";
+  const inSearch = searchFocused || searchMode;
+  const trimmedQuery = query.trim();
+
+  const lobbyCountPhrase = (n: number) =>
+    n === 1 ? "1 partita vicina." : `${n} partite vicine.`;
+
+  const requestSnap = (next: LobbySheetSnap) => {
+    setSnap(next);
+    setAnnouncement(
+      next === "full"
+        ? `Lista a tutta altezza. ${lobbyCountPhrase(lobbies.length)}`
+        : `Lista ridotta a striscia. ${lobbyCountPhrase(lobbies.length)}`
+    );
+  };
+
+  // Focus sull'handle alla chiusura della ricerca. L'handle è smontato in
+  // ricerca: il focus va messo solo dopo aver verificato che il nodo esista
+  // nel DOM (spec home-ricerca §3), con un secondo rAF di margine per il
+  // remount. Se il nodo manca ancora, non si ruba il focus a niente.
+  const focusSheetHandle = useCallback(() => {
+    const attempt = (retries: number) => {
+      const node = sheetHandleRef.current;
+      if (node && node.isConnected) {
+        node.focus({ preventScroll: true });
+        return;
+      }
+      if (retries > 0) {
+        requestAnimationFrame(() => attempt(retries - 1));
+      }
+    };
+    requestAnimationFrame(() => attempt(1));
+  }, []);
+
+  const closeSearchFlow = useCallback(() => {
+    setQuery("");
+    setSearchFocused(false);
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+    const target = snapBeforeRef.current;
+    setSnap(target);
+    setAnnouncement(`Ricerca chiusa. Partite vicine. ${lobbyCountPhrase(lobbies.length)}`);
+    requestAnimationFrame(() => {
+      if (sheetListRef.current) sheetListRef.current.scrollTop = savedScrollRef.current;
+      focusSheetHandle();
+    });
+  }, [focusSheetHandle, lobbies.length]);
+
+  const handleCollapseRequest = () => {
+    if (inSearch) closeSearchFlow();
+    else requestSnap("rail");
+  };
+
+  const handleSearchFocus = () => {
+    if (searchFocused) return;
+    setSearchFocused(true);
+    snapBeforeRef.current = snap;
+    savedScrollRef.current = sheetListRef.current?.scrollTop ?? 0;
+    // Il foglio va a piena da solo appena il campo prende il focus.
+    if (snap !== "full") {
+      setSnap("full");
+      setAnnouncement(`Lista a tutta altezza. ${lobbyCountPhrase(lobbies.length)}`);
+    }
+  };
+
+  const handleSearchBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+    setSearchFocused(false);
+    // Svuotare col backspace non riporta giù (resta a piena con le partite):
+    // è il blur a tornare allo snap di prima.
+    if (isSearchActive(queryRef.current)) return;
+    const target = snapBeforeRef.current;
+    setSnap(target);
+    setAnnouncement(`Ricerca chiusa. Partite vicine. ${lobbyCountPhrase(lobbies.length)}`);
+    requestAnimationFrame(() => {
+      if (sheetListRef.current) sheetListRef.current.scrollTop = savedScrollRef.current;
+      focusSheetHandle();
+    });
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter") {
+      // La ricerca parte già col debounce: Invio chiude solo la tastiera.
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      if (isSearchActive(queryRef.current)) closeSearchFlow();
+      else {
+        const active = document.activeElement;
+        if (active instanceof HTMLElement) active.blur();
+      }
+    }
+  };
+
+  // Annunci di ricerca (testa del foglio mai live: un solo annuncio). Il testo
+  // non ricalca mai "N campi per «q»" della riga di stato di CourtSearch
+  // (componente congelato): due nodi con lo stesso testo romperebbero gli
+  // e2e in strict mode. Stesse informazioni, ordine diverso.
+  useEffect(() => {
+    if (!searchMode) {
+      // Query svuotata col campo ancora focalizzato: il foglio resta a piena
+      // con le partite — l'annuncio torna alla lista (e non trattiene la
+      // query vecchia nella live region).
+      if (searchFocused && searchPhase === "idle") {
+        setAnnouncement(
+          `Lista a tutta altezza. ${lobbies.length === 1 ? "1 partita vicina." : `${lobbies.length} partite vicine.`}`,
+        );
+      }
+      return;
+    }
+    const radiusKm = SEARCH_RADIUS_M / 1000;
+    if (searchPhase === "waiting" || searchPhase === "loading") {
+      setAnnouncement(`Cerco «${trimmedQuery}» entro ${radiusKm} km.`);
+    } else if (searchPhase === "ready") {
+      if (searchResults.length === 0) {
+        setAnnouncement(
+          `Per «${trimmedQuery}»: nessun campo entro ${radiusKm} km. La ricerca guarda il nome del campo, non l'indirizzo.`
+        );
+      } else {
+        const n = searchResults.length;
+        setAnnouncement(`Per «${trimmedQuery}»: ${n} ${n === 1 ? "campo trovato" : "campi trovati"} entro ${radiusKm} km.`);
+      }
+    } else if (searchPhase === "error") {
+      setAnnouncement(`Ricerca non riuscita per «${trimmedQuery}». Controlla la connessione e riprova.`);
+    }
+  }, [searchMode, searchFocused, searchPhase, searchResults.length, trimmedQuery, lobbies.length]);
+
+  // Anteprima mappa: scalda la cache delle note per i campi con partite e
+  // per i risultati di ricerca (pin, striscia, lista). Fire-and-forget: al
+  // tap l'anteprima trova la riga senza rete e vince sempre il tetto di
+  // 400ms — la riga c'è al primo frame anche con rete lenta. Dettagli e TTL
+  // in `lib/court/notes.ts` e `docs/design/specs/nota-campo.md` §Superficie 3.
+  useEffect(() => {
+    if (lobbies.length === 0) return;
+    void warmPreviewNotes(
+      supabase,
+      lobbies.map((lobby) => lobby.court_id)
+    );
+  }, [lobbies, supabase]);
+  useEffect(() => {
+    if (!searchMode || searchPhase !== "ready" || search.query !== activeQuery) return;
+    if (search.results.length === 0) return;
+    void warmPreviewNotes(
+      supabase,
+      search.results.map((court) => court.id)
+    );
+  }, [searchMode, searchPhase, search, activeQuery, supabase]);
+
+  // All'ingresso in ricerca i risultati partono dall'inizio (stesso scroller
+  // delle partite: senza reset resterebbe a metà lista).
+  const prevSearchModeRef = useRef(false);
+  useEffect(() => {
+    if (searchMode && !prevSearchModeRef.current && sheetListRef.current) {
+      sheetListRef.current.scrollTop = 0;
+    }
+    prevSearchModeRef.current = searchMode;
+  }, [searchMode]);
+
+  const sheetTitle = searchMode ? "Campi trovati" : "Partite vicine";
+  const sheetCount =
+    searchMode && searchPhase !== "ready" ? null : searchMode ? searchResults.length : lobbies.length;
+  const sheetMeta = searchMode
+    ? searchPhase === "waiting" || searchPhase === "loading"
+      ? `Cerco «${trimmedQuery}»…`
+      : searchPhase === "error"
+        ? null
+        : `entro ${SEARCH_RADIUS_M / 1000} km`
+    : `Oggi, ${formatAppDate(new Date())} · entro ${NEARBY_RADIUS_M / 1000} km`;
+
+  // "Campi liberi qui intorno": i 2 più vicini all'origine del raggio lobby.
+  const nearestCourts: Court[] = (() => {
+    const origin = selectLobbiesOrigin(userLocation, lastBounds.current, ROME_CENTER);
+    return courts
+      .map((court) => ({
+        court,
+        d: courtDistanceM(origin.lat, origin.lng, court.lat, court.lng),
+      }))
+      .filter((entry): entry is { court: Court; d: number } => entry.d !== null)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 2)
+      .map((entry) => ({ ...entry.court, distance_m: entry.d }));
+  })();
+  const declareHref =
+    nearestCourts.length > 0 ? `/courts/${nearestCourts[0].id}` : "/submit-court";
+
   if (loading) {
     return (
       <main id="contenuto" tabIndex={-1} className="flex-1 flex items-center justify-center" role="status" aria-label="Caricamento dati in corso">
@@ -659,15 +878,42 @@ export default function HomePage() {
           locationError={locationError}
           onBoundsChange={handleBoundsChangeWrapped}
         />
-        <div className="absolute top-3 start-3 z-20">
-          <SportSelector className="" />
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {fieldsAnnouncement}
         </div>
-        <div className="absolute top-3 end-3 z-20">
-          <NotificationBell />
-        </div>
-        {noCourtsForSport && !courtsStale && (
+        {/* Chrome a due righe sopra la mappa (spec home-ricerca): filtri +
+            ricerca, sempre visibili. La piena si ferma 8px sotto (misurato). */}
+        <div ref={chromeRef} className="absolute inset-x-3 top-3 z-20 flex flex-col gap-2">
+          <div className="flex items-start justify-between gap-2">
+            <SportSelector className="" />
+            <NotificationBell />
+          </div>
           <div
-            className="absolute bottom-4 start-4 end-4 z-20 rounded-card border border-[var(--border-strong)] bg-[var(--bg-elevated)] p-4"
+            onFocus={handleSearchFocus}
+            onBlur={handleSearchBlur}
+            onKeyDown={handleSearchKeyDown}
+          >
+            <CourtSearch
+              value={query}
+              onChange={setQuery}
+              searching={searchPhase === "waiting" || searchPhase === "loading"}
+              error={searchPhase === "error"}
+              resultCount={searchResults.length}
+              totalCount={courts.length}
+            />
+          </div>
+        </div>
+        {/* Banner "nessun campo": sopra il bordo del foglio come FAB e
+            "Lista campi" (stesso criterio: a piena il foglio ha già le sue
+            azioni e coprirebbe tutto). Solo a striscia e mai in ricerca
+            (come il FAB: `inSearch` porta sempre a piena). `bottom` fisso a
+            railHeight: a striscia la tastiera è chiusa, `--sheet-lift`
+            include invece il bottom tastiera e serve ai controlli mappa che
+            restano visibili con la tastiera aperta (zoom). */}
+        {noCourtsForSport && !courtsStale && snap === "rail" && !inSearch && (
+          <div
+            className="absolute start-4 end-4 z-20 rounded-card border border-[var(--border-strong)] bg-[var(--bg-elevated)] p-4"
+            style={{ bottom: sheetMetrics.railHeight + 12 }}
             role="status"
             aria-live="polite"
           >
@@ -688,111 +934,200 @@ export default function HomePage() {
         )}
         <ReportedCourtsIndicator onCourtsUpdate={setReportedCourtIds} />
 
-        <Link
-          ref={fabRef}
-          href="/submit-court"
-          className="absolute bottom-4 end-4 z-30 inline-flex items-center justify-center w-14 h-14 rounded-chip bg-[var(--accent)] text-[var(--accent-foreground)] shadow-lg hover:bg-[var(--accent-hover)] active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-          aria-label="Aggiungi un campo"
-        >
-          <Plus className="w-7 h-7" aria-hidden="true" />
-        </Link>
-      </div>
-
-      <div className="bg-[var(--bg-base)] border-t border-[var(--cool-muted)]/20 p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold font-[family-name:var(--font-syne)] sr-only">
-            Drop-In — Campi
-          </h1>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold font-[family-name:var(--font-syne)]">
-              Partite vicine
-            </h2>
-            {lobbiesStale && <StaleBadge savedAt={lobbiesSavedAt} />}
-          </div>
-          {!user && (
-            <Button variant="ghost" size="sm" onClick={() => setShowLogin(true)}>
-              Accedi
-            </Button>
-          )}
-        </div>
-
-        <CourtSearch
-          value={query}
-          onChange={setQuery}
-          searching={searchPhase === "waiting" || searchPhase === "loading"}
-          error={searchPhase === "error"}
-          resultCount={searchResults.length}
-          totalCount={courts.length}
-        />
-
-        {activeQuery !== "" && (
-          <CourtSearchResults
-            query={query.trim()}
-            phase={searchPhase}
-            results={searchResults}
-            onRetry={retrySearch}
-            onClear={() => setQuery("")}
-          />
+        {/* FAB solo a striscia (approvato 17 nov), sopra il bordo del foglio;
+            a piena e in ricerca il foglio ha già le sue azioni. */}
+        {snap === "rail" && !inSearch && (
+          <Link
+            ref={fabRef}
+            href="/submit-court"
+            style={{ bottom: sheetMetrics.railHeight + 12 }}
+            className="absolute end-4 z-30 inline-flex items-center justify-center w-14 h-14 rounded-chip bg-[var(--accent)] text-[var(--accent-foreground)] shadow-lg hover:bg-[var(--accent-hover)] active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            aria-label="Aggiungi un campo"
+          >
+            <Plus className="w-7 h-7" aria-hidden="true" />
+          </Link>
         )}
 
-        <div aria-live="polite" aria-atomic="true" className="sr-only">
-          {lobbies.length} lobby attive disponibili
-        </div>
-        <div aria-live="polite" aria-atomic="true" className="sr-only">
-          {fieldsAnnouncement}
-        </div>
-
-        {lobbies.length === 0 ? (
-          <div className="text-center py-8">
-            <MapPin className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
-            {lobbiesEmptyCause === "sport" && sport !== null ? (
-              <p className="text-[var(--text-muted)] text-sm">
-                Nessuna lobby {sportEmptyPhrase(sport)} qui intorno.
-                <br />
-                Ci sono partite di altri sport.
-              </p>
-            ) : (
-              <p className="text-[var(--text-muted)] text-sm">
-                Nessuna lobby qui intorno. Sii il primo.
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {lobbies.map((lobby) => {
-              const court = courts.find((c) => c.id === lobby.court_id);
-              return (
+        <LobbySheet
+          snap={snap}
+          onSnapChange={requestSnap}
+          title={sheetTitle}
+          titleId="lobby-sheet-title"
+          count={sheetCount}
+          meta={sheetMeta}
+          inSearch={inSearch}
+          announcement={announcement}
+          listRef={sheetListRef}
+          handleRef={sheetHandleRef}
+          chromeRef={chromeRef}
+          onCollapseRequest={handleCollapseRequest}
+          onMetrics={setSheetMetrics}
+          actions={
+            <>
+              {lobbiesStale && !searchMode && <StaleBadge savedAt={lobbiesSavedAt} />}
+              {!user && (
+                <Button variant="ghost" size="sm" onClick={() => setShowLogin(true)}>
+                  Accedi
+                </Button>
+              )}
+            </>
+          }
+          rail={
+            searchMode ? null : lobbies.length === 0 ? (
+              <div className="flex min-h-[52px] flex-1 items-center gap-3">
+                <p className="text-sm text-[var(--text-secondary)]">Nessuna partita, per ora</p>
                 <Link
-                  key={lobby.id}
-                  href={`/courts/${lobby.court_id}`}
-                  className="block bg-[var(--bg-surface)] rounded-xl p-4 active:bg-[var(--bg-elevated)] transition-colors"
+                  href={declareHref}
+                  className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-control bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-foreground)]"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <CourtPhotoThumb photoPath={court?.photo_path} className="h-14 w-14" />
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-[var(--text-primary)]">
-                          {lobby.court_name || court?.name || "Campo"}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1 text-sm text-[var(--text-secondary)]">
-                          <Users className="w-3.5 h-3.5" aria-hidden="true" />
-                          <span>
-                            {lobby.participants_count}/{lobby.max_players}
-                          </span>
-                          <span aria-hidden="true">•</span>
-                          <span>{formatAppTime(lobby.start_time)}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <Button size="sm" variant="primary" tabIndex={-1} className="shrink-0">
-                      Vedi
-                    </Button>
-                  </div>
+                  Dichiara la serata
                 </Link>
-              );
-            })}
-          </div>
-        )}
+              </div>
+            ) : (
+              lobbies.map((lobby) => {
+                const court = courts.find((c) => c.id === lobby.court_id);
+                return (
+                  <LobbyRailCard
+                    key={lobby.id}
+                    lobbyId={lobby.id}
+                    courtId={lobby.court_id}
+                    courtName={lobby.court_name || court?.name || "Campo"}
+                    time={formatAppTime(lobby.start_time)}
+                    participants={lobby.participants_count}
+                    maxPlayers={lobby.max_players}
+                    recurring={lobby.series_id != null}
+                  />
+                );
+              })
+            )
+          }
+        >
+          {searchMode ? (
+            <CourtSearchResults
+              query={query.trim()}
+              phase={searchPhase}
+              results={searchResults}
+              onRetry={retrySearch}
+              onClear={closeSearchFlow}
+            />
+          ) : lobbies.length === 0 ? (
+            <div className="py-8 text-center">
+              <MapPin className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" aria-hidden="true" />
+              <p className="text-sm text-[var(--text-muted)]">
+                {lobbiesEmptyCause === "sport" && sport !== null
+                  ? `Nessuna partita ${sportEmptyPhrase(sport)}, per ora`
+                  : "Nessuna partita, per ora"}
+              </p>
+              <p className="mt-2 font-[family-name:var(--font-syne)] text-xl font-bold text-[var(--text-primary)]">
+                Apri tu la serata
+              </p>
+              {lobbiesEmptyCause === "sport" && (
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                  Ci sono partite di altri sport.
+                </p>
+              )}
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                Scrivi campo e ora: chi è in zona lo vede e si aggiunge.
+              </p>
+              <Link
+                href={declareHref}
+                className="mx-auto mt-4 inline-flex min-h-[44px] items-center justify-center rounded-control bg-[var(--accent)] px-6 text-base font-semibold text-[var(--accent-foreground)]"
+              >
+                Dichiara la serata
+              </Link>
+              {nearestCourts.length > 0 && (
+                <>
+                  <p className="mt-6 text-sm font-semibold text-[var(--text-secondary)]">
+                    Campi liberi qui intorno
+                  </p>
+                  <div className="mt-2 space-y-2 text-left">
+                    {nearestCourts.map((court) => {
+                      const km =
+                        court.distance_m != null
+                          ? (court.distance_m / 1000).toLocaleString("it-IT", {
+                              maximumFractionDigits: 1,
+                            })
+                          : null;
+                      return (
+                        <Link
+                          key={court.id}
+                          href={`/courts/${court.id}`}
+                          aria-label={km != null ? `${court.name}, a ${km} chilometri` : court.name}
+                          className="flex min-h-[44px] items-center gap-3 rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-3 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-elevated)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
+                        >
+                          <CourtPhotoThumb photoPath={court.photo_path} className="h-14 w-14" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-semibold text-[var(--text-primary)]">
+                              {court.name}
+                            </span>
+                            {km != null && (
+                              <span className="mt-1 block text-sm text-[var(--text-secondary)]">
+                                a {km} km
+                              </span>
+                            )}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {lobbies.map((lobby) => {
+                const court = courts.find((c) => c.id === lobby.court_id);
+                const name = lobby.court_name || court?.name || "Campo";
+                const tone = occupancyTone(lobby.participants_count, lobby.max_players);
+                const percent = occupancyPercent(lobby.participants_count, lobby.max_players);
+                return (
+                  <li key={lobby.id}>
+                    <Link
+                      href={`/courts/${lobby.court_id}`}
+                      aria-label={`${name}, ${lobby.participants_count} su ${lobby.max_players} posti, ore ${formatAppTime(lobby.start_time)}${lobby.series_id ? ", ricorrente" : ""}`}
+                      className="relative block overflow-hidden rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-4 pb-5 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-elevated)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
+                    >
+                      <span className="flex items-center gap-3">
+                        <CourtPhotoThumb photoPath={court?.photo_path} className="h-14 w-14" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-semibold text-[var(--text-primary)]">
+                            {name}
+                          </span>
+                          {lobby.series_id ? (
+                            <span className="mt-1 flex">
+                              <RecurringChip weekday={null} timeOfDay={null} />
+                            </span>
+                          ) : null}
+                          <span className="mt-1 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                            <Users className="w-3.5 h-3.5" aria-hidden="true" />
+                            <span style={{ color: tone }}>
+                              {lobby.participants_count}/{lobby.max_players}
+                            </span>
+                            <span aria-hidden="true">•</span>
+                            <span>{formatAppTime(lobby.start_time)}</span>
+                          </span>
+                        </span>
+                        <ChevronRight
+                          className="w-5 h-5 shrink-0 text-[var(--text-muted)]"
+                          aria-hidden="true"
+                        />
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--border)]"
+                      >
+                        <span
+                          className="block h-full"
+                          style={{ width: `${percent}%`, background: tone }}
+                        />
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </LobbySheet>
       </div>
 
       {loginMounted && (

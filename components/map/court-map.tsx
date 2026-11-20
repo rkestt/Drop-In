@@ -466,7 +466,15 @@ export function CourtMap({
       )}
 
       {courts.length > 0 && !listOpen && (
-        <div className="absolute bottom-4 start-3 z-20">
+        // #89 Lane B: il bottone vive sopra il foglio, non sotto. A striscia
+        // sta sopra il bordo (`--sheet-lift`); a piena con ricerca attiva sta
+        // sotto il chrome (`--sheet-chrome`), sopra la testa del foglio; a
+        // piena senza ricerca sparisce come il FAB (regola con scope
+        // `#contenuto`, il foglio ha già le sue azioni).
+        <div
+          className="absolute start-3 z-40 map-sheet-list"
+          style={{ bottom: "calc(var(--sheet-lift, 144px) + 12px)" }}
+        >
           <button
             ref={listButtonRef}
             type="button"

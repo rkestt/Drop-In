@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  clearPreviewNoteCache,
   COURT_NOTE_STALE_DAYS,
   courtNoteSeparatorBefore,
   courtNotesHeadline,
@@ -12,7 +13,14 @@ import {
   noteKindLabel,
   splitCourtNotes,
   type CourtNoteItem,
+  warmPreviewNotes,
 } from "@/lib/court/notes";
+
+// La cache anteprima è stato globale del modulo: ogni test parte pulito,
+// altrimenti l'ordine di esecuzione cambierebbe i risultati.
+beforeEach(() => {
+  clearPreviewNoteCache();
+});
 
 const NOW = new Date("2026-11-18T10:00:00.000Z");
 
@@ -279,6 +287,126 @@ describe("fetchPreviewNote", () => {
       "court_id",
       "court-9",
     );
+  });
+});
+
+describe("warmPreviewNotes + cache anteprima", () => {
+  const warmStub = (rows: unknown, error: unknown = null) => {
+    const order = vi.fn().mockResolvedValue({ data: rows, error });
+    const inn = vi.fn().mockReturnValue({ order });
+    const select = vi.fn().mockReturnValue({ in: inn });
+    const from = vi.fn().mockReturnValue({ select });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return { client: { from } as any, from, order };
+  };
+  const exploding = () => {
+    const from = vi.fn(() => {
+      throw new Error("rete non attesa: doveva rispondere la cache");
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return { client: { from } as any, from };
+  };
+
+  it("la seconda lettura non tocca la rete", async () => {
+    const from = (() => {
+      const maybeSingle = vi
+        .fn()
+        .mockResolvedValue({ data: { kind: "closed", created_at: daysAgo(2) }, error: null });
+      const limit = vi.fn().mockReturnValue({ maybeSingle });
+      const order = vi.fn().mockReturnValue({ limit });
+      const eq = vi.fn().mockReturnValue({ order });
+      const select = vi.fn().mockReturnValue({ eq });
+      return vi.fn().mockReturnValue({ select });
+    })();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = { from } as any;
+    await fetchPreviewNote(client, "warm-1", NOW);
+    await fetchPreviewNote(client, "warm-1", NOW);
+    expect(from).toHaveBeenCalledTimes(1);
+  });
+
+  it("warm riempie più campi, la più nuova vince, poi zero rete", async () => {
+    const rows = [
+      { court_id: "w1", kind: "closed", created_at: daysAgo(1) },
+      { court_id: "w1", kind: "broken_hoop", created_at: daysAgo(5) },
+      { court_id: "w2", kind: "broken_hoop", created_at: daysAgo(1) },
+    ];
+    const { client: warmClient, from: warmFrom } = warmStub(rows);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await warmPreviewNotes(warmClient as any, ["w1", "w2", "w1"]);
+    expect(warmFrom).toHaveBeenCalledWith("court_notes");
+    const { client: noNet } = exploding();
+    expect(await fetchPreviewNote(noNet, "w1", NOW)).toEqual({
+      kind: "Chiuso",
+      age: "1 giorno fa",
+    });
+    expect(await fetchPreviewNote(noNet, "w2", NOW)).toEqual({
+      kind: "Canestro rotto",
+      age: "1 giorno fa",
+    });
+  });
+
+  it("warm fallito: la fetch diretta resta il fallback", async () => {
+    const { client: bad } = warmStub(null, { message: "boom" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await warmPreviewNotes(bad as any, ["w3"]);
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { kind: "closed", created_at: daysAgo(2) },
+      error: null,
+    });
+    const limit = vi.fn().mockReturnValue({ maybeSingle });
+    const order = vi.fn().mockReturnValue({ limit });
+    const eq = vi.fn().mockReturnValue({ order });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const note = await fetchPreviewNote({ from } as any, "w3", NOW);
+    expect(note).toEqual({ kind: "Chiuso", age: "2 giorni fa" });
+  });
+
+  it("le etichette si ricalcolano alla lettura, non alla scrittura", async () => {
+    const { client: warmClient } = warmStub([
+      { court_id: "w4", kind: "closed", created_at: daysAgo(2) },
+    ]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await warmPreviewNotes(warmClient as any, ["w4"]);
+    const { client: noNet } = exploding();
+    expect(await fetchPreviewNote(noNet, "w4", NOW)).toEqual({
+      kind: "Chiuso",
+      age: "2 giorni fa",
+    });
+    expect(
+      await fetchPreviewNote(noNet, "w4", new Date(NOW.getTime() + 24 * 60 * 60_000)),
+    ).toEqual({ kind: "Chiuso", age: "3 giorni fa" });
+  });
+
+  it("scaduto il TTL si torna in rete", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(NOW);
+      const { client: warmClient } = warmStub([
+        { court_id: "w5", kind: "closed", created_at: daysAgo(2) },
+      ]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await warmPreviewNotes(warmClient as any, ["w5"]);
+      const later = new Date(NOW.getTime() + 61_000);
+      vi.setSystemTime(later);
+      const maybeSingle = vi.fn().mockResolvedValue({
+        data: { kind: "broken_hoop", created_at: daysAgo(1) },
+        error: null,
+      });
+      const limit = vi.fn().mockReturnValue({ maybeSingle });
+      const order = vi.fn().mockReturnValue({ limit });
+      const eq = vi.fn().mockReturnValue({ order });
+      const select = vi.fn().mockReturnValue({ eq });
+      const from = vi.fn().mockReturnValue({ select });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const note = await fetchPreviewNote({ from } as any, "w5", later);
+      expect(from).toHaveBeenCalledWith("court_notes");
+      expect(note).toEqual({ kind: "Canestro rotto", age: "1 giorno fa" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

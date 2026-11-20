@@ -299,6 +299,41 @@ body {
   margin-right: 16px !important;
 }
 
+/* #89 Lane B: il foglio copre il fondo della banda, quindi il gruppo zoom
+   finirebbe sotto di lui — irraggiungibile e flaggato da axe (target-size).
+   Sta sopra il bordo del foglio (`--sheet-lift` = altezza visibile + bottom
+   tastiera), a sinistra del FAB (56px + stacchi): niente sovrapposizioni con
+   chrome, FAB o striscia. A piena finisce dietro il chrome come il resto
+   della mappa. Scope #contenuto = solo home. */
+#contenuto .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+  margin-bottom: calc(var(--sheet-lift, 0px) + 8px) !important;
+  margin-right: 80px !important;
+}
+
+/* #89 Lane B, "Lista campi": a striscia sta sopra il bordo del foglio
+   (`bottom` dal `--sheet-lift` di banda); a piena con ricerca attiva sta
+   sotto il chrome (`top` da `--sheet-chrome`), a destra per non coprire il
+   titolo; a piena senza ricerca sparisce come il FAB, il foglio ha già le
+   sue azioni. Solo home (`#contenuto` + attributi messi dal foglio). */
+#contenuto [data-sheet-snap="full"]:not([data-sheet-search="on"]) .map-sheet-list {
+  display: none;
+}
+#contenuto [data-sheet-snap="full"][data-sheet-search="on"] .map-sheet-list {
+  bottom: auto !important;
+  /* A destra: a sinistra coprirebbe il titolo del foglio ("Campi trovati").
+     Il FAB a piena è nascosto, il posto è libero. */
+  inset-inline-start: auto !important;
+  inset-inline-end: 0.75rem;
+  top: calc(var(--sheet-chrome, 120px) + 8px);
+}
+/* Zoom e attribuzione stanno sotto il foglio come i pin (taglio approvato):
+   a piena spariscono del tutto invece di restare intrappolati dietro il
+   chrome (irraggiungibili e tab-stop fantasma). */
+#contenuto [data-sheet-snap="full"] .maplibregl-ctrl-bottom-right {
+  display: none;
+}
+
+
 /* Attribuzione non compatta: di default è un velo bianco al 50% e il testo
    eredita il chiaro del tema, quindi spariva. Superficie elevata + testo
    secondario (5,95:1). Vale anche per i link, altrimenti restano neri. */

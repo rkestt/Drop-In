@@ -96,7 +96,10 @@ Si torna alle partite **esattamente come prima**, senza salti:
 - **nessuna fetch**: la query vuota rimette i marker del browse (`courts` già in pagina) e
   le lobby sono già in memoria; la camera non si muove.
 - **tastiera chiusa** e **focus sull'handle** (non sul `body`): l'handle è il controllo
-  del nuovo stato e la prossima Tab entra nella lista.
+  del nuovo stato e la prossima Tab entra nella lista. L'handle in ricerca
+  è smontato: il focus va messo solo dopo aver verificato che il nodo esista
+  nel DOM (`isConnected`, un rAF di margine per il remount, poi un secondo;
+  se manca ancora non si ruba il focus a niente).
 - Una transizione di 250ms accompagna il ritorno (stessa curva del foglio); con
   `prefers-reduced-motion` è 0,01ms e l'informazione resta.
 
@@ -124,6 +127,11 @@ partite (altrimenti la lista finirebbe sotto la tastiera); è il blur a riportar
 - L'handle è **nascosto** in ricerca (si chiude in 200ms): il foglio ha una sola altezza
   e un grip che non trascina sarebbe una bugia. Il gesto verso il basso continua a
   funzionare sulla lista.
+- **Schermo basso con tastiera**: se lo spazio disponibile scende sotto la
+  striscia (o a zero), la piena si ferma al contenitore e la striscia collassa
+  sulla stessa altezza: un'unica altezza (mai oltre il contenitore, mai
+  negativa, mai snap invertiti), drag neutralizzato (span 0). Vale anche
+  senza tastiera, dove non scatta mai (la piena è sempre ≥ striscia + 140).
 
 ### 5. Stati vuoti riconciliati (oggi ce ne sono due quasi uguali)
 
@@ -274,11 +282,22 @@ stessi, cambia solo lo spazio del foglio.
 
 ## Fuori lane (conseguenze che qualcuno deve prendere in carico)
 
-- **«Lista campi»** (`court-map.tsx`, oggi `bottom-4 start-3`): con il foglio a
-  striscia finisce sotto di lui. Va ancorato sopra il bordo del foglio (come FAB e
-  anteprima) o spostato nel foglio: non è ricerca, ma la home nuova lo rende invisibile.
-- **Banner «Nessun campo in quest'area»** (`page.tsx`, blocco `noCourtsForSport`): stesso problema, stessa
-  soluzione (sopra il foglio, nascosto a piena).
+Regola definitiva (Lane B implementata, 19 nov 2026): il foglio sta sopra
+tutto ciò che vive nella banda (`z-30`). Sopra il suo bordo stanno, solo a
+striscia e con 12px di stacco dall'altezza misurata (`--sheet-lift` sulla
+banda): FAB «Aggiungi un campo», bottone «Lista campi» (`court-map.tsx`, ex
+`bottom-4 start-3`), banner «Nessun campo in quest'area» (`page.tsx`, blocco
+`noCourtsForSport`). A piena con ricerca attiva il bottone «Lista campi»
+sta sotto il chrome (`top` da `--sheet-chrome`), a destra per non coprire il
+titolo — il flusso «cerca → Lista campi → anteprima» resta usabile proprio
+dove serve (foglio pieno con risultati). A piena senza ricerca i tre
+spariscono come il FAB: il foglio ha già le sue azioni. I controlli zoom
+stanno sopra il bordo a striscia (sollevati della stessa misura) e spariscono
+a piena come il resto dei controlli mappa. FAB e banner usano `railHeight`
+(a striscia la tastiera è chiusa: il focus porta subito a piena), mentre
+`--sheet-lift` include il bottom della tastiera e serve ai controlli mappa
+che restano visibili con la tastiera aperta (zoom). Gli attributi
+`data-sheet-snap` / `data-sheet-search` sulla banda pilotano le regole CSS.
 - **Placeholder e raggi**: il campo dice `entro 25 km` ma la ricerca parte dal **centro
   mappa** (`selectSearchOrigin`), non da «qui»: se in futuro il copy diventa «qui
   intorno» va cambiata anche l'origine.

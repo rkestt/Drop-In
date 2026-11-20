@@ -303,6 +303,22 @@ Canestro rotto · 2 settimane fa
 - Misura: la riga aggiunge ~31px al foglio (una riga più il gap), **sotto** il
   conteggio lobby e **sopra** la riga identità e i CTA, che non si muovono.
 
+### Tetto di 400ms e cache di scaldamento (riga al primo frame)
+
+L'anteprima apre alla prima tra fetch risolta e tetto di 400ms: mai pop-in,
+mai attesa incerta. Il tetto non si alza (aprire in fretta anche senza nota
+resta il comportamento voluto). Per non rendere la riga una lotteria di rete,
+la home scalda una cache breve (`warmPreviewNotes`, `lib/court/notes.ts`,
+TTL 60s) con i campi che mostra — lobby vicine e risultati di ricerca: al tap
+l'anteprima trova la riga senza rete e il tetto non scatta mai, anche con
+rete lenta (caso reale: test e2e `court-notes.spec.ts:338`, verde solo così
+sotto carico parallelo).
+- La cache tiene le righe grezze (`kind`, `created_at`), mai le etichette:
+  freschezza, tipo ed età si ricalcolano a ogni lettura con il `now` della
+  chiamata. Alla scadenza (60s senza ri-scaldatura) si torna in rete da soli.
+- Errori e risposte vuote non scrivono niente: il fallback resta la fetch
+  diretta, comportamento invariato.
+
 ## Superficie 4 — Note vecchie e stesso tipo ri-notato
 
 ### Vecchie
