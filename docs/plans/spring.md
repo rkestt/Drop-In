@@ -25,6 +25,12 @@ Il bbox dei 10.130 campi è lat 41.749–41.981, lon 12.300–12.656: **Ostia è
 
 In più, **curatela manuale**: il pacchetto dati OSM contiene campi che non sono agibili. Va previsto un tempo ricorrente per rivedere le aggiunte future e correggere quelle sbagliate, non un intervento una tantum.
 
+*Stato (2026-11-20)*: **Ostia fatta** (`f821966`) — estratto sulla fascia sud `41.700,12.200,41.749,12.660`, 1.649 righe nuove, insert puri (`ON CONFLICT (osm_id) DO NOTHING`), 194 con sport vero; il seed ora è riproducibile (prima i campi esistevano solo nel DB locale e un `db reset` li perdeva). Verificato con reset completo e col gate.
+
+Il **reseed distruttivo** — far sparire i campi che OSM non ha più — resta non fatto e non deciso: richiede un archivio delle righe rimosse, perché la cascata porterebbe via lobby e check-in.
+
+*Nuovo problema misurato*: a Ostia lido, entro 15 km ci sono 374 campi con sport e 2.188 elementi; `nearby_courts` ne restituisce 200 ordinati per distanza e il 200° dista **802 m**, quindi la prima schermata mostra 14 campi con sport e 186 spazi verdi. Tre strade (verdi in coda, verdi fuori dal default, niente) in #112. Non è un difetto dell'import: il seed di Roma ha 4.875 verdi su 10.130.
+
 ### 1b. Note di campo (agibilità)
 Un campo può esistere in mappa e non essere utilizzabile: canestro rotto, cancello chiuso, area diventata parcheggio, illuminazione assente.
 
@@ -98,7 +104,7 @@ Le push esistono come codice e non sono attive (#87: chiavi, secrets, cron). Son
 
 *Vincolo*: **nessun utente esterno prima di 8a**.
 
-*Stato (2026-11-18)*: **fatta** in `d62bc2b` (export + `creator_id` nullable) + `911bdc7` (sezione dati, fallback "Giocatore eliminato") + `3ea71e3` (delete con 409, storage prima del database, scrub notifiche) + `e3a91c0` (pre-check su `ends_at`), ticket #94 chiuso. Resta scoperto: e2e (#101), guardrail search_path (#102), testi 8b (#83).
+*Stato (2026-11-18)*: **fatta** in `d62bc2b` (export + `creator_id` nullable) + `911bdc7` (sezione dati, fallback "Giocatore eliminato") + `3ea71e3` (delete con 409, storage prima del database, scrub notifiche) + `e3a91c0` (pre-check su `ends_at`), ticket #94 chiuso. e2e dei quattro casi (#101, `af21a0a`) e guardrail `search_path` (#102) chiusi il 2026-11-20, insieme ai quattro rami inline della route (#111, `ae3c58c`). Resta scoperto solo 8b: i testi (#83).
 
 ### 9. Backup verificato
 Backup di stage con **restore provato almeno una volta**. Senza, un comando sbagliato azzera campi e dati dei tester in modo irreversibile.
@@ -156,13 +162,13 @@ Le cose che non si possono aggiungere dopo vengono prima.
 
 ## Decisioni aperte
 
-- **Navigazione mappa/lobby**: issue #89 — deciso 2026-11-18: implementazione dopo #90 (Note di campo), prima di #95 (beta/tester), insieme alla rifinitura della home per la beta. Dettaglio in `docs/roadmaps/interfaccia.md`.
+- **Nessuna.** La navigazione mappa/lobby (#89, foglio a snap e ricerca nel chrome) è atterrata il 2026-11-20 in `99466d6`.
 
 ## Ticket
 
 | Voce | Ticket |
 | --- | --- |
-| 1 · campi del polo (Ostia, reseed) | nuovo, da aprire — slug già fatto 2026-11-18 (`be1437a`, `049`) |
+| 1 · campi del polo (Ostia, reseed) | #112 (Ostia fatta 2026-11-20; reseed distruttivo e qualità dei dati aperti) |
 | 1b · Note di campo | #90 (chiuso 2026-11-18) |
 | 2 · audit sport nel polo | #63 (scope ridotto, commentato) |
 | 2 · Nomi dei campi del polo | #106 (chiuso 2026-11-18) |
@@ -171,7 +177,7 @@ Le cose che non si possono aggiungere dopo vengono prima.
 | 5 · Ricorrenza abituale | da aprire quando ci sono i dati |
 | 6 · Fiducia: valutazioni e chat | #93 (dopo la beta, voce 10) |
 | 7 · Push e audit notifiche | #87 (commentato) |
-| 8a · GDPR nel codice | #94 (metà codice di #83) |
+| 8a · GDPR nel codice | #94 chiuso + età minima #97 (`4522afe`) + #101/#111 |
 | 8b · Testi legali | #83 |
 | 9 · Backup verificato | #85 (backup provato in locale 2026-11-18, pipeline CI/CD e promotion migrazioni aperte) |
 | 10 · Beta a inviti | #95 (bloccata da #86) |
@@ -183,5 +189,6 @@ Le cose che non si possono aggiungere dopo vengono prima.
 
 - **#86 SMTP dedicato** — senza, gli inviti della beta non vengono consegnati e la voce 10 non è collaudabile.
 - **#80 geolocalizzazione iOS** — il check-in funziona solo con la PWA installata; va comunicato ai tester.
-- **#84 rate limit e moderazione foto** — con utenti esterni e valutazioni, prima o poi morde.
+- **#84 rate limit** — quote giornaliere fatte il 2026-11-20 (`b3cce32`, soglie in `rate_limit_quotas`); moderazione automatica foto e WAF restano rimandate alla beta aperta.
+- **#97 età minima** — fatta il 2026-11-20 (`4522afe`): blocco secco sotto i 14, data di nascita in `profile_age`, gate dopo l'autenticazione. I testi legali vanno validati.
 
