@@ -167,19 +167,22 @@ BEGIN
 END $$;
 RESET ROLE;
 
--- ================= 11. secondo submit entro un'ora -> P0001 (rate limit) =================
+-- ================= 11. terzo submit nelle 24h -> P0001 (quota giornaliera) =================
+-- #84/055: 2 proposte di nuovi campi al giorno. Le prime due passano, la
+-- terza viene fermata.
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
 SELECT public.submit_court('Test Court', 41.91, 12.51);
+SELECT public.submit_court('Test Court 2', 41.92, 12.52);
 DO $$
 BEGIN
   BEGIN
-    PERFORM public.submit_court('Test Court 2', 41.92, 12.52);
+    PERFORM public.submit_court('Test Court 3', 41.93, 12.53);
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = 'P0001' THEN RETURN; END IF;
-    RAISE EXCEPTION 'rate limit: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+    RAISE EXCEPTION 'quota giornaliera: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
   END;
-  RAISE EXCEPTION 'second submit succeeded';
+  RAISE EXCEPTION 'terzo submit nelle 24h riuscito';
 END $$;
 RESET ROLE;
 
@@ -1649,9 +1652,9 @@ END $$;
 -- `p_address` (8o parametro, DEFAULT NULL): trimmato, vuoto -> NULL, max 200
 -- caratteri e niente control/newline (P0001); salvato in `courts.address`.
 -- La vecchia firma a 7 argomenti non esiste piu' (overload rimosso dal DROP
--- in 031). Ogni submit riuscito consuma il rate limit 1/ora, quindi i due
--- casi positivi usano utenti dedicati (D/E); i negativi non scrivono righe
--- e riusano F.
+-- in 031). Ogni submit riuscito consuma la quota giornaliera (055: 2/giorno),
+-- quindi i due casi positivi usano utenti dedicati (D/E); i negativi non
+-- scrivono righe e riusano F.
 INSERT INTO auth.users (id, email) VALUES
   ('44444444-4444-4444-4444-444444444444','d@test.local'),
   ('55555555-5555-5555-5555-555555555555','e@test.local'),
@@ -2171,7 +2174,7 @@ DO $$ DECLARE v_avg NUMERIC; v_n INTEGER; v_expected BIGINT; BEGIN
 END $$;
 RESET ROLE;
 
--- ================= 45. #84/034: rate limit per utente + anti-spam testo =================
+-- ================= 45. #84/055: quota giornaliera per utente + anti-spam testo =================
 -- Corte di appoggio (postgres: nessun claim -> i trigger di rate limit non
 -- contano, come per seed e cron).
 INSERT INTO public.courts (name, lat, lng, location, source, moderation_status, status)
@@ -2179,7 +2182,7 @@ VALUES ('Rate Limit Court', 41.91, 12.51,
         ST_SetSRID(ST_MakePoint(12.51, 41.91),4326)::geography,
         'community', 'approved', 'active');
 
--- A inserisce 5 segnalazioni (limite 5/ora), la sesta viene fermata.
+-- A inserisce 10 segnalazioni (quota 10/giorno), l'undicesima viene fermata.
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
 INSERT INTO public.court_reports (court_id, user_id, category, expires_at)
@@ -2187,7 +2190,7 @@ SELECT (SELECT id FROM public.courts WHERE name = 'Rate Limit Court'),
        '11111111-1111-1111-1111-111111111111',
        'other',
        now() + interval '1 hour'
-FROM generate_series(1, 5);
+FROM generate_series(1, 10);
 
 DO $$
 BEGIN
@@ -2198,10 +2201,15 @@ BEGIN
             'other',
             now() + interval '1 hour');
   EXCEPTION WHEN OTHERS THEN
-    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
-    RAISE EXCEPTION 'sesta segnalazione: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+    IF SQLSTATE = 'P0001' THEN
+      IF SQLERRM NOT LIKE '%giornaliero%' THEN
+        RAISE EXCEPTION 'quota: messaggio senza nome azione: %', SQLERRM;
+      END IF;
+      RETURN;
+    END IF;
+    RAISE EXCEPTION 'undicesima segnalazione: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
   END;
-  RAISE EXCEPTION 'sesta segnalazione accettata (rate limit assente?)';
+  RAISE EXCEPTION 'undicesima segnalazione accettata (quota assente?)';
 END $$;
 RESET ROLE;
 
@@ -4484,6 +4492,133 @@ DO $$ BEGIN
     RAISE EXCEPTION 'open_lobbies: orizzonte 36h rotto dalla 054 (#89 lane A)';
   END IF;
 END $$;
+RESET ROLE;
+
+-- ================= 62. #84/055: quote giornaliere da tabella, per utente =================
+-- Utenti freschi Q/R (mai usati prima: i loro bucket partono vuoti). Mai
+-- count(*) su tutta rate_limit_events: solo EXISTS mirati e generate_series.
+SET LOCAL request.jwt.claims = '';
+INSERT INTO auth.users (id, email) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee','q@test.local'),
+  ('ffffffff-ffff-ffff-ffff-ffffffffffff','r@test.local');
+INSERT INTO public.courts (name, lat, lng, location, source, moderation_status, status)
+VALUES ('Daily Quota Court', 41.918, 12.518, ST_SetSRID(ST_MakePoint(12.518,41.918),4326)::geography,
+        'community', 'approved', 'active');
+
+-- 62a. Q riempie la quota segnalazioni (10/giorno da seed): 10 passano…
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee","role":"authenticated"}';
+INSERT INTO public.court_reports (court_id, user_id, category, expires_at)
+SELECT (SELECT id FROM public.courts WHERE name = 'Daily Quota Court'),
+       'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+       'other',
+       now() + interval '1 hour'
+FROM generate_series(1, 10);
+RESET ROLE;
+
+-- …l'undicesima cade in P0001 col testo giornaliero (nome azione incluso)…
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.court_reports (court_id, user_id, category, expires_at)
+    VALUES ((SELECT id FROM public.courts WHERE name = 'Daily Quota Court'),
+            'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+            'other',
+            now() + interval '1 hour');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN
+      IF SQLERRM NOT LIKE '%giornaliero%di segnalazioni%' THEN
+        RAISE EXCEPTION 'quota segnalazioni: messaggio senza nome azione: %', SQLERRM;
+      END IF;
+      RETURN;
+    END IF;
+    RAISE EXCEPTION 'quota segnalazioni: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'undicesima segnalazione di Q accettata (quota assente?)';
+END $$;
+RESET ROLE;
+
+-- …ma R è indipendente: la sua prima segnalazione passa (finestra per
+-- (bucket, utente), come la 034).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"ffffffff-ffff-ffff-ffff-ffffffffffff","role":"authenticated"}';
+INSERT INTO public.court_reports (court_id, user_id, category, expires_at)
+VALUES ((SELECT id FROM public.courts WHERE name = 'Daily Quota Court'),
+        'ffffffff-ffff-ffff-ffff-ffffffffffff',
+        'other',
+        now() + interval '1 hour');
+RESET ROLE;
+
+-- 62b. Bypass moderatori: B (moderatore dal setup) oltrepassa la quota senza
+-- lasciare eventi — chi cura i campi non si blocca da solo.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+INSERT INTO public.court_reports (court_id, user_id, category, expires_at)
+SELECT (SELECT id FROM public.courts WHERE name = 'Daily Quota Court'),
+       '22222222-2222-2222-2222-222222222222',
+       'other',
+       now() + interval '1 hour'
+FROM generate_series(1, 11);
+RESET ROLE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.rate_limit_events
+             WHERE bucket = 'court_reports'
+               AND subject = '22222222-2222-2222-2222-222222222222'
+               AND created_at > now() - interval '24 hours') THEN
+    RAISE EXCEPTION 'moderatore oltre quota ha lasciato eventi';
+  END IF;
+END $$;
+
+-- 62c. La tabella quote è chiusa ai client come gli eventi (034:42-48).
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    PERFORM max_per_day FROM public.rate_limit_quotas LIMIT 1;
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42501' THEN RETURN; END IF;
+    RAISE EXCEPTION 'rate_limit_quotas: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'rate_limit_quotas leggibile dal client (grant mancante?)';
+END $$;
+RESET ROLE;
+
+-- ================= 63. #84/055: i numeri vivono fuori dal codice =================
+-- UPDATE della quota -> il comportamento cambia senza toccare funzioni.
+UPDATE public.rate_limit_quotas SET max_per_day = 1 WHERE bucket = 'court_reports';
+
+-- R (1 segnalazione nel blocco 62) è ora già oltre la nuova quota…
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"ffffffff-ffff-ffff-ffff-ffffffffffff","role":"authenticated"}';
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.court_reports (court_id, user_id, category, expires_at)
+    VALUES ((SELECT id FROM public.courts WHERE name = 'Daily Quota Court'),
+            'ffffffff-ffff-ffff-ffff-ffffffffffff',
+            'other',
+            now() + interval '1 hour');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = 'P0001' THEN RETURN; END IF;
+    RAISE EXCEPTION 'quota abbassata: SQLSTATE % anomalo: %', SQLSTATE, SQLERRM;
+  END;
+  RAISE EXCEPTION 'quota abbassata a 1 ma R scrive ancora';
+END $$;
+RESET ROLE;
+
+-- …e rialzandola torna tutto come prima (il file è un'unica transazione con
+-- ROLLBACK finale: il seed resta quello della 055).
+UPDATE public.rate_limit_quotas SET max_per_day = 10 WHERE bucket = 'court_reports';
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"ffffffff-ffff-ffff-ffff-ffffffffffff","role":"authenticated"}';
+INSERT INTO public.court_reports (court_id, user_id, category, expires_at)
+VALUES ((SELECT id FROM public.courts WHERE name = 'Daily Quota Court'),
+        'ffffffff-ffff-ffff-ffff-ffffffffffff',
+        'other',
+        now() + interval '1 hour');
 RESET ROLE;
 
 ROLLBACK;

@@ -180,6 +180,24 @@ describe("fromInsertError", () => {
     expect(info.hint).toBeUndefined();
   });
 
+  it("quota giornaliera (055) → ramo quota col testo del server, mai server-generico", () => {
+    const message = "Hai raggiunto il limite giornaliero di check-in. Riprova domani.";
+    const info = fromInsertError(message);
+    expect(info.kind).toBe("quota");
+    expect(info.title).toMatch(/giornaliero/i);
+    expect(info.body).toBe(message);
+    expect(info.retryLabel).toBe("Chiudi");
+  });
+
+  it("varianti di quota → stesso ramo dedicato", () => {
+    for (const msg of [
+      "Hai raggiunto il limite giornaliero di check-in. Riprova domani.",
+      "Troppi check-in oggi, riprova domani.",
+    ]) {
+      expect(fromInsertError(msg).kind).toBe("quota");
+    }
+  });
+
   it("varianti di revisione → stesso stato dedicato", () => {
     for (const msg of [
       "Campo in revisione: attendi l'approvazione.",

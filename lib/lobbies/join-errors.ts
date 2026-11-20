@@ -141,7 +141,7 @@ const CREATE_DUPLICATE_MESSAGE =
 const CREATE_GENERIC_MESSAGE =
   "Non è stato possibile creare la lobby. Riprova più tardi.";
 const CREATE_RATE_LIMIT_MESSAGE =
-  "Hai creato troppe lobby nell'ultima ora. Riprova più tardi.";
+  "Hai raggiunto il limite giornaliero di lobby. Riprova domani.";
 const CREATE_APPROVED_MESSAGE =
   "Operazione consentita solo su campi approvati.";
 
@@ -149,7 +149,7 @@ const BANNED_RE = /bannato|banned/i;
 const KARMA_RE = /karma/i;
 const CREATE_DUPLICATE_RE =
   /23505|duplicate|already exist|esiste gi|stessa lobby/i;
-const CREATE_RATE_LIMIT_RE = /troppe lobby|too many|rate.?limit/i;
+const CREATE_RATE_LIMIT_RE = /troppe lobby|limite giornaliero|too many|rate.?limit/i;
 const CREATE_APPROVED_RE = /approvati/i;
 
 /**

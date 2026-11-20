@@ -126,7 +126,7 @@ const OPEN_RE = /già una proposta in attesa|attendi un minuto/i;
 // Doppio tab o race che batte l'indice unico parziale: il DB risponde
 // 23505 con inglese raw, non con il P0001 italiano del trigger.
 const DUPLICATE_RE = /23505|duplicate key/i;
-const RATE_RE = /troppe proposte|too many|rate.?limit/i;
+const RATE_RE = /troppe proposte|limite giornaliero|too many|rate.?limit/i;
 const TRANSIENT_RE =
   /failed to fetch|network|timeout|temporar|offline|connection|reset|aborted|(?<!\d)5\d\d(?!\d)|econn|enotfound|socket/i;
 

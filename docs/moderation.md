@@ -97,7 +97,7 @@ Eseguito da Studio/psql. Il trigger `guard_profile_moderator` blocca la modifica
 
 ## Rate limit
 
-1 invio/ora per utente, verificato dentro `submit_court` (`v_recent >= 1` su `court_submissions` degli ultimi 60 minuti). Messaggio d'errore utente: `Hai gia inviato un campo nell ultima ora. Riprova piu tardi.` Non è un job. Per resettarlo a mano non basta cancellare la riga di `court_submissions`: la cascade va da `courts` a `court_submissions` (`court_submissions_court_id_fkey ... ON DELETE CASCADE`), non il contrario — cancellando solo la submission resta una corte `pending` orfana, invisibile al pubblico ma ancora visibile al dedup. Cancellare prima la corte (`DELETE FROM courts WHERE id = ...`, che trascina la submission) oppure entrambe le righe.
+2 invii/giorno per utente (da `055`), verificato dentro `submit_court` (`v_recent >= 2` su `court_submissions` delle ultime 24 ore). Messaggio d'errore utente: `Hai raggiunto il limite giornaliero di proposte di nuovi campi. Riprova domani.` Non è un job. Per resettarlo a mano non basta cancellare la riga di `court_submissions`: la cascade va da `courts` a `court_submissions` (`court_submissions_court_id_fkey ... ON DELETE CASCADE`), non il contrario — cancellando solo la submission resta una corte `pending` orfana, invisibile al pubblico ma ancora visibile al dedup. Cancellare prima la corte (`DELETE FROM courts WHERE id = ...`, che trascina la submission) oppure entrambe le righe.
 
 ## Stato del materiale rifiutato
 

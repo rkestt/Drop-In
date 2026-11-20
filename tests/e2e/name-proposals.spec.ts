@@ -143,7 +143,7 @@ test.beforeAll(async () => {
     courtIds[tag] = await createAutoCourt(proponenteId, names[tag]);
   }
   // Le proposte di moderazione si inseriscono dentro ogni test, non qui:
-  // `propose_court_name` conta le pending dell'ultima ora (tetto 5) e la
+  // `propose_court_name` conta le pending delle ultime 24 ore (tetto 5) e la
   // proposta via UI del primo test deve trovare il contatore a zero.
   for (const tag of ["A", "B", "C", "D", "E", "F"]) {
     proposed[tag] = proposedName(tag);

@@ -17,25 +17,34 @@ Il client parla **direttamente** con Supabase (`supabase.from(...).insert()`):
 qualsiasi limite applicativo in Next.js è aggirabile con una chiamata REST e lo
 stesso JWT. Per questo i limiti stanno in trigger `BEFORE INSERT` nel database.
 
-## Rate limit (#84, migrazione `034`)
+## Rate limit (#84, migrazioni `034` + `055`)
+
+Da `055` le finestre sono **giornaliere** e i numeri vivono in
+`public.rate_limit_quotas` (una riga per bucket, `max_per_day`): alzare o
+abbassare una quota è un `UPDATE`, non una migration. Se la riga manca,
+`enforce_rate_limit` usa il limite passato dal guard come fallback.
 
 Tabella `public.rate_limit_events` (bucket, subject, created_at), RLS attiva
 senza policy e nessun grant ai client: si legge solo dalle funzioni
 `SECURITY DEFINER`.
 
-| Bucket | Limite | Tabella | Messaggio (P0001) |
+| Bucket | Quota | Tabella | Messaggio (P0001) |
 |---|---|---|---|
-| `report` | 5 / ora | `court_reports` | "Hai inviato troppe segnalazioni nell'ultima ora…" |
-| `lobby` | 5 / ora | `lobbies` | "Hai creato troppe lobby nell'ultima ora…" |
-| `lobby_join` | 30 / ora | `lobby_participants` | "Troppi ingressi nelle lobby nell'ultima ora…" |
-| `review` | 10 / ora | `court_reviews` | "Hai scritto troppe recensioni nell'ultima ora…" |
-| `check_in` | 20 / ora | `check_ins` | "Troppi check-in nell'ultima ora…" |
-| `submit_court` | 1 / ora | RPC `submit_court` | già in `031` (lock advisory + conteggio) |
+| `court_reports` | 10 / giorno | `court_reports` | "…limite giornaliero di segnalazioni. Riprova domani." |
+| `lobby` | 3 / giorno | `lobbies` | "…limite giornaliero di lobby. Riprova domani." |
+| `lobby_join` | 15 / giorno | `lobby_participants` | "…limite giornaliero di ingressi…" |
+| `court_reviews` | 5 / giorno | `court_reviews` | "…limite giornaliero di recensioni…" |
+| `check_ins` | 10 / giorno | `check_ins` | "…limite giornaliero di check-in…" |
+| `submit_court` | 2 / giorno | RPC `submit_court` | conteggio righe dentro la RPC (`049`) |
+| `propose_court_name` | 5 / giorno | RPC `propose_court_name` | pendenti su 24 ore (`051`) |
+| `resubmit` | 5 / giorno | RPC `resubmit_submission` | 24 ore (`030`) |
 
 Dettagli:
 
-- La finestra è **fissa e scorrevole sui dati**: si contano gli eventi degli
-  ultimi N minuti, non un contatore che si azzera a orologio.
+- La finestra è **fissa e scorrevole sui dati**: si contano gli eventi delle
+  ultime 24 ore, non un contatore che si azzera a orologio.
+- I **moderatori** (`public.is_moderator()`) sono esentati: curano i campi e
+  le loro azioni non lasciano eventi.
 - `pg_advisory_xact_lock(hashtext('rate_limit:<bucket>:<uid>'))` serializza
   check-then-insert: due richieste concorrenti non passano entrambe.
 - Sessioni senza claim (`psql`, cron, `service_role`) **non** vengono limitate:
@@ -47,7 +56,7 @@ Dettagli:
 - Pulizia: job `cron` `rate-limit-cleanup` (03:30) cancella eventi > 7 giorni.
 - Non coperto: upload su `storage.objects` (trigger di competenza dello schema
   `storage`; il path foto è già vincolato a `<uid>/…` e ogni foto passa da una
-  submission, 1/ora) e traffico anonimo (anon non ha INSERT).
+  submission, 2/giorno) e traffico anonimo (anon non ha INSERT).
 
 ## Anti-spam sul testo (#84)
 

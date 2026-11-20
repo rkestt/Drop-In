@@ -130,13 +130,22 @@ describe("mapCreateLobbyError", () => {
     expect(out.message).toBe("Hai già una lobby su questo campo a quest'ora.");
   });
 
-  it("rate limit → testo italiano dedicato", () => {
+  it("vecchio testo orario riconosciuto → testo giornaliero", () => {
+    // La regex accetta ancora il messaggio della 034 (righe vecchie, deploy
+    // sfalsati), ma all'utente arriva il testo giornaliero della 055.
     const out = mapCreateLobbyError({
       code: "P0001",
       message: "Hai creato troppe lobby nell'ultima ora. Riprova più tardi.",
     });
     expect(out.kind).toBe("rateLimited");
-    expect(out.message).toMatch(/troppe lobby/);
+    expect(out.message).toMatch(/limite giornaliero/i);
+  });
+
+  it("quota giornaliera (055) → rateLimited col testo del server", () => {
+    const message = "Hai raggiunto il limite giornaliero di lobby. Riprova domani.";
+    const out = mapCreateLobbyError({ code: "P0001", message });
+    expect(out.kind).toBe("rateLimited");
+    expect(out.message).toBe(message);
   });
 
   it("RLS 42501 → generico, niente codici in UI", () => {

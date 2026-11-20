@@ -290,6 +290,20 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"rate_limit_quotas": {
+                  Row: {
+                    "bucket": string,"max_per_day": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "bucket": string,"max_per_day": number
+                  }
+                  Update: {
+                    "bucket"?: string,"max_per_day"?: number
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"spatial_ref_sys": {
                   Row: {
                     "auth_name": string | null,"auth_srid": number | null,"proj4text": string | null,"srid": number,"srtext": string | null

@@ -20,6 +20,7 @@ import {
 } from "@/lib/reports/active";
 import { createClient } from "@/lib/supabase/client";
 import { postgrestErrorFields } from "@/lib/errors/postgrest";
+import { dailyQuotaMessage } from "@/lib/reports/quota";
 import { createLogger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -169,7 +170,10 @@ export function ReportDrawer({
       // `String(err)` loggava "[object Object]", scartando codice e messaggio.)
       const { code, message } = postgrestErrorFields(err);
       log.warn("invio segnalazione fallito", { courtId, code, message });
-      setError("network");
+      // Quota giornaliera (#84/055): il messaggio del server è già italiano
+      // col nome dell'azione, si mostra così com'è invece del generico.
+      // Qualunque altro errore resta "network" (bozza conservata, retry).
+      setError(dailyQuotaMessage(err) ?? "network");
     } finally {
       submittingRef.current = false;
       setLoading(false);
@@ -240,10 +244,14 @@ export function ReportDrawer({
               <CircleAlert className="w-5 h-5 shrink-0 text-[var(--danger)]" aria-hidden="true" />
               <div>
                 <p className="font-semibold text-[var(--text-primary)]">
-                  Non siamo riusciti a inviare la segnalazione.
+                  {error === "network"
+                    ? "Non siamo riusciti a inviare la segnalazione."
+                    : error}
                 </p>
                 <p className="mt-0.5 text-[13px] text-[var(--text-secondary)]">
-                  Categoria e dettagli sono ancora qui.
+                  {error === "network"
+                    ? "Categoria e dettagli sono ancora qui."
+                    : "Potrai segnalare di nuovo domani."}
                 </p>
               </div>
             </div>
@@ -366,7 +374,7 @@ export function ReportDrawer({
                 {loading && (
                   <Loader2 className="w-4 h-4 me-2 animate-spin" aria-hidden="true" />
                 )}
-                {loading ? "Invio…" : error ? "Riprova" : "Invia segnalazione"}
+                {loading ? "Invio…" : error === "network" ? "Riprova" : "Invia segnalazione"}
               </Button>
               <Button
                 type="button"

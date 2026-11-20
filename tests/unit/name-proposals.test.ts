@@ -96,6 +96,13 @@ describe("mapProposeNameError", () => {
       "Accedi",
     );
   });
+  it("quota giornaliera (055) → testo del server, mai retry", () => {
+    const message = "Hai raggiunto il limite giornaliero di proposte di nome. Riprova domani.";
+    const info = mapProposeNameError({ code: "P0001", message });
+    expect(info.message).toBe(message);
+    expect(info.canRetry).toBe(false);
+  });
+
   it("mai raw Postgres: fallback generico non riprovabile", () => {
     const info = mapProposeNameError({ code: "XX999", message: "kaboom" });
     expect(info.message).toBe("Non siamo riusciti a inviare la proposta.");

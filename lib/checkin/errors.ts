@@ -19,6 +19,7 @@ export type CheckInErrorKind =
   | "out-of-range"
   | "already-inside"
   | "cooldown"
+  | "quota"
   | "court-not-approved"
   | "auth"
   | "server";
@@ -222,6 +223,18 @@ export function fromInsertError(message: string): CheckInErrorInfo {
       title: "Check-in già attivo",
       body: "Hai già un check-in attivo su questo campo.",
       retryLabel: RETRY,
+    };
+  }
+  // Quota giornaliera (055): il trigger parla già italiano col nome
+  // dell'azione, passa così com'è. Prima del fallback generico, altrimenti
+  // un check-in a quota cade in "server" con retry a vuoto ("Riprova" non
+  // potrà mai funzionare: la quota si azzera domani).
+  if (/limite giornaliero|troppi check-?in/i.test(message)) {
+    return {
+      kind: "quota",
+      title: "Limite giornaliero raggiunto",
+      body: message,
+      retryLabel: "Chiudi",
     };
   }
   return {

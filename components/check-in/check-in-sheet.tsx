@@ -463,7 +463,8 @@ export function CheckInSheet({
                   state === "error" && error?.kind === "auth"
                     ? () => setShowLogin(true)
                     : state === "error" &&
-                        error?.kind === "court-not-approved"
+                        (error?.kind === "court-not-approved" ||
+                          error?.kind === "quota")
                       ? onClose
                       : handleCheckIn
                 }
