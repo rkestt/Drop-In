@@ -20,6 +20,7 @@ import {
   type SubmissionNoteRow,
 } from "@/lib/court/my-submissions";
 import { deleteCourtPhoto } from "@/lib/storage/court-photos";
+import { postgrestErrorFields } from "@/lib/errors/postgrest";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
@@ -212,6 +213,28 @@ export function MySubmissions() {
     }
   };
 
+  /**
+   * Errore delle RPC proposte (026/030, issue 105): con `shouldThrowOnError:
+   * false` l'RPC fallita arriva come oggetto semplice, non `Error` —
+   * l'`instanceof` scartava sempre messaggio e codice. I guard parlano già
+   * italiano (P0001/42501: "Non autorizzato.", "Solo le proposte in
+   * attesa…", rate limit resubmit), quindi il messaggio passa così com'è;
+   * solo la rete ha un testo dedicato. Mai raw Postgres in UI (issue 77):
+   * queste RPC non toccano vincoli unique (niente 23505 con testo inglese).
+   */
+  const submissionErrorMessage = (err: unknown, fallback: string): string => {
+    const { code, message } = postgrestErrorFields(err);
+    const raw = `${code ?? ""} ${message ?? ""}`;
+    if (
+      /failed to fetch|network|timeout|temporar|offline|connection|reset|aborted|econn|enotfound|socket/i.test(
+        raw
+      )
+    ) {
+      return "Connessione assente: controlla la rete e riprova.";
+    }
+    return message || fallback;
+  };
+
   const onValidSave = async (values: PendingSubmissionValues) => {
     if (!editing || savingRef.current) return;
     savingRef.current = true;
@@ -231,9 +254,7 @@ export function MySubmissions() {
       setEditing(null);
       toast.success("Proposta aggiornata.");
     } catch (err) {
-      setEditError(
-        err instanceof Error ? err.message : "Errore durante il salvataggio."
-      );
+      setEditError(submissionErrorMessage(err, "Errore durante il salvataggio."));
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -257,9 +278,7 @@ export function MySubmissions() {
       setEditing(null);
       toast.success("Proposta ritirata.");
     } catch (err) {
-      setEditError(
-        err instanceof Error ? err.message : "Errore durante il ritiro."
-      );
+      setEditError(submissionErrorMessage(err, "Errore durante il ritiro."));
     } finally {
       retractingRef.current = false;
       setRetracting(false);
@@ -278,9 +297,7 @@ export function MySubmissions() {
       await refreshItem(item.id);
       toast.success("Proposta riproposta: torna in revisione.");
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Non è stato possibile riproporre."
-      );
+      toast.error(submissionErrorMessage(err, "Non è stato possibile riproporre."));
     } finally {
       setResubmittingId(null);
     }

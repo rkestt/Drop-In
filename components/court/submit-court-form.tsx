@@ -10,6 +10,8 @@ import {
   type SubmitCourtValues,
 } from "@/lib/validation/schemas";
 import { createClient } from "@/lib/supabase/client";
+import { postgrestErrorFields } from "@/lib/errors/postgrest";
+import { fromGeolocationCode } from "@/lib/checkin/errors";
 import { useSport } from "@/lib/sport/sport-context";
 import { SPORTS } from "@/lib/sport/sports";
 import { Button } from "@/components/ui/button";
@@ -402,15 +404,8 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
         setLocationLoading(false);
       },
       (geoErr) => {
-        let message = "Impossibile ottenere la posizione.";
-        if (geoErr.code === 1) {
-          message = "Permesso negato. Abilita la geolocalizzazione e riprova.";
-        } else if (geoErr.code === 2) {
-          message = "Posizione non disponibile. Verifica che il GPS sia attivo.";
-        } else if (geoErr.code === 3) {
-          message = "Timeout della richiesta GPS. Riprova.";
-        }
-        setLocationError(message);
+        // Testi centralizzati (#80): niente testo proprio, solo il mapping.
+        setLocationError(fromGeolocationCode(geoErr.code).body);
         setLocationLoading(false);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -569,9 +564,16 @@ export function SubmitCourtForm({ onLoginRequired }: SubmitCourtFormProps) {
       // `uploadedPath` valorizzato = upload riuscito ed errore RPC
       // successivo: in quel caso il dettaglio foto non c'entra.
       if (photoFile && !uploadedPath) {
-        setDebugDetail(err instanceof Error ? `${err.name}: ${err.message}` : String(err));
+        const fields = postgrestErrorFields(err);
+        setDebugDetail(
+          fields.code
+            ? `${fields.code}: ${fields.message}`
+            : err instanceof Error
+              ? `${err.name}: ${fields.message}`
+              : fields.message || String(err)
+        );
       }
-      setError(err instanceof Error ? err.message : "Errore durante l'invio. Riprova più tardi.");
+      setError(submitCatchMessage(err));
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -1122,4 +1124,27 @@ function formatRpcError(message: string): string {
     return `${message} Potrai riprovare tra circa un'ora.`;
   }
   return message;
+}
+
+/**
+ * Errore del catch di invio (upload foto o imprevisto, issue 105): gli errori
+ * PostgREST arrivano come oggetti semplici, non `Error` — `err.message`
+ * diretto scarterebbe codice e messaggio. Rete e RLS hanno un testo
+ * dedicato; gli errori craftati in italiano (upload) passano così come
+ * sono; mai raw Postgres in UI (#77), mai codici visibili.
+ */
+function submitCatchMessage(err: unknown): string {
+  const { code, message } = postgrestErrorFields(err);
+  const raw = `${code ?? ""} ${message ?? ""}`;
+  if (
+    /failed to fetch|network|timeout|temporar|offline|connection|reset|aborted|econn|enotfound|socket/i.test(
+      raw
+    )
+  ) {
+    return "Connessione assente: controlla la rete e riprova.";
+  }
+  if (code === "42501") {
+    return "Non hai i permessi per inviare il campo. Accedi di nuovo e riprova.";
+  }
+  return message || "Errore durante l'invio. Riprova più tardi.";
 }

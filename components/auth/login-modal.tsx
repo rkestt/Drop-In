@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { postgrestErrorFields } from "@/lib/errors/postgrest";
 import { resolveLoginDestination } from "@/lib/auth/routes";
 import {
   NEW_PASSWORD_PATH,
@@ -41,6 +42,40 @@ export function LoginModal({ open, onClose, next }: LoginModalProps) {
   // undefined = no destination requested: stay on the current page.
   const destination = resolveLoginDestination(next);
 
+  /**
+   * Errori di `signUp`/`signInWithPassword` in italiano (issue 105): GoTrue
+   * restituisce `AuthError` (un `Error` con `.code`, es.
+   * `invalid_credentials`) oppure oggetti semplici — `postgrestErrorFields`
+   * legge entrambi. Solo codici/messaggi riconoscibili hanno un testo
+   * dedicato; il resto va sul fallback fisso, mai il raw in UI. Mai la
+   * password nei log: qui passa solo l'oggetto errore.
+   */
+  const mapLoginError = (err: unknown): string => {
+    if (isRateLimitError(err)) {
+      return "Troppi tentativi: attendi un minuto e riprova.";
+    }
+    const { code, message } = postgrestErrorFields(err);
+    const raw = `${code ?? ""} ${message}`.toLowerCase();
+    if (
+      raw.includes("invalid_credentials") ||
+      raw.includes("invalid login credentials")
+    ) {
+      return "Email o password non corretti. Riprova.";
+    }
+    if (
+      raw.includes("email_not_confirmed") || raw.includes("email not confirmed")
+    ) {
+      return "Devi confermare la tua email prima di accedere: controlla la casella.";
+    }
+    if (/user_already_exists|email_exists|already.*regist/.test(raw)) {
+      return "Esiste già un account con questa email: prova ad accedere.";
+    }
+    if (/weak_password|password.*(at least|short|caratteri)/.test(raw)) {
+      return "La password deve avere almeno 6 caratteri.";
+    }
+    return "Errore durante l'autenticazione.";
+  };
+
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -68,7 +103,7 @@ export function LoginModal({ open, onClose, next }: LoginModalProps) {
         router.refresh();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Errore durante l'autenticazione.");
+      setError(mapLoginError(err));
     } finally {
       setLoading(false);
     }
@@ -129,7 +164,8 @@ export function LoginModal({ open, onClose, next }: LoginModalProps) {
     });
 
     if (error) {
-      setError(error.message);
+      // Mai il raw di Supabase in UI: stessi testi fissi del form email.
+      setError(mapLoginError(error));
       setLoading(false);
     }
   };

@@ -19,6 +19,7 @@ import {
   reportExpiryFromNow,
 } from "@/lib/reports/active";
 import { createClient } from "@/lib/supabase/client";
+import { postgrestErrorFields } from "@/lib/errors/postgrest";
 import { createLogger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -164,10 +165,10 @@ export function ReportDrawer({
       });
     } catch (err) {
       // Il tecnico va nel log, mai in UI: i messaggi Supabase sono in inglese.
-      log.warn("invio segnalazione fallito", {
-        courtId,
-        message: err instanceof Error ? err.message : String(err),
-      });
+      // (issue 105: l'errore PostgREST è un oggetto semplice, non `Error` —
+      // `String(err)` loggava "[object Object]", scartando codice e messaggio.)
+      const { code, message } = postgrestErrorFields(err);
+      log.warn("invio segnalazione fallito", { courtId, code, message });
       setError("network");
     } finally {
       submittingRef.current = false;

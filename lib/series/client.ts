@@ -14,6 +14,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { postgrestErrorFields } from "@/lib/errors/postgrest";
 import { defaultDurationForSport } from "@/lib/sport/sports";
 import {
   seriesSchema,
@@ -210,11 +211,11 @@ export async function createSeries(
       error: null,
     };
   } catch (err) {
+    // issue 105: l'errore lanciato (rete, abort) può non essere un `Error`;
+    // `postgrestErrorFields` ne estrae comunque codice e messaggio.
     return {
       series: null,
-      error: mapSeriesError({
-        message: err instanceof Error ? err.message : null,
-      }).message,
+      error: mapSeriesError(postgrestErrorFields(err)).message,
     };
   }
 }
@@ -283,9 +284,7 @@ export async function updateSeries(
   } catch (err) {
     return {
       series: null,
-      error: mapSeriesError({
-        message: err instanceof Error ? err.message : null,
-      }).message,
+      error: mapSeriesError(postgrestErrorFields(err)).message,
     };
   }
 }
@@ -326,9 +325,7 @@ export async function deleteSeries(
     return { error: null };
   } catch (err) {
     return {
-      error: mapSeriesError({
-        message: err instanceof Error ? err.message : null,
-      }).message,
+      error: mapSeriesError(postgrestErrorFields(err)).message,
     };
   }
 }

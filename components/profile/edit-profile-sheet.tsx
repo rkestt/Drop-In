@@ -11,6 +11,7 @@ import {
   type EditProfileValues,
 } from "@/lib/validation/schemas";
 import { createClient } from "@/lib/supabase/client";
+import { postgrestErrorFields } from "@/lib/errors/postgrest";
 import {
   avatarPublicUrl,
   deleteAvatar,
@@ -203,9 +204,19 @@ export function EditProfileSheet({
       toast.success("Profilo salvato.");
       router.refresh();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Errore durante il salvataggio."
-      );
+      // `updateError` di PostgREST è un oggetto semplice, non un `Error`
+      // (issue 104/105): `instanceof` scartava sempre il codice. Solo i
+      // codici riconoscibili hanno un testo dedicato, il resto resta
+      // generico (mai raw Postgres in UI, issue 77: sul nickname non
+      // c'è unique).
+      const { code, message } = postgrestErrorFields(err);
+      if (code === "42501") {
+        setError("Non hai i permessi per modificare questo profilo.");
+      } else if (/failed to fetch|network|offline/i.test(message)) {
+        setError("Connessione assente: controlla la rete e riprova.");
+      } else {
+        setError("Errore durante il salvataggio.");
+      }
     } finally {
       submittingRef.current = false;
       setLoading(false);

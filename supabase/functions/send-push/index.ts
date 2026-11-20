@@ -53,6 +53,22 @@ function json(status: number, body: unknown): Response {
   return Response.json(body, { status });
 }
 
+/**
+ * Estrazione minima di `message` da un errore in forma ignota (#105).
+ * Deno non può importare `@/lib/errors/postgrest`, quindi la logica vive
+ * qui inline: gli errori Supabase non arrivano mai al `catch` come oggetti
+ * semplici (sono già wrappati in `Error` con il messaggio dentro), ma un
+ * lancio non-`Error` non deve mai stampare `undefined` nei log.
+ */
+function errorMessage(err: unknown): string {
+  if (typeof err === "string") return err;
+  if (err !== null && typeof err === "object") {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === "string" && message !== "") return message;
+  }
+  return "errore sconosciuto";
+}
+
 Deno.serve(async (req: Request): Promise<Response> => {
   const secret = env("PUSH_SECRET");
   if (!secret) {
@@ -223,10 +239,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
     } catch (err) {
       // Una riga guasta non ferma mai lo sweep.
-      console.error(
-        `send-push: riga ${row.id} saltata:`,
-        err instanceof Error ? err.message : err,
-      );
+      console.error(`send-push: riga ${row.id} saltata:`, errorMessage(err));
       failed += 1;
     }
   }

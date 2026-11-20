@@ -141,10 +141,13 @@ export function ModerationPanel({
           ? successText
           : `${successText} La coda non si è aggiornata: tocca Riprova.`,
       });
-    } catch (err) {
+    } catch {
+      // Le RPC non lanciano sugli errori PostgREST (restituiscono `{ error }`,
+      // gestito qui sopra): nel catch arriva solo la rete caduta a metà
+      // chiamata o un lancio imprevisto — mai il raw in UI, messaggio fisso.
       setFeedback({
         tone: "error",
-        text: err instanceof Error ? err.message : "Errore di rete. Riprova.",
+        text: "Errore di rete. Riprova.",
         courtId: target.id,
       });
     } finally {
