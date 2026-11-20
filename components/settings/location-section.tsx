@@ -240,7 +240,8 @@ export function LocationSection() {
                   Safari.
                 </strong>{" "}
                 Impostazioni del telefono › Privacy e sicurezza ›
-                Localizzazione › Safari › “Durante l’uso”.
+                Localizzazione › Safari › «Durante l’uso», con «Posizione
+                precisa» attiva.
               </li>
               <li>
                 <strong className="font-semibold text-[var(--text-secondary)]">
@@ -250,6 +251,11 @@ export function LocationSection() {
                 Consenti.
               </li>
             </ul>
+            <p className="mt-2 text-[13px] leading-relaxed text-[var(--text-muted)]">
+              Safari e la PWA installata dalla Home hanno permessi separati:
+              se usi Drop-In dall’icona, controlla la voce Drop-In invece di
+              Safari.
+            </p>
             <Button
               type="button"
               variant="secondary"

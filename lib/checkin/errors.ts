@@ -54,12 +54,12 @@ export function fromGeolocationCode(
         return {
           kind: "denied",
           title: "Permesso posizione negato",
-          body: "Safari non ha il permesso per la posizione. Apri Impostazioni › Privacy e sicurezza › Localizzazione, scegli Safari e attiva «Posizione precisa».",
+          body: "Safari non ha il permesso per la posizione. Apri Impostazioni › Privacy e sicurezza › Localizzazione › Safari, scegli «Durante l'uso» e attiva «Posizione precisa».",
           hint: "Riapri Drop-In dalla sua icona sulla Home: nella PWA installata i permessi sono separati da quelli di Safari.",
           retryLabel: RETRY,
           steps: [
             "Apri Impostazioni › Privacy e sicurezza › Localizzazione.",
-            "Scegli Safari, consenti la posizione e attiva «Posizione precisa».",
+            "Scegli Safari, tocca «Durante l'uso» e attiva «Posizione precisa».",
             "Riapri Drop-In dalla sua icona sulla Home: in Safari i permessi sono separati dalla PWA installata.",
           ],
         };
@@ -67,13 +67,13 @@ export function fromGeolocationCode(
       return {
         kind: "denied",
         title: "Permesso posizione negato",
-        body: "Safari non ha il permesso per la posizione. Apri Impostazioni › Privacy e sicurezza › Localizzazione, scegli Safari e attiva «Posizione precisa».",
+        body: "Safari non ha il permesso per la posizione. Apri Impostazioni › Privacy e sicurezza › Localizzazione › Safari, scegli «Durante l'uso» e attiva «Posizione precisa».",
         hint: "Se hai aggiunto Drop-In alla Home, i permessi si gestiscono nella voce Drop-In.",
         retryLabel: RETRY,
         steps: [
           "Apri Impostazioni › Privacy e sicurezza › Localizzazione.",
           "Scegli Safari (o la voce Drop-In, se hai installato la PWA).",
-          "Consenti la posizione e attiva «Posizione precisa».",
+          "Tocca «Durante l'uso» e attiva «Posizione precisa».",
         ],
       };
     }

@@ -58,7 +58,7 @@ import {
 } from "@/components/home/lobby-rail-card";
 import { RecurringChip } from "@/components/lobby/recurring-chip";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { MapPin, Users, ChevronRight, Plus } from "lucide-react";
+import { MapPin, Users, ChevronRight, Plus, LocateFixed } from "lucide-react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { bboxInside, type BBox } from "@/lib/geo";
@@ -83,6 +83,8 @@ import {
   courtDistanceM,
   selectLobbiesOrigin,
 } from "@/lib/lobbies/nearby";
+import { fromGeolocationCode } from "@/lib/checkin/errors";
+import { isIosDevice } from "@/lib/pwa/install";
 import {
   SEARCH_DEBOUNCE_MS,
   SEARCH_LIMIT,
@@ -200,19 +202,39 @@ export default function HomePage() {
     userLocationRef.current = userLocation;
   }, [userLocation]);
 
+  // Geolocalizzazione solo dietro gesto esplicito (#80): su iOS Safari la
+  // richiesta fuori gesto non mostra il prompt (o viene negata in silenzio),
+  // quindi al mount non si chiede niente — l'origine resta il centro mappa
+  // (fallback già dentro selectLobbiesOrigin/selectSearchOrigin). L'unica
+  // eccezione è il permesso già concesso, che non mostra alcun prompt.
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocationError("Geolocalizzazione non supportata");
-      return;
+    let cancelled = false;
+    try {
+      const perms = navigator.permissions;
+      if (!perms?.query) return;
+      perms
+        .query({ name: "geolocation" })
+        .then((status) => {
+          if (cancelled || status.state !== "granted") return;
+          if (!navigator.geolocation) return;
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              if (cancelled) return;
+              const next: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+              userLocationRef.current = next;
+              setUserLocation(next);
+            },
+            () => {},
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
+        })
+        .catch(() => {});
+    } catch {
+      // Permessi non interrogabili: si aspetta il tap sulla CTA.
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLocation([pos.coords.longitude, pos.coords.latitude]),
-      () => {
-        setLocationError("Posizione non disponibile");
-        setUserLocation([ROME_CENTER.lng, ROME_CENTER.lat]);
-      },
-      { timeout: 4000 }
-    );
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Preferiti del campo (#41): il marker distingue "salvato" senza aprire
@@ -460,6 +482,42 @@ export default function HomePage() {
       }
     }
   }, [supabase]);
+
+  // CTA "Usa la mia posizione" (#80): unico getCurrentPosition su tap (più
+  // il fast path sopra per il permesso già concesso). Definita dopo
+  // fetchLobbies/runSearch: li richiama per riordinare le Vicine (e la
+  // ricerca attiva) dal GPS invece che dal centro mappa. Gli errori riusano
+  // i testi di fromGeolocationCode, niente copy nuovo.
+  const requestLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocalizzazione non supportata");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const next: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+        userLocationRef.current = next;
+        setUserLocation(next);
+        setLocationError(null);
+        fetchLobbies();
+        if (isSearchActive(queryRef.current)) {
+          lastSearchedQuery.current = "";
+          void runSearch(queryRef.current, true);
+        }
+      },
+      (err) => {
+        const standalone =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          (navigator as { standalone?: boolean }).standalone === true;
+        const info = fromGeolocationCode(err.code, {
+          ios: isIosDevice(navigator.userAgent),
+          standalone,
+        });
+        setLocationError(`${info.title}. ${info.body}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }, [fetchLobbies, runSearch]);
 
   // Debounce della query (#68): 300 ms dopo l'ultimo tasto. La decisione
   // "serve una fetch?" è nel seam puro; qui restano timer e stato.
@@ -886,7 +944,24 @@ export default function HomePage() {
         <div ref={chromeRef} className="absolute inset-x-3 top-3 z-20 flex flex-col gap-2">
           <div className="flex items-start justify-between gap-2">
             <SportSelector className="" />
-            <NotificationBell />
+            <div className="flex items-start gap-2">
+              {/* #80: il GPS si chiede solo da qui (tap), mai al mount —
+                  su iOS Safari la richiesta fuori gesto non mostra il prompt. */}
+              <button
+                type="button"
+                onClick={requestLocation}
+                aria-label={
+                  userLocation == null
+                    ? "Usa la mia posizione"
+                    : "Aggiorna la mia posizione"
+                }
+                title="Usa la mia posizione"
+                className="grid place-items-center w-11 h-11 rounded-control bg-[var(--bg-surface)] border border-[var(--cool-muted)]/20 text-[var(--text-secondary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              >
+                <LocateFixed aria-hidden="true" className="w-5 h-5" />
+              </button>
+              <NotificationBell />
+            </div>
           </div>
           <div
             onFocus={handleSearchFocus}

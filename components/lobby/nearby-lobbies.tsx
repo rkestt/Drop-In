@@ -10,38 +10,47 @@ import {
   isWithinRadiusM,
   NEARBY_RADIUS_M,
   OPEN_LOBBIES_LIMIT,
+  ROME_CENTER,
   VICINE_HORIZON_HOURS,
 } from "@/lib/lobbies/nearby";
+import { fromGeolocationCode } from "@/lib/checkin/errors";
+import type { CheckInErrorInfo } from "@/lib/checkin/errors";
+import { isIosDevice } from "@/lib/pwa/install";
 import { sportEmptyPhrase, sportMatches } from "@/lib/sport/sports";
 import { resolveNickname } from "@/lib/profile/utils";
 import { useSport } from "@/lib/sport/sport-context";
 import { MapPin } from "lucide-react";
 import type { LobbySummary } from "./types";
 
+type NearbyOrigin = "gps" | "map";
+
 type NearbyState =
-  | { kind: "locating" }
-  | { kind: "denied" }
   | { kind: "loading" }
   | { kind: "error" }
   | {
       kind: "ready";
       lobbies: LobbySummary[];
       nearestCourt: { id: string; name: string; sport: string | null } | null;
+      /** "gps" = ordinate dalla posizione, "map" = dal centro mappa. */
+      origin: NearbyOrigin;
       /** Vuoto perche': "radius" = niente nel raggio, "sport" = lobby nel
           raggio ma non per questo sport, null = non vuote. */
       emptyCause: "radius" | "sport" | null;
     };
 
 /**
- * Tab "Vicine": chiede la posizione, carica le lobby aperte (campione di
- * `OPEN_LOBBIES_LIMIT`, vedi spec) con le coordinate del campo e tiene solo
- * quelle entro il raggio (bug #48), ordinate per distanza reale, poi filtra
- * per lo sport attivo (`sportMatches`, stesso predicato del RPC
- * `open_lobbies`: "multi" e liste ";" — bug #48 sport gap). Coordinate
- * campo assenti/non numeriche → riga esclusa (`courtDistanceM` = null).
- * Senza posizione: messaggio + CTA "Trova un campo", mai dati inventati.
- * Senza lobby ma con campi vicini: CTA "Crea una lobby" sul campo più
- * vicino (RPC solo per la CTA, vedi spec sui limiti).
+ * Tab "Vicine": carica le lobby aperte (campione di `OPEN_LOBBIES_LIMIT`,
+ * vedi spec) con le coordinate del campo e tiene solo quelle entro il
+ * raggio (bug #48), ordinate per distanza reale, poi filtra per lo sport
+ * attivo (`sportMatches`, stesso predicato del RPC `open_lobbies`: "multi"
+ * e liste ";" — bug #48 sport gap). Coordinate campo assenti/non numeriche
+ * → riga esclusa (`courtDistanceM` = null).
+ * Senza GPS la lista resta usabile: origine = centro mappa (Roma) con
+ * etichetta onesta, e la posizione si chiede solo su tap ("Usa la mia
+ * posizione"). Errori GPS distinti per codice via `fromGeolocationCode`
+ * (check-in resta il riferimento per i testi). Senza lobby ma con campi
+ * vicini: CTA "Crea una lobby" sul campo più vicino (RPC solo per la CTA,
+ * vedi spec sui limiti).
  */
 export function NearbyLobbies({
   userId,
@@ -50,12 +59,19 @@ export function NearbyLobbies({
   userId: string;
   onCount: (n: number) => void;
 }) {
-  const [state, setState] = useState<NearbyState>({ kind: "locating" });
+  const [state, setState] = useState<NearbyState>({ kind: "loading" });
   const supabase = createClient();
   const { sport, pSport } = useSport();
   // Ultima posizione nota: gli eventi realtime ricaricano i DATI (load),
   // non le props server (router.refresh qui non servirebbe a nulla).
   const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  // Origine dell'ultimo load: realtime/cambio sport la riusano (il GPS non
+  // si richiede mai da solo, solo dal tap "Usa la mia posizione").
+  const originRef = useRef<NearbyOrigin>("map");
+  // Errore dell'ultima richiesta GPS su tap: non distrugge la lista (che
+  // resta ordinata dal centro mappa), si mostra sopra come avviso.
+  const [geoError, setGeoError] = useState<CheckInErrorInfo | null>(null);
+  const [requesting, setRequesting] = useState(false);
   // Sport letto via ref: il cambio sport non deve rifare geolocalizzazione
   // (l'effect locate sotto dipende da `load`, che così resta stabile).
   const pSportRef = useRef(pSport);
@@ -64,9 +80,10 @@ export function NearbyLobbies({
   }, [pSport]);
 
   const load = useCallback(
-    (lat: number, lng: number) => {
+    (lat: number, lng: number, origin: NearbyOrigin) => {
       let cancelled = false;
       coordsRef.current = { lat, lng };
+      originRef.current = origin;
       (async () => {
         setState({ kind: "loading" });
         try {
@@ -201,6 +218,7 @@ export function NearbyLobbies({
               kind: "ready",
               lobbies,
               nearestCourt,
+              origin,
               emptyCause:
                 lobbies.length > 0
                   ? null
@@ -224,24 +242,38 @@ export function NearbyLobbies({
   const loadRef = useRef(load);
   loadRef.current = load;
 
+  // Niente GPS al mount (#80): la lista parte dal centro mappa (Roma) e
+  // resta usabile senza permesso. La posizione vera si chiede solo dal tap
+  // "Usa la mia posizione" / "Riprova" qui sotto.
   useEffect(() => {
-    let cancelled = false;
+    loadRef.current(ROME_CENTER.lat, ROME_CENTER.lng, "map");
+  }, []);
+
+  /** Unico punto che chiama `getCurrentPosition`: sempre dietro a un tap. */
+  const requestPosition = useCallback(() => {
+    const geoOpts = () => ({
+      ios: isIosDevice(navigator.userAgent),
+      standalone:
+        window.matchMedia("(display-mode: standalone)").matches ||
+        (navigator as { standalone?: boolean }).standalone === true,
+    });
     if (!("geolocation" in navigator)) {
-      setState({ kind: "denied" });
+      setGeoError(fromGeolocationCode(1, geoOpts()));
       return;
     }
+    setRequesting(true);
+    setGeoError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        if (!cancelled) load(pos.coords.latitude, pos.coords.longitude);
+        setRequesting(false);
+        load(pos.coords.latitude, pos.coords.longitude, "gps");
       },
-      () => {
-        if (!cancelled) setState({ kind: "denied" });
+      (err) => {
+        setRequesting(false);
+        setGeoError(fromGeolocationCode(err.code, geoOpts()));
       },
       { timeout: 8000, maximumAge: 300000 }
     );
-    return () => {
-      cancelled = true;
-    };
   }, [load]);
 
   // Cambio sport: ri-filtra con l'ultima posizione nota, senza rifare
@@ -251,7 +283,7 @@ export function NearbyLobbies({
     if (prevPSport.current === pSport) return;
     prevPSport.current = pSport;
     const c = coordsRef.current;
-    if (c) loadRef.current(c.lat, c.lng);
+    if (c) loadRef.current(c.lat, c.lng, originRef.current);
   }, [pSport]);
 
   // Realtime efficace: join/leave ricaricano i dati con l'ultima posizione
@@ -262,14 +294,14 @@ export function NearbyLobbies({
       .channel("lobbies-nearby")
       .on("postgres_changes", { event: "*", schema: "public", table: "lobbies" }, () => {
         const c = coordsRef.current;
-        if (c) loadRef.current(c.lat, c.lng);
+        if (c) loadRef.current(c.lat, c.lng, originRef.current);
       })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "lobby_participants" },
         () => {
           const c = coordsRef.current;
-          if (c) loadRef.current(c.lat, c.lng);
+          if (c) loadRef.current(c.lat, c.lng, originRef.current);
         }
       )
       .subscribe();
@@ -278,7 +310,7 @@ export function NearbyLobbies({
     };
   }, [supabase]);
 
-  if (state.kind === "locating" || state.kind === "loading") {
+  if (state.kind === "loading") {
     return (
       <div aria-busy="true">
         <p role="status" className="sr-only">
@@ -293,25 +325,61 @@ export function NearbyLobbies({
     );
   }
 
-  if (state.kind === "denied") {
-    return (
-      <div className="py-8 text-center">
-        <MapPin className="mx-auto mb-2 h-8 w-8 text-[var(--text-muted)]" aria-hidden="true" />
-        <h2 className="text-xl font-semibold text-[var(--text-primary)]">
-          Attiva la posizione per vedere le partite vicine
-        </h2>
-        <p className="mx-auto mt-1 max-w-60 text-sm text-[var(--text-secondary)]">
-          Senza posizione non sappiamo cosa è vicino a te.
+  // Errore dell'ultima richiesta GPS su tap: testi da `fromGeolocationCode`
+  // (stessi del check-in), mai inventati. Il negato mostra i passi iOS
+  // (Localizzazione › Safari › Durante l'uso + Posizione precisa). La lista
+  // sotto resta quella dal centro mappa: l'errore non la distrugge.
+  const geoAlert = geoError ? (
+    <div
+      className="mb-3 space-y-1 rounded-card border border-[var(--danger)]/30 bg-[var(--danger)]/10 p-3"
+      role="alert"
+      aria-live="assertive"
+    >
+      <p className="text-base font-semibold text-[var(--text-primary)]">
+        {geoError.title}
+      </p>
+      <p className="text-sm text-[var(--text-primary)]">{geoError.body}</p>
+      {geoError.hint && (
+        <p className="text-sm text-[var(--text-secondary)]">{geoError.hint}</p>
+      )}
+      {geoError.kind === "denied" && geoError.steps && (
+        <ol className="list-decimal space-y-1 ps-4 text-sm text-[var(--text-secondary)]">
+          {geoError.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      )}
+      <button
+        type="button"
+        onClick={requestPosition}
+        disabled={requesting}
+        aria-busy={requesting}
+        className="mt-2 flex min-h-11 items-center justify-center rounded-control bg-[var(--bg-surface)] px-4 font-semibold text-[var(--text-primary)] disabled:opacity-60"
+      >
+        {requesting ? "Ricerca posizione…" : geoError.retryLabel}
+      </button>
+    </div>
+  ) : null;
+
+  // Etichetta onesta (#80): senza GPS l'ordinamento parte dal centro mappa,
+  // e la posizione vera si chiede solo da qui, su tap.
+  const mapOriginBanner =
+    !geoError ? (
+      <div className="mb-3 rounded-card border border-[var(--border)] bg-[var(--bg-surface)] p-3 text-center">
+        <p className="text-sm text-[var(--text-secondary)]" role="status">
+          Ordinate dal centro della mappa, non dalla tua posizione.
         </p>
-        <Link
-          href="/"
-          className="mx-auto mt-3 flex min-h-11 w-full max-w-60 items-center justify-center rounded-control bg-[var(--accent)] px-4 font-semibold text-[var(--accent-foreground)]"
+        <button
+          type="button"
+          onClick={requestPosition}
+          disabled={requesting}
+          aria-busy={requesting}
+          className="mx-auto mt-2 flex min-h-11 w-full max-w-60 items-center justify-center rounded-control bg-[var(--accent)] px-4 font-semibold text-[var(--accent-foreground)] disabled:opacity-60"
         >
-          Trova un campo
-        </Link>
+          {requesting ? "Ricerca posizione…" : "Usa la mia posizione"}
+        </button>
       </div>
-    );
-  }
+    ) : null;
 
   if (state.kind === "error") {
     return (
@@ -323,7 +391,7 @@ export function NearbyLobbies({
           type="button"
           onClick={() => {
             const c = coordsRef.current;
-            if (c) load(c.lat, c.lng);
+            if (c) load(c.lat, c.lng, originRef.current);
           }}
           className="mx-auto mt-3 flex min-h-11 items-center justify-center rounded-control bg-[var(--bg-surface)] px-4 font-semibold text-[var(--text-primary)]"
         >
@@ -341,7 +409,10 @@ export function NearbyLobbies({
     const sportCause =
       state.emptyCause === "sport" && sport !== null ? sport : null;
     return (
-      <div className="py-8 text-center">
+      <>
+        {geoAlert}
+        {state.origin === "map" && mapOriginBanner}
+        <div className="py-8 text-center">
         <MapPin className="mx-auto mb-2 h-8 w-8 text-[var(--text-muted)]" aria-hidden="true" />
         <h2 className="text-xl font-semibold text-[var(--text-primary)]">
           {sportCause !== null
@@ -367,11 +438,15 @@ export function NearbyLobbies({
             </Link>
           )}
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
   return (
+    <>
+      {geoAlert}
+      {state.origin === "map" && mapOriginBanner}
     <ul className="space-y-3">
       {state.lobbies.map((lobby) => (
         <li key={lobby.id}>
@@ -379,5 +454,6 @@ export function NearbyLobbies({
         </li>
       ))}
     </ul>
+    </>
   );
 }
