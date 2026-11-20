@@ -28,3 +28,4 @@
 {"timestamp":"2026-11-18T12:28:08.375Z","kind":"retro","slug":"guard-trigger-pinna-creator-id","title":"Guard trigger su una tabella con proprietario: il path del creatore va pinnato"}
 {"timestamp":"2026-11-18T12:28:08.380Z","kind":"retro","slug":"e2e-fallimenti-spuri-chunk-dev-server","title":"e2e di Drop-In: fallimenti spuri dal chunk corrotto del dev server, non dal codice"}
 {"timestamp":"2026-11-20T19:06:12.717Z","kind":"retro","slug":"e2e-service-role-key-nel-dev-server","title":"e2e: una route con service-role vuole la chiave nel dev server, non solo nel runner"}
+{"timestamp":"2026-11-20T21:23:05.307Z","kind":"retro","slug":"gate-eta-14-tabella-separata-e-livello-pagina","title":"Età minima 14 anni: tabella separata e gate a livello pagina"}

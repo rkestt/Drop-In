@@ -81,3 +81,4 @@
 ## 2026-11-20
 
 - **retro**: {"slug":"e2e-service-role-key-nel-dev-server","title":"e2e: una route con service-role vuole la chiave nel dev server, non solo nel runner"}
+- **retro**: {"slug":"gate-eta-14-tabella-separata-e-livello-pagina","title":"Età minima 14 anni: tabella separata e gate a livello pagina"}

@@ -8,6 +8,7 @@
 - [E2E di idratazione: server in UTC e browser a Roma](e2e-hydration-server-utc-browser-roma.md)
 - [e2e: una route con service-role vuole la chiave nel dev server, non solo nel runner](e2e-service-role-key-nel-dev-server.md)
 - [ends_at come colonna generata: timestamptz + interval non è IMMUTABLE (42P17)](ends-at-generated-column-timestamptz-immutable.md)
+- [Età minima 14 anni: tabella separata e gate a livello pagina](gate-eta-14-tabella-separata-e-livello-pagina.md)
 - [Guard trigger su una tabella con proprietario: il path del creatore va pinnato](guard-trigger-pinna-creator-id.md)
 - [Join alla lobby rotto: il trigger di notifica invoker contro il REVOKE della 035](join-rotto-trigger-notify-invoker-permessi.md)
 - [Una riscrittura di trigger ha cancellato un INSERT: le notifiche karma non esistevano più](karma-loss-notification-persa-in-una-riscrittura-di-trigger.md)

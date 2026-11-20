@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-11-20T19:06:12.717Z",
+  "last_updated": "2026-11-20T21:23:05.307Z",
   "pages": {
     "sources/drop-in-check-in-accuratezza-adattiva-e-permessi-ios": {
       "type": "source",
@@ -55,6 +55,15 @@
       "slug": "ends-at-generated-column-timestamptz-immutable",
       "created": "2026-11-17",
       "updated": "2026-11-17"
+    },
+    "sources/gate-eta-14-tabella-separata-e-livello-pagina": {
+      "type": "source",
+      "title": "Età minima 14 anni: tabella separata e gate a livello pagina",
+      "category": "source",
+      "status": "insight",
+      "slug": "gate-eta-14-tabella-separata-e-livello-pagina",
+      "created": "2026-11-20",
+      "updated": "2026-11-20"
     },
     "sources/guard-trigger-pinna-creator-id": {
       "type": "source",
